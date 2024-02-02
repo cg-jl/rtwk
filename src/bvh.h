@@ -1,5 +1,4 @@
-#ifndef BVH_H
-#define BVH_H
+#pragma once
 //==============================================================================================
 // Originally written in 2016 by Peter Shirley <ptrshrl@gmail.com>
 //
@@ -19,15 +18,11 @@
 
 #include "aabb.h"
 #include "hittable.h"
-#include "hittable_list.h"
 #include "interval.h"
 #include "rtweekend.h"
 
 struct bvh_node : public hittable {
    public:
-    bvh_node(hittable_list& list)
-        : bvh_node(list.objects, 0, list.objects.size()) {}
-
     bvh_node(std::span<shared_ptr<hittable>> objects, size_t start,
              size_t end) {
         int axis = random_int(0, 2);
@@ -92,5 +87,3 @@ struct bvh_node : public hittable {
         return box_compare(a, b, 2);
     }
 };
-
-#endif

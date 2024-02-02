@@ -50,27 +50,36 @@ struct camera {
 
         auto col_ptr = colors_mem.get();
 
-#pragma omp parallel for num_threads(12) \
+#pragma omp parallel num_threads(12) \
     firstprivate(col_ptr, image_height, image_width)
-        for (int j = 0; j < image_height; ++j) {
-// NOTE: doing this in MT will enable locks in I/O and synchronize
-// the threads, which I don't want to :(
+        {
+            // We do one per thread.
+            auto light_info_uniq = std::make_unique<light_info[]>(max_depth);
+
+            vecview light_infos(light_info_uniq.get(), max_depth);
+
+#pragma omp for
+            for (int j = 0; j < image_height; ++j) {
 #ifndef _OPENMP
-            std::clog << "\rScanlines remaining: " << (image_height - j) << ' '
-                      << std::flush;
+                // NOTE: doing this in MT will enable locks in I/O and
+                // synchronize the threads, which I don't want to :(
+                std::clog << "\rScanlines remaining: " << (image_height - j)
+                          << ' ' << std::flush;
 #endif
-            for (int i = 0; i < image_width; ++i) {
-                color pixel_color(0, 0, 0);
-                for (int sample = 0; sample < samples_per_pixel; ++sample) {
-                    ray r = get_ray(i, j);
-                    pixel_color += ray_color(r, max_depth, background, world);
+                for (int i = 0; i < image_width; ++i) {
+                    color pixel_color(0, 0, 0);
+                    for (int sample = 0; sample < samples_per_pixel; ++sample) {
+                        ray r = get_ray(i, j);
+                        pixel_color +=
+                            ray_color(r, background, world, light_infos);
+                    }
+                    pixel_color /= samples_per_pixel;
+                    // NOTE: if discretizing becomes a problem, we can always
+                    // have a first render buffer and then a discretized buffer.
+                    // Perhaps we can even re-use the memory or smth.
+                    // NOTE: consider aligning col_ptr?
+                    discretize(pixel_color, col_ptr[j * image_width + i]);
                 }
-                pixel_color /= samples_per_pixel;
-                // NOTE: if discretizing becomes a problem, we can always have a
-                // first render buffer and then a discretized buffer.
-                // Perhaps we can even re-use the memory or smth.
-                // NOTE: consider aligning col_ptr?
-                discretize(pixel_color, col_ptr[j * image_width + i]);
             }
         }
 
@@ -89,7 +98,11 @@ struct camera {
             auto info_ptr = png_create_info_struct(png_ptr);
             assert(info_ptr && "cannot create info struct");
 
+            // HACK: for some reason, GCC loses the definition for non-debug
+            // builds?
+#ifdef NDEBUG
             assert(!setjmp(png_ptr->jmpbuf) && "libpng error");
+#endif
 
             png_init_io(png_ptr, fp);
 
@@ -208,10 +221,12 @@ struct camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
+    // NOTE: would be nice to make this available to 'hittable' so it
+    // initializes the correct value.
     struct light_info {
-        material const* mat;
+        texture const* tex;
         point3 p;
-        vec3 u, v;
+        double u, v;
     };
 
     enum class ray_result {
@@ -220,43 +235,62 @@ struct camera {
         background,  // the ray escaped the world
     };
 
-    static color ray_color(ray r, int depth, color background,
-                           hittable const& world) {
-        color att_acc = color(1, 1, 1);
-        for (;; depth--) {
-            // If we've exceeded the ray bounce limit, no more light is
-            // gathered.
-            if (depth <= 0) return color(0, 0, 0);
-
+    // Simulates a ray until either it hits too many times, hits a light, or
+    // hits the skybox.
+    static ray_result simulate_ray(ray r, hittable const& world,
+                                   vecview<light_info>& lights) {
+        while (!lights.is_full()) {
             hit_record rec;
 
-            // If the ray hits nothing, return the background color.
-            if (!world.hit(r, rec)) {
-                return att_acc * background;
-            }
+            if (!world.hit(r, rec)) return ray_result::background;
+            lights.emplace_back(rec.mat->tex.get(), rec.p, rec.u, rec.v);
+
+            if (rec.mat->is_light_source) return ray_result::light;
 
             auto face = hit_record::face(r.direction, rec.normal);
 
             vec3 scattered;
 
-            // NOTE: this could be done in a separate thread, since it's
-            // independent from geometries.
-            // At least we could first separate the lighting stage for
-            // later, simulating rays first, collect materials & hit info,
-            // then emulate materials.
-            // Also could reduce it to a set of commands (e.g perlin)
-            color sample = rec.mat->tex->value(rec.u, rec.v, rec.p);
-            if (rec.mat->is_light_source) {
-                // NOTE: could split material taxonomy in two.
-                // Perhaps even put he tag into the result?
-                color color_from_emission = sample;
-                return att_acc * color_from_emission;
-            }
-
             rec.mat->scatter(r.direction, face, scattered);
 
             r = ray(rec.p, scattered, r.time);
-            att_acc *= sample;
         }
+        // Too many bounces!
+        // NOTE: this acts like a shortcut, to avoid processing what would end
+        // in a zero anyway after correction & discretization
+        return ray_result::shadow;
+    }
+
+    static color ray_color(ray r, color background, hittable const& world,
+                           vecview<light_info>& lights) {
+        lights.clear();
+        // geometry
+        auto result = simulate_ray(r, world, lights);
+
+        // lighting
+        color begin_color;
+        switch (result) {
+            case ray_result::shadow:
+                return color(0, 0, 0);
+            case ray_result::light:
+                // The emitted light information is in the material sample for
+                // the light.
+                begin_color = color(1, 1, 1);
+
+                break;
+            case ray_result::background:
+                begin_color = background;
+                break;
+        }
+
+        // NOTE: This is independent and can be done by any thread!
+        // Each of these is also independent since it's multiplying.
+        // We may even add queues, although that would waste a ton of memory.
+        // Do all the color samples for this ray.
+        for (auto info : lights.span()) {
+            begin_color *= info.tex->value(info.u, info.v, info.p);
+        }
+
+        return begin_color;
     }
 };

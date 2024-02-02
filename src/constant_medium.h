@@ -13,7 +13,6 @@
 //==============================================================================================
 
 #include "hittable.h"
-#include "mat_store.h"
 #include "material.h"
 #include "rtweekend.h"
 #include "texture.h"

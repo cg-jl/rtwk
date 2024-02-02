@@ -13,10 +13,13 @@
 //==============================================================================================
 
 #include <memory>
+#include <span>
 #include <vector>
 
 #include "aabb.h"
+#include "bvh.h"
 #include "hittable.h"
+#include "hittable_view.h"
 #include "rtweekend.h"
 
 struct hittable_list : public hittable {
@@ -33,18 +36,13 @@ struct hittable_list : public hittable {
         bbox = aabb(bbox, object->bbox);
     }
 
+    shared_ptr<hittable> split() {
+        return make_shared<bvh_node>(objects, 0, objects.size());
+    }
+
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
-        hit_record temp_rec;
-        auto hit_anything = false;
-
-        for (auto const& object : objects) {
-            if (object->hit(r, ray_t, temp_rec)) {
-                hit_anything = true;
-                rec = temp_rec;
-            }
-        }
-
-        return hit_anything;
+        std::span obs = objects;
+        return hittable_view(obs, bbox).hit(r, ray_t, rec);
     }
 };
 

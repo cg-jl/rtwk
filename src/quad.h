@@ -12,7 +12,9 @@
 
 #include "hittable.h"
 #include "hittable_list.h"
+#include "material.h"
 #include "rtweekend.h"
+#include "vec3.h"
 
 struct quad : public hittable {
    public:
@@ -79,13 +81,8 @@ struct quad : public hittable {
     shared_ptr<material> mat;
 };
 
-static inline shared_ptr<hittable_list> box(point3 const& a, point3 const& b,
-                                            shared_ptr<material> mat) {
-    // Returns the 3D box (six sides) that contains the two opposite vertices a
-    // & b.
-
-    auto sides = make_shared<hittable_list>();
-
+static inline void box_into(point3 a, point3 b, shared_ptr<material> mat,
+                            hittable_list& sides) {
     // Construct the two opposite vertices with the minimum and maximum
     // coordinates.
     auto min =
@@ -97,18 +94,28 @@ static inline shared_ptr<hittable_list> box(point3 const& a, point3 const& b,
     auto dy = vec3(0, max.y() - min.y(), 0);
     auto dz = vec3(0, 0, max.z() - min.z());
 
-    sides->add(make_shared<quad>(point3(min.x(), min.y(), max.z()), dx, dy,
-                                 mat));  // front
-    sides->add(make_shared<quad>(point3(max.x(), min.y(), max.z()), -dz, dy,
-                                 mat));  // right
-    sides->add(make_shared<quad>(point3(max.x(), min.y(), min.z()), -dx, dy,
-                                 mat));  // back
-    sides->add(make_shared<quad>(point3(min.x(), min.y(), min.z()), dz, dy,
-                                 mat));  // left
-    sides->add(make_shared<quad>(point3(min.x(), max.y(), max.z()), dx, -dz,
-                                 mat));  // top
-    sides->add(make_shared<quad>(point3(min.x(), min.y(), min.z()), dx, dz,
-                                 mat));  // bottom
+    sides.add(make_shared<quad>(point3(min.x(), min.y(), max.z()), dx, dy,
+                                mat));  // front
+    sides.add(make_shared<quad>(point3(max.x(), min.y(), max.z()), -dz, dy,
+                                mat));  // right
+    sides.add(make_shared<quad>(point3(max.x(), min.y(), min.z()), -dx, dy,
+                                mat));  // back
+    sides.add(make_shared<quad>(point3(min.x(), min.y(), min.z()), dz, dy,
+                                mat));  // left
+    sides.add(make_shared<quad>(point3(min.x(), max.y(), max.z()), dx, -dz,
+                                mat));  // top
+    sides.add(make_shared<quad>(point3(min.x(), min.y(), min.z()), dx, dz,
+                                mat));  // bottom
+}
+
+static inline shared_ptr<hittable_list> box(point3 const& a, point3 const& b,
+                                            shared_ptr<material> mat) {
+    // Returns the 3D box (six sides) that contains the two opposite vertices a
+    // & b.
+
+    auto sides = make_shared<hittable_list>();
+
+    box_into(a, b, std::move(mat), *sides);
 
     return sides;
 }

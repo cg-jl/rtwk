@@ -42,6 +42,10 @@ struct hit_record {
 struct hittable {
    public:
     aabb bbox = aabb{interval::empty, interval::empty, interval::empty};
+
+    hittable() {}
+    hittable(aabb bbox) : bbox(bbox) {}
+
     virtual ~hittable() = default;
 
     virtual bool hit(ray const& r, interval& ray_t, hit_record& rec) const = 0;

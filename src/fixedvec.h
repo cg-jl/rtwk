@@ -18,9 +18,13 @@ struct vecview {
 
     constexpr std::span<T> span() const& { return std::span<T>(values, count); }
 
+    void clear() & { count = 0; }
+
+    T* reserve() { return &values[count++]; }
+
     template <typename... Args>
     void emplace_back(Args&&... args) {
-        T* __restrict__ ptr = &values[count++];
+        T* __restrict__ ptr = reserve();
         new (ptr) T(std::forward<Args>(args)...);
     }
 };

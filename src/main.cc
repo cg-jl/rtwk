@@ -71,7 +71,7 @@ static void random_spheres() {
     auto material3 = make_shared<metal>(color(0.7, 0.6, 0.5), 0.0);
     world.add(make_shared<sphere>(point3(4, 1, 0), 1.0, material3));
 
-    world = hittable_list(make_shared<bvh_node>(world));
+    world = hittable_list(world.split());
 
     camera cam;
 
@@ -367,7 +367,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     hittable_list world;
 
-    world.add(make_shared<bvh_node>(boxes1));
+    world.add(boxes1.split());
 
     auto light = make_shared<diffuse_light>(color(7, 7, 7));
     world.add(make_shared<quad>(point3(123, 554, 147), vec3(300, 0, 0),
@@ -407,9 +407,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         boxes2.add(make_shared<sphere>(point3::random(0, 165), 10, white));
     }
 
-    world.add(make_shared<translate>(
-        make_shared<rotate_y>(make_shared<bvh_node>(boxes2), 15),
-        vec3(-100, 270, 395)));
+    world.add(make_shared<translate>(make_shared<rotate_y>(boxes2.split(), 15),
+                                     vec3(-100, 270, 395)));
 
     camera cam;
 
