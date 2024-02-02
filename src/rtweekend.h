@@ -15,6 +15,9 @@
 #include <memory>
 #include <random>
 
+#define assume(x) \
+    if (!(x)) __builtin_unreachable()
+
 // Usings
 
 using std::make_shared;

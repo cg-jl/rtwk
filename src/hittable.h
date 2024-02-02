@@ -17,53 +17,55 @@
 
 struct material;
 
+// NOTE: each shared_ptr occupies 16 bytes. What if we move that to 8 bytes by
+// just having a const ref?
+
 struct hit_record {
    public:
+    struct face {
+        vec3 normal;
+        bool is_front;
+
+        face(vec3 in_dir, vec3 normal) {
+            is_front = dot(in_dir, normal) < 0;
+            this->normal = is_front ? normal : -normal;
+        }
+    };
+
     point3 p;
     vec3 normal;
-    shared_ptr<material> mat;
-    double t;
     double u;
     double v;
-    bool front_face;
-
-    void set_face_normal(ray const& r, vec3 const& outward_normal) {
-        // Sets the hit record normal vector.
-        // NOTE: the parameter `outward_normal` is assumed to have unit length.
-
-        front_face = dot(r.direction(), outward_normal) < 0;
-        normal = front_face ? outward_normal : -outward_normal;
-    }
+    material const* mat;
 };
 
 struct hittable {
    public:
+    aabb bbox = aabb{interval::empty, interval::empty, interval::empty};
     virtual ~hittable() = default;
 
-    virtual bool hit(ray const& r, interval ray_t, hit_record& rec) const = 0;
+    virtual bool hit(ray const& r, interval& ray_t, hit_record& rec) const = 0;
 
     bool hit(ray const& r, hit_record& rec) const& {
-        auto bb = bounding_box();
+        auto bb = bbox;
         auto absolute_max_dist = (point3(bb.x.max, bb.y.max, bb.z.max) -
                                   point3(bb.x.min, bb.y.min, bb.z.min))
                                      .length_squared();
         interval t(0.001, absolute_max_dist);
         return hit(r, t, rec);
     }
-
-    virtual aabb bounding_box() const = 0;
 };
 
 struct translate : public hittable {
    public:
     translate(shared_ptr<hittable> p, vec3 const& displacement)
         : object(p), offset(displacement) {
-        bbox = object->bounding_box() + offset;
+        bbox = object->bbox + offset;
     }
 
-    bool hit(ray const& r, interval ray_t, hit_record& rec) const override {
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         // Move the ray backwards by the offset
-        ray offset_r(r.origin() - offset, r.direction(), r.time());
+        ray offset_r(r.origin - offset, r.direction, r.time);
 
         // Determine whether an intersection exists along the offset ray (and if
         // so, where)
@@ -75,12 +77,9 @@ struct translate : public hittable {
         return true;
     }
 
-    aabb bounding_box() const override { return bbox; }
-
    private:
     shared_ptr<hittable> object;
     vec3 offset;
-    aabb bbox;
 };
 
 struct rotate_y : public hittable {
@@ -89,7 +88,7 @@ struct rotate_y : public hittable {
         auto radians = degrees_to_radians(angle);
         sin_theta = sin(radians);
         cos_theta = cos(radians);
-        bbox = object->bounding_box();
+        bbox = object->bbox;
 
         point3 min(infinity, infinity, infinity);
         point3 max(-infinity, -infinity, -infinity);
@@ -117,20 +116,18 @@ struct rotate_y : public hittable {
         bbox = aabb(min, max);
     }
 
-    bool hit(ray const& r, interval ray_t, hit_record& rec) const override {
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         // Change the ray from world space to object space
-        auto origin = r.origin();
-        auto direction = r.direction();
+        auto origin = r.origin;
+        auto direction = r.direction;
 
-        origin[0] = cos_theta * r.origin()[0] - sin_theta * r.origin()[2];
-        origin[2] = sin_theta * r.origin()[0] + cos_theta * r.origin()[2];
+        origin[0] = cos_theta * r.origin[0] - sin_theta * r.origin[2];
+        origin[2] = sin_theta * r.origin[0] + cos_theta * r.origin[2];
 
-        direction[0] =
-            cos_theta * r.direction()[0] - sin_theta * r.direction()[2];
-        direction[2] =
-            sin_theta * r.direction()[0] + cos_theta * r.direction()[2];
+        direction[0] = cos_theta * r.direction[0] - sin_theta * r.direction[2];
+        direction[2] = sin_theta * r.direction[0] + cos_theta * r.direction[2];
 
-        ray rotated_r(origin, direction, r.time());
+        ray rotated_r(origin, direction, r.time);
 
         // Determine whether an intersection exists in object space (and if so,
         // where)
@@ -152,13 +149,10 @@ struct rotate_y : public hittable {
         return true;
     }
 
-    aabb bounding_box() const override { return bbox; }
-
    private:
     shared_ptr<hittable> object;
     double sin_theta;
     double cos_theta;
-    aabb bbox;
 };
 
 #endif

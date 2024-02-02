@@ -60,8 +60,8 @@ struct aabb {
 
     bool hit(ray const& r, interval ray_t) const {
         for (int a = 0; a < 3; a++) {
-            auto invD = 1 / r.direction()[a];
-            auto orig = r.origin()[a];
+            auto invD = 1 / r.direction[a];
+            auto orig = r.origin[a];
 
             auto t0 = (axis(a).min - orig) * invD;
             auto t1 = (axis(a).max - orig) * invD;
@@ -77,11 +77,11 @@ struct aabb {
     }
 };
 
-inline aabb operator+(aabb const& bbox, vec3 const& offset) {
+static inline aabb operator+(aabb const& bbox, vec3 const& offset) {
     return aabb(bbox.x + offset.x(), bbox.y + offset.y(), bbox.z + offset.z());
 }
 
-inline aabb operator+(vec3 const& offset, aabb const& bbox) {
+static inline aabb operator+(vec3 const& offset, aabb const& bbox) {
     return bbox + offset;
 }
 

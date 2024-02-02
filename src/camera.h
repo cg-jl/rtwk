@@ -14,8 +14,10 @@
 #include <png.h>
 
 #include <iostream>
+#include <span>
 
 #include "color.h"
+#include "fixedvec.h"
 #include "hittable.h"
 #include "interval.h"
 #include "material.h"
@@ -48,7 +50,7 @@ struct camera {
 
         auto col_ptr = colors_mem.get();
 
-#pragma omp parallel for num_threads(8) \
+#pragma omp parallel for num_threads(12) \
     firstprivate(col_ptr, image_height, image_width)
         for (int j = 0; j < image_height; ++j) {
 // NOTE: doing this in MT will enable locks in I/O and synchronize
@@ -61,7 +63,7 @@ struct camera {
                 color pixel_color(0, 0, 0);
                 for (int sample = 0; sample < samples_per_pixel; ++sample) {
                     ray r = get_ray(i, j);
-                    pixel_color += ray_color(r, max_depth, world);
+                    pixel_color += ray_color(r, max_depth, background, world);
                 }
                 pixel_color /= samples_per_pixel;
                 // NOTE: if discretizing becomes a problem, we can always have a
@@ -206,31 +208,55 @@ struct camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
-    color ray_color(ray r, int depth, hittable const& world) const {
+    struct light_info {
+        material const* mat;
+        point3 p;
+        vec3 u, v;
+    };
+
+    enum class ray_result {
+        shadow,  // the ray bounced too many times, so it's considered a shadow
+        light,   // the ray hit a light emitter
+        background,  // the ray escaped the world
+    };
+
+    static color ray_color(ray r, int depth, color background,
+                           hittable const& world) {
         color att_acc = color(1, 1, 1);
-        color emit_acc = color(0, 0, 0);
         for (;; depth--) {
             // If we've exceeded the ray bounce limit, no more light is
             // gathered.
-            if (depth <= 0) return emit_acc;
+            if (depth <= 0) return color(0, 0, 0);
 
             hit_record rec;
 
             // If the ray hits nothing, return the background color.
-            if (!world.hit(r, rec)) return att_acc * background + emit_acc;
+            if (!world.hit(r, rec)) {
+                return att_acc * background;
+            }
+
+            auto face = hit_record::face(r.direction, rec.normal);
 
             vec3 scattered;
-            color attenuation;
-            color color_from_emission = rec.mat->emitted(rec.u, rec.v, rec.p);
 
-            if (!rec.mat->scatter(r.direction(), rec, scattered))
-                return att_acc * color_from_emission + emit_acc;
+            // NOTE: this could be done in a separate thread, since it's
+            // independent from geometries.
+            // At least we could first separate the lighting stage for
+            // later, simulating rays first, collect materials & hit info,
+            // then emulate materials.
+            // Also could reduce it to a set of commands (e.g perlin)
+            color sample = rec.mat->tex->value(rec.u, rec.v, rec.p);
+            if (rec.mat->is_light_source) {
+                // NOTE: could split material taxonomy in two.
+                // Perhaps even put he tag into the result?
+                color color_from_emission = sample;
+                return att_acc * color_from_emission;
+            }
 
-            rec.mat->attenuation(rec.u, rec.v, rec.p, attenuation);
+            rec.mat->scatter(r.direction, face, scattered);
 
-            r = ray(rec.p, scattered, r.time());
-            att_acc = attenuation * att_acc;
-            emit_acc = color_from_emission + emit_acc;
+            r = ray(rec.p, scattered, r.time);
+            att_acc *= sample;
         }
     }
 };

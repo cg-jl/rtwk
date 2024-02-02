@@ -29,17 +29,15 @@ struct quad : public hittable {
 
     virtual void set_bounding_box() { bbox = aabb(Q, Q + u + v).pad(); }
 
-    aabb bounding_box() const override { return bbox; }
-
-    bool hit(ray const& r, interval ray_t, hit_record& rec) const override {
-        auto denom = dot(normal, r.direction());
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
+        auto denom = dot(normal, r.direction);
 
         // No hit if the ray is parallel to the plane.
         if (fabs(denom) < 1e-8) return false;
 
         // Return false if the hit point parameter t is outside the ray
         // interval.
-        auto t = (D - dot(normal, r.origin())) / denom;
+        auto t = (D - dot(normal, r.origin)) / denom;
         if (!ray_t.contains(t)) return false;
 
         // Determine the hit point lies within the planar shape using its plane
@@ -53,15 +51,15 @@ struct quad : public hittable {
 
         // Ray hits the 2D shape; set the rest of the hit record and return
         // true.
-        rec.t = t;
+        ray_t.max = t;
         rec.p = intersection;
-        rec.mat = mat;
-        rec.set_face_normal(r, normal);
+        rec.mat = mat.get();
+        rec.normal = normal;
 
         return true;
     }
 
-    virtual bool is_interior(double a, double b, hit_record& rec) const {
+    static bool is_interior(double a, double b, hit_record& rec) {
         // Given the hit point in plane coordinates, return false if it is
         // outside the primitive, otherwise set the hit record UV coordinates
         // and return true.
@@ -75,16 +73,14 @@ struct quad : public hittable {
 
    private:
     point3 Q;
-    vec3 u, v;
-    shared_ptr<material> mat;
-    aabb bbox;
+    vec3 u, v, w;
     vec3 normal;
     double D;
-    vec3 w;
+    shared_ptr<material> mat;
 };
 
-inline shared_ptr<hittable_list> box(point3 const& a, point3 const& b,
-                                     shared_ptr<material> mat) {
+static inline shared_ptr<hittable_list> box(point3 const& a, point3 const& b,
+                                            shared_ptr<material> mat) {
     // Returns the 3D box (six sides) that contains the two opposite vertices a
     // & b.
 

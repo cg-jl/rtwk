@@ -30,29 +30,22 @@ struct hittable_list : public hittable {
 
     void add(shared_ptr<hittable> object) {
         objects.push_back(object);
-        bbox = aabb(bbox, object->bounding_box());
+        bbox = aabb(bbox, object->bbox);
     }
 
-    bool hit(ray const& r, interval ray_t, hit_record& rec) const override {
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         hit_record temp_rec;
         auto hit_anything = false;
-        auto closest_so_far = ray_t.max;
 
         for (auto const& object : objects) {
-            if (object->hit(r, interval(ray_t.min, closest_so_far), temp_rec)) {
+            if (object->hit(r, ray_t, temp_rec)) {
                 hit_anything = true;
-                closest_so_far = temp_rec.t;
                 rec = temp_rec;
             }
         }
 
         return hit_anything;
     }
-
-    aabb bounding_box() const override { return bbox; }
-
-   private:
-    aabb bbox;
 };
 
 #endif

@@ -17,6 +17,15 @@
 #include "rtw_stb_image.h"
 #include "rtweekend.h"
 
+
+// NOTE: there is a tree structure in checker_texture.
+// Sizes:
+//  - solid_color: 32
+//  - checker_texture: 48 (tree structure -> indirection + compute)
+//  - noise: 48 (indirection through perlin)
+//  - image: 40
+
+
 struct texture {
    public:
     virtual ~texture() = default;

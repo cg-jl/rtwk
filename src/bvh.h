@@ -56,30 +56,25 @@ struct bvh_node : public hittable {
             right = make_shared<bvh_node>(objects, mid, end);
         }
 
-        bbox = aabb(left->bounding_box(), right->bounding_box());
+        bbox = aabb(left->bbox, right->bbox);
     }
 
-    bool hit(ray const& r, interval ray_t, hit_record& rec) const override {
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         if (!bbox.hit(r, ray_t)) return false;
 
         bool hit_left = left->hit(r, ray_t, rec);
-        bool hit_right = right->hit(
-            r, interval(ray_t.min, hit_left ? rec.t : ray_t.max), rec);
+        bool hit_right = right->hit(r, ray_t, rec);
 
         return hit_left || hit_right;
     }
 
-    aabb bounding_box() const override { return bbox; }
-
    private:
     shared_ptr<hittable> left;
     shared_ptr<hittable> right;
-    aabb bbox;
 
     static bool box_compare(shared_ptr<hittable> const a,
                             shared_ptr<hittable> const b, int axis_index) {
-        return a->bounding_box().axis(axis_index).min <
-               b->bounding_box().axis(axis_index).min;
+        return a->bbox.axis(axis_index).min < b->bbox.axis(axis_index).min;
     }
 
     static bool box_x_compare(shared_ptr<hittable> const a,

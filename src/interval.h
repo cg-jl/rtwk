@@ -45,11 +45,11 @@ struct interval {
 inline const interval interval::empty = interval(+infinity, -infinity);
 inline const interval interval::universe = interval(-infinity, +infinity);
 
-inline interval operator+(interval const& ival, double displacement) {
+static inline interval operator+(interval const& ival, double displacement) {
     return interval(ival.min + displacement, ival.max + displacement);
 }
 
-inline interval operator+(double displacement, interval const& ival) {
+static inline interval operator+(double displacement, interval const& ival) {
     return ival + displacement;
 }
 

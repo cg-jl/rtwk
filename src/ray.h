@@ -18,22 +18,17 @@ struct ray {
    public:
     ray() {}
 
-    ray(point3 const& origin, vec3 const& direction)
-        : orig(origin), dir(direction), tm(0) {}
+    ray(point3 origin, vec3 direction)
+        : origin(origin), direction(direction), time(0) {}
 
-    ray(point3 const& origin, vec3 const& direction, double time)
-        : orig(origin), dir(direction), tm(time) {}
+    ray(point3 origin, vec3 direction, double time)
+        : origin(origin), direction(direction), time(time) {}
 
-    point3 origin() const { return orig; }
-    vec3 direction() const { return dir; }
-    double time() const { return tm; }
+    point3 at(double t) const { return origin + t * direction; }
 
-    point3 at(double t) const { return orig + t * dir; }
-
-   private:
-    point3 orig;
-    vec3 dir;
-    double tm;
+    point3 origin;
+    vec3 direction;
+    double time;
 };
 
 #endif
