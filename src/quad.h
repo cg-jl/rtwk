@@ -10,6 +10,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <utility>
+
 #include "hittable.h"
 #include "hittable_list.h"
 #include "material.h"
@@ -28,10 +30,12 @@ struct quad final : public hittable {
     //  mat is accessed last, after all tests
     shared_ptr<material> mat;
 
-    aabb bounding_box() const& override { return aabb(Q, Q + u + v).pad(); }
+    [[nodiscard]] aabb bounding_box() const& override {
+        return aabb(Q, Q + u + v).pad();
+    }
 
-    quad(point3 _Q, vec3 _u, vec3 _v, shared_ptr<material> m)
-        : Q(_Q), u(_u), v(_v), mat(m) {}
+    quad(point3 Q, vec3 u, vec3 v, shared_ptr<material> m)
+        : Q(Q), u(u), v(v), mat(std::move(m)) {}
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         auto n = cross(u, v);
@@ -83,8 +87,8 @@ struct quad final : public hittable {
     }
 };
 
-static inline void box_into(point3 a, point3 b, shared_ptr<material> mat,
-                            hittable_list& sides) {
+inline void box_into(point3 a, point3 b, shared_ptr<material> const& mat,
+                     hittable_list& sides) {
     // Construct the two opposite vertices with the minimum and maximum
     // coordinates.
     auto min =
@@ -110,16 +114,16 @@ static inline void box_into(point3 a, point3 b, shared_ptr<material> mat,
                                 mat));  // bottom
 }
 
-static inline shared_ptr<hittable_list> box(point3 const& a, point3 const& b,
-                                            shared_ptr<material> mat) {
+inline shared_ptr<hittable_list> box(point3 const& a, point3 const& b,
+                                     shared_ptr<material> const& mat) {
     // Returns the 3D box (six sides) that contains the two opposite vertices a
     // & b.
 
-    auto sides = make_shared<hittable_list>();
+    hittable_list sides;
 
-    box_into(a, b, std::move(mat), *sides);
+    box_into(a, b, mat, sides);
 
-    return sides;
+    return make_shared<hittable_list>(std::move(sides));
 }
 
 #endif

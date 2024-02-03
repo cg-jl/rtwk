@@ -12,6 +12,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <cmath>
+
 #include "rtweekend.h"
 #include "vec3.h"
 
@@ -35,13 +37,13 @@ struct perlin {
         delete[] perm_z;
     }
 
-    float noise(point3 const& p) const {
-        auto u = p.x() - floor(p.x());
-        auto v = p.y() - floor(p.y());
-        auto w = p.z() - floor(p.z());
-        auto i = static_cast<int>(floor(p.x()));
-        auto j = static_cast<int>(floor(p.y()));
-        auto k = static_cast<int>(floor(p.z()));
+    [[nodiscard]] float noise(point3 const& p) const {
+        auto u = p.x() - std::floor(p.x());
+        auto v = p.y() - std::floor(p.y());
+        auto w = p.z() - std::floor(p.z());
+        auto i = static_cast<int>(std::floor(p.x()));
+        auto j = static_cast<int>(std::floor(p.y()));
+        auto k = static_cast<int>(std::floor(p.z()));
         vec3 c[2][2][2];
 
         for (int di = 0; di < 2; di++)
@@ -54,18 +56,18 @@ struct perlin {
         return perlin_interp(c, u, v, w);
     }
 
-    float turb(point3 const& p, int depth = 7) const {
-        auto accum = 0.0;
+    [[nodiscard]] float turb(point3 const& p, int depth = 7) const {
+        auto accum = 0.0f;
         auto temp_p = p;
-        auto weight = 1.0;
+        auto weight = 1.0f;
 
         for (int i = 0; i < depth; i++) {
             accum += weight * noise(temp_p);
-            weight *= 0.5;
+            weight *= 0.5f;
             temp_p *= 2;
         }
 
-        return fabs(accum);
+        return std::fabs(accum);
     }
 
    private:
@@ -80,13 +82,13 @@ struct perlin {
 
         for (int i = 0; i < point_count; i++) p[i] = i;
 
-        permute(p, point_count);
+        permute(p);
 
         return p;
     }
 
-    static void permute(int* p, int n) {
-        for (int i = n - 1; i > 0; i--) {
+    static void permute(int* p) {
+        for (int i = point_count - 1; i > 0; i--) {
             int target = random_int(0, i);
             int tmp = p[i];
             p[i] = p[target];
@@ -98,15 +100,15 @@ struct perlin {
         auto uu = u * u * (3 - 2 * u);
         auto vv = v * v * (3 - 2 * v);
         auto ww = w * w * (3 - 2 * w);
-        auto accum = 0.0;
+        auto accum = 0.0f;
 
         for (int i = 0; i < 2; i++)
             for (int j = 0; j < 2; j++)
                 for (int k = 0; k < 2; k++) {
-                    vec3 weight_v(u - i, v - j, w - k);
-                    accum += (i * uu + (1 - i) * (1 - uu)) *
-                             (j * vv + (1 - j) * (1 - vv)) *
-                             (k * ww + (1 - k) * (1 - ww)) *
+                    vec3 weight_v(u - float(i), v - float(j), w - float(k));
+                    accum += (float(i) * uu + float(1 - i) * (1 - uu)) *
+                             (float(j) * vv + float(1 - j) * (1 - vv)) *
+                             (float(k) * ww + float(1 - k) * (1 - ww)) *
                              dot(c[i][j][k], weight_v);
                 }
 

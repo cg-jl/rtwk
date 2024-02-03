@@ -32,8 +32,8 @@ static void random_spheres() {
     for (int a = -11; a < 11; a++) {
         for (int b = -11; b < 11; b++) {
             auto choose_mat = random_float();
-            point3 center(a + 0.9 * random_float(), 0.2,
-                          b + 0.9 * random_float());
+            point3 center(float(a) + 0.9f * random_float(), 0.2f,
+                          float(b) + 0.9f * random_float());
 
             if ((center - point3(4, 0.2, 0)).length() > 0.9) {
                 shared_ptr<material> sphere_material;
@@ -353,10 +353,10 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     int boxes_per_side = 20;
     for (int i = 0; i < boxes_per_side; i++) {
         for (int j = 0; j < boxes_per_side; j++) {
-            auto w = 100.0;
-            auto x0 = -1000.0 + i * w;
-            auto z0 = -1000.0 + j * w;
-            auto y0 = 0.0;
+            auto w = 100.0f;
+            auto x0 = -1000.0f + float(i) * w;
+            auto z0 = -1000.0f + float(j) * w;
+            auto y0 = 0.0f;
             auto x1 = x0 + w;
             auto y1 = random_float(1, 101);
             auto z1 = z0 + w;

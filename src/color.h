@@ -1,5 +1,4 @@
-#ifndef COLOR_H
-#define COLOR_H
+#pragma once
 //==============================================================================================
 // Originally written in 2020 by Peter Shirley <ptrshrl@gmail.com>
 //
@@ -23,11 +22,11 @@ struct icolor {
     uint8_t r, g, b;
 } __attribute__((packed));
 
-static inline float linear_to_gamma(float linear_component) {
+inline float linear_to_gamma(float linear_component) {
     return sqrtf(linear_component);
 }
 
-static inline void discretize(color pixel_color, icolor &output) {
+inline void discretize(color pixel_color, icolor &output) {
     auto r = pixel_color.x();
     auto g = pixel_color.y();
     auto b = pixel_color.z();
@@ -41,5 +40,3 @@ static inline void discretize(color pixel_color, icolor &output) {
     output.g = static_cast<uint8_t>(256 * intensity.clamp(g));
     output.b = static_cast<uint8_t>(256 * intensity.clamp(b));
 }
-
-#endif

@@ -13,8 +13,8 @@ struct vecview {
     constexpr vecview(T* values, uint32_t cap)
         : values(values), cap(cap), count(0) {}
 
-    constexpr bool is_empty() const& { return count == 0; }
-    constexpr bool is_full() const& { return cap == count; }
+    [[nodiscard]] constexpr bool is_empty() const& { return count == 0; }
+    [[nodiscard]] constexpr bool is_full() const& { return cap == count; }
 
     constexpr std::span<T> span() const& { return std::span<T>(values, count); }
 

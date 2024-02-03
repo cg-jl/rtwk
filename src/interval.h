@@ -10,6 +10,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <cmath>
+
 #include "rtweekend.h"
 struct interval {
    public:
@@ -20,20 +22,20 @@ struct interval {
     interval(float _min, float _max) : min(_min), max(_max) {}
 
     interval(interval const& a, interval const& b)
-        : min(fmin(a.min, b.min)), max(fmax(a.max, b.max)) {}
+        : min(std::fmin(a.min, b.min)), max(std::fmax(a.max, b.max)) {}
 
-    float size() const { return max - min; }
+    [[nodiscard]] float size() const { return max - min; }
 
-    interval expand(float delta) const {
+    [[nodiscard]] interval expand(float delta) const {
         auto padding = delta / 2;
-        return interval(min - padding, max + padding);
+        return {min - padding, max + padding};
     }
 
-    bool contains(float x) const { return min <= x && x <= max; }
+    [[nodiscard]] bool contains(float x) const { return min <= x && x <= max; }
 
-    bool surrounds(float x) const { return min < x && x < max; }
+    [[nodiscard]] bool surrounds(float x) const { return min < x && x < max; }
 
-    float clamp(float x) const {
+    [[nodiscard]] float clamp(float x) const {
         if (x < min) return min;
         if (x > max) return max;
         return x;
@@ -45,11 +47,11 @@ struct interval {
 inline const interval interval::empty = interval(+infinity, -infinity);
 inline const interval interval::universe = interval(-infinity, +infinity);
 
-static inline interval operator+(interval const& ival, float displacement) {
-    return interval(ival.min + displacement, ival.max + displacement);
+inline interval operator+(interval const& ival, float displacement) {
+    return {ival.min + displacement, ival.max + displacement};
 }
 
-static inline interval operator+(float displacement, interval const& ival) {
+inline interval operator+(float displacement, interval const& ival) {
     return ival + displacement;
 }
 

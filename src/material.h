@@ -11,6 +11,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <utility>
+
 #include "hittable.h"
 #include "rtweekend.h"
 #include "texture.h"
@@ -31,8 +33,8 @@ struct material {
 
 struct lambertian : public material {
    public:
-    lambertian(color const& a) : lambertian(make_shared<solid_color>(a)) {}
-    lambertian(shared_ptr<texture> a) : material(false, a) {}
+    explicit lambertian(color const& a) : lambertian(make_shared<solid_color>(a)) {}
+    explicit lambertian(shared_ptr<texture> a) : material(false, std::move(a)) {}
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {
@@ -56,7 +58,7 @@ struct metal : public material {
         scattered = reflected + fuzz * random_in_unit_sphere();
 
         // invert if it's in the other face
-        scattered *= std::copysign(1, dot(scattered, rec.normal));
+        scattered *= std::copysignf(1, dot(scattered, rec.normal));
     }
 
    private:
@@ -65,18 +67,18 @@ struct metal : public material {
 
 struct dielectric : public material {
    public:
-    dielectric(float index_of_refraction)
+    explicit dielectric(float index_of_refraction)
         : material(false, make_shared<solid_color>(color(1, 1, 1))),
           ir(index_of_refraction) {}
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {
-        float refraction_ratio = rec.is_front ? (1.0 / ir) : ir;
+        float refraction_ratio = rec.is_front ? (1.0f / ir) : ir;
 
         vec3 unit_direction = unit_vector(in_dir);
         float cos_theta = dot(-unit_direction, rec.normal);
         assume(cos_theta * cos_theta <= 1.0);
-        float sin_theta = sqrtf(1.0 - cos_theta * cos_theta);
+        float sin_theta = sqrtf(1.0f - cos_theta * cos_theta);
 
         bool cannot_refract = refraction_ratio * sin_theta > 1.0;
         vec3 direction;
@@ -107,8 +109,8 @@ struct dielectric : public material {
 
 struct diffuse_light : public material {
    public:
-    diffuse_light(shared_ptr<texture> a) : material(true, a) {}
-    diffuse_light(color c) : diffuse_light(make_shared<solid_color>(c)) {}
+    explicit diffuse_light(shared_ptr<texture> a) : material(true, std::move(a)) {}
+    explicit diffuse_light(color c) : diffuse_light(make_shared<solid_color>(c)) {}
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {}
@@ -116,8 +118,8 @@ struct diffuse_light : public material {
 
 struct isotropic : public material {
    public:
-    isotropic(color c) : isotropic(make_shared<solid_color>(c)) {}
-    isotropic(shared_ptr<texture> a) : material(false, std::move(a)) {}
+    explicit isotropic(color c) : isotropic(make_shared<solid_color>(c)) {}
+    explicit isotropic(shared_ptr<texture> a) : material(false, std::move(a)) {}
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {

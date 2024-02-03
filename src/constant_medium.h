@@ -11,6 +11,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <utility>
+
 #include "hittable.h"
 #include "material.h"
 #include "rtweekend.h"
@@ -23,16 +25,16 @@ struct constant_medium final : public hittable {
     shared_ptr<material> phase_function;
 
     constant_medium(shared_ptr<hittable> b, float d, shared_ptr<texture> a)
-        : boundary(b),
+        : boundary(std::move(b)),
           neg_inv_density(-1 / d),
-          phase_function(make_shared<isotropic>(a)) {}
+          phase_function(make_shared<isotropic>(std::move(a))) {}
 
     constant_medium(shared_ptr<hittable> b, float d, color c)
-        : boundary(b),
+        : boundary(std::move(b)),
           neg_inv_density(-1 / d),
           phase_function(make_shared<isotropic>(c)) {}
 
-    aabb bounding_box() const& override { return boundary->bounding_box(); }
+    [[nodiscard]] aabb bounding_box() const& override { return boundary->bounding_box(); }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         hit_record rec1, rec2;
@@ -41,7 +43,7 @@ struct constant_medium final : public hittable {
         if (!boundary->hit(r, hit1, rec1)) return false;
         auto first_hit = hit1.max;
 
-        interval hit2(first_hit + 0.0001, infinity);
+        interval hit2(first_hit + 0.0001f, infinity);
         if (!boundary->hit(r, hit2, rec2)) return false;
         auto second_hit = hit2.max;
 

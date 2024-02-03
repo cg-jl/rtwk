@@ -16,7 +16,7 @@
 
 struct ray {
    public:
-    ray() {}
+    ray() = default;
 
     ray(point3 origin, vec3 direction)
         : origin(origin), direction(direction), time(0) {}

@@ -11,6 +11,9 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <cmath>
+#include <utility>
+
 #include "aabb.h"
 #include "rtweekend.h"
 
@@ -18,6 +21,7 @@ struct material;
 
 // NOTE: each shared_ptr occupies 16 bytes. What if we move that to 8 bytes by
 // just having a const *?
+
 
 struct hit_record {
    public:
@@ -33,9 +37,9 @@ struct hit_record {
 
     point3 p;
     vec3 normal;
-    float u;
-    float v;
-    material const* mat;
+    float u{};
+    float v{};
+    material const* mat{};
 };
 
 // NOTE: material could be the next thing to make common on all hittables so it
@@ -43,6 +47,9 @@ struct hit_record {
 // material pointer until we're sure that it's the correct one. By doing this
 // we'll ensure a cache miss, but we have one cache miss per hit already
 // guaranteed, so it may give more than it takes.
+
+// NOTE: hittable occupies 8 bytes and adds always a pointer indirection, just
+// to get a couple of functions. What about removing one of the indirections?
 
 struct hittable {
     // NOTE: is it smart to force one cacheline per hittable?
@@ -52,7 +59,7 @@ struct hittable {
     // structs into cachelines.
 
     virtual ~hittable() = default;
-    virtual aabb bounding_box() const& = 0;
+    [[nodiscard]] virtual aabb bounding_box() const& = 0;
 
     virtual bool hit(ray const& r, interval& ray_t, hit_record& rec) const = 0;
 
@@ -69,9 +76,9 @@ struct hittable {
 struct translate final : public hittable {
    public:
     translate(shared_ptr<hittable> p, vec3 const& displacement)
-        : object(p), offset(displacement) {}
+        : object(std::move(p)), offset(displacement) {}
 
-    aabb bounding_box() const& override {
+    [[nodiscard]] aabb bounding_box() const& override {
         return object->bounding_box() + offset;
     }
 
@@ -100,12 +107,12 @@ struct rotate_y final : public hittable {
     shared_ptr<hittable> object;
     aabb bbox;
 
-    aabb bounding_box() const& override { return bbox; }
+    [[nodiscard]] aabb bounding_box() const& override { return bbox; }
 
-    rotate_y(shared_ptr<hittable> p, float angle) : object(p) {
+    rotate_y(shared_ptr<hittable> p, float angle) : object(std::move(p)) {
         auto radians = degrees_to_radians(angle);
-        sin_theta = sin(radians);
-        cos_theta = cos(radians);
+        sin_theta = std::sin(radians);
+        cos_theta = std::cos(radians);
 
         // TODO: bounding box of rotated object (on Y axis)?
         bbox = object->bounding_box();
@@ -116,9 +123,9 @@ struct rotate_y final : public hittable {
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < 2; j++) {
                 for (int k = 0; k < 2; k++) {
-                    auto x = i * bbox.x.max + (1 - i) * bbox.x.min;
-                    auto y = j * bbox.y.max + (1 - j) * bbox.y.min;
-                    auto z = k * bbox.z.max + (1 - k) * bbox.z.min;
+                    auto x = float(i) * bbox.x.max + float(1 - i) * bbox.x.min;
+                    auto y = float(j) * bbox.y.max + float(1 - j) * bbox.y.min;
+                    auto z = float(k) * bbox.z.max + float(1 - k) * bbox.z.min;
 
                     auto newx = cos_theta * x + sin_theta * z;
                     auto newz = -sin_theta * x + cos_theta * z;
@@ -126,8 +133,8 @@ struct rotate_y final : public hittable {
                     vec3 tester(newx, y, newz);
 
                     for (int c = 0; c < 3; c++) {
-                        min[c] = fmin(min[c], tester[c]);
-                        max[c] = fmax(max[c], tester[c]);
+                        min[c] = std::fmin(min[c], tester[c]);
+                        max[c] = std::fmax(max[c], tester[c]);
                     }
                 }
             }

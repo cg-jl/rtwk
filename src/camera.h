@@ -39,7 +39,7 @@ struct camera {
 
     float defocus_angle = 0;  // Variation angle of rays through each pixel
     float focus_dist =
-        10;  // Distance from camera lookfrom point to plane of perfect focus
+        10;  // Distance from camera look-from point to plane of perfect focus
 
     void render(hittable const& world) {
         initialize();
@@ -73,7 +73,7 @@ struct camera {
                         pixel_color +=
                             ray_color(r, background, world, light_infos);
                     }
-                    pixel_color /= samples_per_pixel;
+                    pixel_color /= float(samples_per_pixel);
                     // NOTE: if discretizing becomes a problem, we can always
                     // have a first render buffer and then a discretized buffer.
                     // Perhaps we can even re-use the memory or smth.
@@ -86,13 +86,13 @@ struct camera {
 #pragma omp single
         {
             // NOTE: this is not cleanly freeing its resources.
-            // It's ok, since all of the error exit points here are asserts.
+            // It's ok, since all the error exit points here are asserts.
 
             FILE* fp = fopen("test.png", "wb");
             assert(fp && "cannot create file for writing");
 
-            auto png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL,
-                                                   NULL, NULL);
+            auto png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr,
+                                                   nullptr, nullptr);
             assert(png_ptr && "cannot create write struct");
 
             auto info_ptr = png_create_info_struct(png_ptr);
@@ -117,7 +117,7 @@ struct camera {
             png_write_info(png_ptr, info_ptr);
 
             auto row_pointers = std::make_unique<uint8_t*[]>(image_height);
-            for (int i = 0; i < image_height; ++i) {
+            for (size_t i = 0; i < image_height; ++i) {
                 row_pointers[i] = reinterpret_cast<uint8_t*>(colors_mem.get() +
                                                              i * image_width);
             }
@@ -132,7 +132,7 @@ struct camera {
     }
 
    private:
-    int image_height;     // Rendered image height
+    int image_height{};     // Rendered image height
     point3 center;        // Camera center
     point3 pixel00_loc;   // Location of pixel 0, 0
     vec3 pixel_delta_u;   // Offset to pixel to the right
@@ -142,7 +142,7 @@ struct camera {
     vec3 defocus_disk_v;  // Defocus disk vertical radius
 
     void initialize() {
-        image_height = static_cast<int>(image_width / aspect_ratio);
+        image_height = static_cast<int>(float(image_width) / aspect_ratio);
         image_height = (image_height < 1) ? 1 : image_height;
 
         center = lookfrom;
@@ -152,7 +152,8 @@ struct camera {
         auto h = tan(theta / 2);
         auto viewport_height = 2 * h * focus_dist;
         auto viewport_width =
-            viewport_height * (static_cast<float>(image_width) / image_height);
+            viewport_height *
+            (static_cast<float>(image_width) / float(image_height));
 
         // Calculate the u,v,w unit basis vectors for the camera coordinate
         // frame.
@@ -169,8 +170,8 @@ struct camera {
 
         // Calculate the horizontal and vertical delta vectors to the next
         // pixel.
-        pixel_delta_u = viewport_u / image_width;
-        pixel_delta_v = viewport_v / image_height;
+        pixel_delta_u = viewport_u / float(image_width);
+        pixel_delta_v = viewport_v / float(image_height);
 
         // Calculate the location of the upper left pixel.
         auto viewport_upper_left =
@@ -185,37 +186,30 @@ struct camera {
         defocus_disk_v = v * defocus_radius;
     }
 
-    ray get_ray(int i, int j) const {
+    [[nodiscard]] ray get_ray(int i, int j) const {
         // Get a randomly-sampled camera ray for the pixel at location i,j,
         // originating from the camera defocus disk.
 
-        auto pixel_center =
-            pixel00_loc + (i * pixel_delta_u) + (j * pixel_delta_v);
+        auto pixel_center = pixel00_loc + (float(i) * pixel_delta_u) +
+                            (float(j) * pixel_delta_v);
         auto pixel_sample = pixel_center + pixel_sample_square();
 
         auto ray_origin = (defocus_angle <= 0) ? center : defocus_disk_sample();
         auto ray_direction = pixel_sample - ray_origin;
         auto ray_time = random_float();
 
-        return ray(ray_origin, ray_direction, ray_time);
+        return {ray_origin, ray_direction, ray_time};
     }
 
-    vec3 pixel_sample_square() const {
+    [[nodiscard]] vec3 pixel_sample_square() const {
         // Returns a random point in the square surrounding a pixel at the
         // origin.
-        auto px = -0.5 + random_float();
-        auto py = -0.5 + random_float();
+        auto px = -0.5f + random_float();
+        auto py = -0.5f + random_float();
         return (px * pixel_delta_u) + (py * pixel_delta_v);
     }
 
-    vec3 pixel_sample_disk(float radius) const {
-        // Generate a sample from the disk of given radius around a pixel at the
-        // origin.
-        auto p = radius * random_in_unit_disk();
-        return (p[0] * pixel_delta_u) + (p[1] * pixel_delta_v);
-    }
-
-    point3 defocus_disk_sample() const {
+    [[nodiscard]] point3 defocus_disk_sample() const {
         // Returns a random point in the camera defocus disk.
         auto p = random_in_unit_disk();
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
@@ -224,9 +218,9 @@ struct camera {
     // NOTE: would be nice to make this available to 'hittable' so it
     // initializes the correct value.
     struct light_info {
-        texture const* tex;
+        texture const* tex{};
         point3 p;
-        float u, v;
+        float u{}, v{};
     };
 
     enum class ray_result {
@@ -271,7 +265,7 @@ struct camera {
         color begin_color;
         switch (result) {
             case ray_result::shadow:
-                return color(0, 0, 0);
+                return {0, 0, 0};
             case ray_result::light:
                 // The emitted light information is in the material sample for
                 // the light.

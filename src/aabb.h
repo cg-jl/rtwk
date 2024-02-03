@@ -11,6 +11,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <cmath>
+
 #include "interval.h"
 #include "ray.h"
 #include "rtweekend.h"
@@ -20,8 +22,7 @@ struct aabb {
    public:
     interval x, y, z;
 
-    aabb() {
-    }  // The default AABB is empty, since intervals are empty by default.
+    aabb() = default;
 
     aabb(interval const& ix, interval const& iy, interval const& iz)
         : x(ix), y(iy), z(iz) {}
@@ -29,9 +30,9 @@ struct aabb {
     aabb(point3 const& a, point3 const& b) {
         // Treat the two points a and b as extrema for the bounding box, so we
         // don't require a particular minimum/maximum coordinate order.
-        x = interval(fmin(a[0], b[0]), fmax(a[0], b[0]));
-        y = interval(fmin(a[1], b[1]), fmax(a[1], b[1]));
-        z = interval(fmin(a[2], b[2]), fmax(a[2], b[2]));
+        x = interval(std::fmin(a[0], b[0]), std::fmax(a[0], b[0]));
+        y = interval(std::fmin(a[1], b[1]), std::fmax(a[1], b[1]));
+        z = interval(std::fmin(a[2], b[2]), std::fmax(a[2], b[2]));
     }
 
     aabb(aabb const& box0, aabb const& box1) {
@@ -40,7 +41,7 @@ struct aabb {
         z = interval(box0.z, box1.z);
     }
 
-    aabb pad() {
+    [[nodiscard]] aabb pad() const {
         // Return an AABB that has no side narrower than some delta, padding if
         // necessary.
         float delta = 0.0001;
@@ -48,16 +49,16 @@ struct aabb {
         interval new_y = (y.size() >= delta) ? y : y.expand(delta);
         interval new_z = (z.size() >= delta) ? z : z.expand(delta);
 
-        return aabb(new_x, new_y, new_z);
+        return {new_x, new_y, new_z};
     }
 
-    interval const& axis(int n) const {
+    [[nodiscard]] interval const& axis(int n) const {
         if (n == 1) return y;
         if (n == 2) return z;
         return x;
     }
 
-    bool hit(ray const& r, interval ray_t) const {
+    [[nodiscard]] bool hit(ray const& r, interval ray_t) const {
         for (int a = 0; a < 3; a++) {
             auto invD = 1 / r.direction[a];
             auto orig = r.origin[a];
@@ -76,11 +77,11 @@ struct aabb {
     }
 };
 
-static inline aabb operator+(aabb const& bbox, vec3 const& offset) {
-    return aabb(bbox.x + offset.x(), bbox.y + offset.y(), bbox.z + offset.z());
+inline aabb operator+(aabb const& bbox, vec3 const& offset) {
+    return {bbox.x + offset.x(), bbox.y + offset.y(), bbox.z + offset.z()};
 }
 
-static inline aabb operator+(vec3 const& offset, aabb const& bbox) {
+inline aabb operator+(vec3 const& offset, aabb const& bbox) {
     return bbox + offset;
 }
 

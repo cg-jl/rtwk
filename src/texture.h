@@ -12,6 +12,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <utility>
+
 #include "color.h"
 #include "perlin.h"
 #include "rtw_stb_image.h"
@@ -50,10 +52,12 @@ struct checker_texture : public texture {
    public:
     checker_texture(float _scale, shared_ptr<texture> _even,
                     shared_ptr<texture> _odd)
-        : inv_scale(1.0 / _scale), even(_even), odd(_odd) {}
+        : inv_scale(1.0f / _scale),
+          even(std::move(_even)),
+          odd(std::move(_odd)) {}
 
     checker_texture(float _scale, color c1, color c2)
-        : inv_scale(1.0 / _scale),
+        : inv_scale(1.0f / _scale),
           even(make_shared<solid_color>(c1)),
           odd(make_shared<solid_color>(c2)) {}
 
@@ -100,15 +104,16 @@ struct image_texture : public texture {
 
         // Clamp input texture coordinates to [0,1] x [1,0]
         u = interval(0, 1).clamp(u);
-        v = 1.0 - interval(0, 1).clamp(v);  // Flip V to image coordinates
+        v = 1.0f - interval(0, 1).clamp(v);  // Flip V to image coordinates
 
-        auto i = static_cast<int>(u * image.width());
-        auto j = static_cast<int>(v * image.height());
+        auto i = static_cast<int>(u * float(image.width()));
+        auto j = static_cast<int>(v * float(image.height()));
         auto pixel = image.pixel_data(i, j);
 
-        auto color_scale = 1.0 / 255.0;
-        return color(color_scale * pixel[0], color_scale * pixel[1],
-                     color_scale * pixel[2]);
+        auto color_scale = 1.0f / 255.0f;
+        return color(color_scale * float(pixel[0]),
+                     color_scale * float(pixel[1]),
+                     color_scale * float(pixel[2]));
     }
 
    private:

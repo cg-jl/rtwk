@@ -36,19 +36,19 @@ static thread_local std::uniform_real_distribution<float> s_ds;
 
 // Utility Functions
 
-static inline float degrees_to_radians(float degrees) {
+inline float degrees_to_radians(float degrees) {
     return degrees * pi / 180.0;
 }
 
 // Returns a random floating point value in [0,1).
-static inline float random_float() { return s_ds(s_mt); }
+inline float random_float() { return s_ds(s_mt); }
 
 // Returns a random floating point value in [min,max).
-static inline float random_float(float min, float max) {
+inline float random_float(float min, float max) {
     return min + (max - min) * random_float();
 }
 
 // Returns a random integer in [min,max].
-static inline int random_int(int min, int max) {
+inline int random_int(int min, int max) {
     return static_cast<int>(random_float(min, max + 1));
 }
