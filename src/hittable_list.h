@@ -36,9 +36,7 @@ struct hittable_list : public hittable {
         bbox = aabb(bbox, object->bbox);
     }
 
-    shared_ptr<hittable> split() {
-        return make_shared<bvh_node>(objects, 0, objects.size());
-    }
+    shared_ptr<hittable> split() { return bvh_node::split(objects); }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         std::span obs = objects;

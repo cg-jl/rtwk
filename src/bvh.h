@@ -23,35 +23,37 @@
 
 struct bvh_node : public hittable {
    public:
-    bvh_node(std::span<shared_ptr<hittable>> objects, size_t start,
-             size_t end) {
+    bvh_node(shared_ptr<hittable> left, shared_ptr<hittable> right)
+        : hittable(aabb(left->bbox, right->bbox)),
+          left(std::move(left)),
+          right(std::move(right)) {}
+
+    static shared_ptr<hittable> split(std::span<shared_ptr<hittable>> objects) {
         int axis = random_int(0, 2);
         auto comparator = (axis == 0)   ? box_x_compare
                           : (axis == 1) ? box_y_compare
                                         : box_z_compare;
 
-        size_t object_span = end - start;
+        size_t object_span = objects.size();
 
         if (object_span == 1) {
-            left = right = objects[start];
+            return objects[0];
         } else if (object_span == 2) {
-            if (comparator(objects[start], objects[start + 1])) {
-                left = objects[start];
-                right = objects[start + 1];
+            if (comparator(objects[0], objects[1])) {
+                return make_shared<bvh_node>(objects[0], objects[1]);
             } else {
-                left = objects[start + 1];
-                right = objects[start];
+                return make_shared<bvh_node>(objects[1], objects[0]);
             }
         } else {
-            std::sort(objects.begin() + start, objects.begin() + end,
+            std::sort(objects.begin(), objects.begin() + objects.size(),
                       comparator);
 
-            auto mid = start + object_span / 2;
-            left = make_shared<bvh_node>(objects, start, mid);
-            right = make_shared<bvh_node>(objects, mid, end);
-        }
+            auto mid = object_span / 2;
+            auto left = split(objects.subspan(0, mid));
+            auto right = split(objects.subspan(mid));
 
-        bbox = aabb(left->bbox, right->bbox);
+            return make_shared<bvh_node>(std::move(left), std::move(right));
+        }
     }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
