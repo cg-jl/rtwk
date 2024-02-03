@@ -1,5 +1,4 @@
-#ifndef CONSTANT_MEDIUM_H
-#define CONSTANT_MEDIUM_H
+#pragma once
 //==============================================================================================
 // Originally written in 2016 by Peter Shirley <ptrshrl@gmail.com>
 //
@@ -19,22 +18,21 @@
 
 struct constant_medium final : public hittable {
    public:
-    aabb bbox;
     shared_ptr<hittable> boundary;
-    double neg_inv_density;
+    float neg_inv_density;
     shared_ptr<material> phase_function;
 
-    constant_medium(shared_ptr<hittable> b, double d, shared_ptr<texture> a)
+    constant_medium(shared_ptr<hittable> b, float d, shared_ptr<texture> a)
         : boundary(b),
           neg_inv_density(-1 / d),
           phase_function(make_shared<isotropic>(a)) {}
 
-    constant_medium(shared_ptr<hittable> b, double d, color c)
+    constant_medium(shared_ptr<hittable> b, float d, color c)
         : boundary(b),
           neg_inv_density(-1 / d),
           phase_function(make_shared<isotropic>(c)) {}
 
-    aabb bounding_box() const& override { return bbox; }
+    aabb bounding_box() const& override { return boundary->bounding_box(); }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         hit_record rec1, rec2;
@@ -56,7 +54,7 @@ struct constant_medium final : public hittable {
 
         auto ray_length = r.direction.length();
         auto distance_inside_boundary = (second_hit - first_hit) * ray_length;
-        auto hit_distance = neg_inv_density * log(random_double());
+        auto hit_distance = neg_inv_density * logf(random_float());
 
         if (hit_distance > distance_inside_boundary) return false;
 
@@ -69,5 +67,3 @@ struct constant_medium final : public hittable {
         return true;
     }
 };
-
-#endif

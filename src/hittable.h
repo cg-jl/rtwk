@@ -1,5 +1,4 @@
-#ifndef HITTABLE_H
-#define HITTABLE_H
+#pragma once
 //==============================================================================================
 // Originally written in 2016 by Peter Shirley <ptrshrl@gmail.com>
 //
@@ -18,7 +17,7 @@
 struct material;
 
 // NOTE: each shared_ptr occupies 16 bytes. What if we move that to 8 bytes by
-// just having a const ref?
+// just having a const *?
 
 struct hit_record {
    public:
@@ -34,19 +33,26 @@ struct hit_record {
 
     point3 p;
     vec3 normal;
-    double u;
-    double v;
+    float u;
+    float v;
     material const* mat;
 };
 
-// NOTE: storing bounding boxes on all hittables is a bad idea.
-// Better to cache it on construction if it acts as a top level!
+// NOTE: material could be the next thing to make common on all hittables so it
+// can be migrated to somewhere else! Reason is that we don't need to access the
+// material pointer until we're sure that it's the correct one. By doing this
+// we'll ensure a cache miss, but we have one cache miss per hit already
+// guaranteed, so it may give more than it takes.
 
 struct hittable {
-   public:
-    virtual aabb bounding_box() const& = 0;
+    // NOTE: is it smart to force one cacheline per hittable?
+    // Now that we've reduced numbers to half the size, there is more space
+    // available.
+    // It would be nice, since then we could modify storage to inline the
+    // structs into cachelines.
 
     virtual ~hittable() = default;
+    virtual aabb bounding_box() const& = 0;
 
     virtual bool hit(ray const& r, interval& ray_t, hit_record& rec) const = 0;
 
@@ -63,11 +69,11 @@ struct hittable {
 struct translate final : public hittable {
    public:
     translate(shared_ptr<hittable> p, vec3 const& displacement)
-        : object(p), offset(displacement) {
-        bbox = object->bounding_box() + offset;
-    }
+        : object(p), offset(displacement) {}
 
-    aabb bounding_box() const& override { return bbox; }
+    aabb bounding_box() const& override {
+        return object->bounding_box() + offset;
+    }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         // Move the ray backwards by the offset
@@ -84,23 +90,24 @@ struct translate final : public hittable {
     }
 
    private:
-    aabb bbox;
     shared_ptr<hittable> object;
     vec3 offset;
 };
 
 struct rotate_y final : public hittable {
-    aabb bbox;
+    float cos_theta;
+    float sin_theta;
     shared_ptr<hittable> object;
-    double sin_theta;
-    double cos_theta;
+    aabb bbox;
 
     aabb bounding_box() const& override { return bbox; }
 
-    rotate_y(shared_ptr<hittable> p, double angle) : object(p) {
+    rotate_y(shared_ptr<hittable> p, float angle) : object(p) {
         auto radians = degrees_to_radians(angle);
         sin_theta = sin(radians);
         cos_theta = cos(radians);
+
+        // TODO: bounding box of rotated object (on Y axis)?
         bbox = object->bounding_box();
 
         point3 min(infinity, infinity, infinity);
@@ -162,5 +169,3 @@ struct rotate_y final : public hittable {
         return true;
     }
 };
-
-#endif

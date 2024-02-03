@@ -21,14 +21,14 @@ struct ray {
     ray(point3 origin, vec3 direction)
         : origin(origin), direction(direction), time(0) {}
 
-    ray(point3 origin, vec3 direction, double time)
+    ray(point3 origin, vec3 direction, float time)
         : origin(origin), direction(direction), time(time) {}
 
-    point3 at(double t) const { return origin + t * direction; }
+    point3 at(float t) const { return origin + t * direction; }
 
     point3 origin;
     vec3 direction;
-    double time;
+    float time;
 };
 
 #endif

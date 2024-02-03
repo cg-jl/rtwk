@@ -16,28 +16,28 @@
 #include "rtweekend.h"
 #include "vec3.h"
 
+// NOTE: this one occupies 1 whole cacheline as of now.
+
 struct quad final : public hittable {
    public:
-    aabb bbox;
-    point3 Q;
+    //  u, v are accessed first, to calculate n
     vec3 u, v;
-    vec3 normal;
-    double inv_sqrtn;
+    // Q is accessed second, after a test
+    point3 Q;
+
+    //  mat is accessed last, after all tests
     shared_ptr<material> mat;
-    aabb bounding_box() const& override { return bbox; }
+
+    aabb bounding_box() const& override { return aabb(Q, Q + u + v).pad(); }
 
     quad(point3 _Q, vec3 _u, vec3 _v, shared_ptr<material> m)
-        : Q(_Q), u(_u), v(_v), mat(m) {
-        auto n = cross(u, v);
-        inv_sqrtn = 1 / n.length();
-        normal = inv_sqrtn * n;
-
-        set_bounding_box();
-    }
-
-    virtual void set_bounding_box() { bbox = aabb(Q, Q + u + v).pad(); }
+        : Q(_Q), u(_u), v(_v), mat(m) {}
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
+        auto n = cross(u, v);
+        auto inv_sqrtn = 1 / n.length();
+        auto normal = n * inv_sqrtn;
+
         auto denom = dot(normal, r.direction);
 
         // No hit if the ray is parallel to the plane.
@@ -70,7 +70,7 @@ struct quad final : public hittable {
         return true;
     }
 
-    static bool is_interior(double a, double b, hit_record& rec) {
+    static bool is_interior(float a, float b, hit_record& rec) {
         // Given the hit point in plane coordinates, return false if it is
         // outside the primitive, otherwise set the hit record UV coordinates
         // and return true.

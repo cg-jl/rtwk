@@ -23,8 +23,8 @@ struct icolor {
     uint8_t r, g, b;
 } __attribute__((packed));
 
-static inline double linear_to_gamma(double linear_component) {
-    return sqrt(linear_component);
+static inline float linear_to_gamma(float linear_component) {
+    return sqrtf(linear_component);
 }
 
 static inline void discretize(color pixel_color, icolor &output) {

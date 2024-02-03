@@ -35,7 +35,7 @@ struct perlin {
         delete[] perm_z;
     }
 
-    double noise(point3 const& p) const {
+    float noise(point3 const& p) const {
         auto u = p.x() - floor(p.x());
         auto v = p.y() - floor(p.y());
         auto w = p.z() - floor(p.z());
@@ -54,7 +54,7 @@ struct perlin {
         return perlin_interp(c, u, v, w);
     }
 
-    double turb(point3 const& p, int depth = 7) const {
+    float turb(point3 const& p, int depth = 7) const {
         auto accum = 0.0;
         auto temp_p = p;
         auto weight = 1.0;
@@ -94,7 +94,7 @@ struct perlin {
         }
     }
 
-    static double perlin_interp(vec3 c[2][2][2], double u, double v, double w) {
+    static float perlin_interp(vec3 c[2][2][2], float u, float v, float w) {
         auto uu = u * u * (3 - 2 * u);
         auto vv = v * v * (3 - 2 * v);
         auto ww = w * w * (3 - 2 * w);

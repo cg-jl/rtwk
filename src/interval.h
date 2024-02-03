@@ -13,27 +13,27 @@
 #include "rtweekend.h"
 struct interval {
    public:
-    double min, max;
+    float min, max;
 
     interval() : min(+infinity), max(-infinity) {}  // Default interval is empty
 
-    interval(double _min, double _max) : min(_min), max(_max) {}
+    interval(float _min, float _max) : min(_min), max(_max) {}
 
     interval(interval const& a, interval const& b)
         : min(fmin(a.min, b.min)), max(fmax(a.max, b.max)) {}
 
-    double size() const { return max - min; }
+    float size() const { return max - min; }
 
-    interval expand(double delta) const {
+    interval expand(float delta) const {
         auto padding = delta / 2;
         return interval(min - padding, max + padding);
     }
 
-    bool contains(double x) const { return min <= x && x <= max; }
+    bool contains(float x) const { return min <= x && x <= max; }
 
-    bool surrounds(double x) const { return min < x && x < max; }
+    bool surrounds(float x) const { return min < x && x < max; }
 
-    double clamp(double x) const {
+    float clamp(float x) const {
         if (x < min) return min;
         if (x > max) return max;
         return x;
@@ -45,11 +45,11 @@ struct interval {
 inline const interval interval::empty = interval(+infinity, -infinity);
 inline const interval interval::universe = interval(-infinity, +infinity);
 
-static inline interval operator+(interval const& ival, double displacement) {
+static inline interval operator+(interval const& ival, float displacement) {
     return interval(ival.min + displacement, ival.max + displacement);
 }
 
-static inline interval operator+(double displacement, interval const& ival) {
+static inline interval operator+(float displacement, interval const& ival) {
     return ival + displacement;
 }
 

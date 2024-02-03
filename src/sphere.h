@@ -17,30 +17,30 @@
 
 struct sphere final : public hittable {
    public:
-    aabb bbox;
     point3 center1;
-    double radius;
-    shared_ptr<material> mat;
     vec3 center_vec;
+    // NOTE: padding is being applied here.
+    // Of 4 bytes, for some reason.
+    float radius;
 
-    aabb bounding_box() const& override { return bbox; }
+    shared_ptr<material> mat;
 
-    // Stationary Sphere
-    sphere(point3 _center, double _radius, shared_ptr<material> _material)
-        : center1(_center), radius(_radius), mat(_material) {
+    aabb bounding_box() const& override {
         auto rvec = vec3(radius, radius, radius);
-        bbox = aabb(center1 - rvec, center1 + rvec);
+        auto center2 = center1 + center_vec;
+        aabb box1(center1 - rvec, center1 + rvec);
+        aabb box2(center2 - rvec, center2 + rvec);
+        return aabb(box1, box2);
     }
 
+    // Stationary Sphere
+    sphere(point3 _center, float _radius, shared_ptr<material> _material)
+        : center1(_center), radius(_radius), mat(_material) {}
+
     // Moving Sphere
-    sphere(point3 _center1, point3 _center2, double _radius,
+    sphere(point3 _center1, point3 _center2, float _radius,
            shared_ptr<material> _material)
         : center1(_center1), radius(_radius), mat(_material) {
-        auto rvec = vec3(radius, radius, radius);
-        aabb box1(_center1 - rvec, _center1 + rvec);
-        aabb box2(_center2 - rvec, _center2 + rvec);
-        bbox = aabb(box1, box2);
-
         center_vec = _center2 - _center1;
     }
 
@@ -55,7 +55,7 @@ struct sphere final : public hittable {
         if (discriminant < 0) return false;
 
         // Find the nearest root that lies in the acceptable range.
-        auto sqrtd = sqrt(discriminant);
+        auto sqrtd = sqrtf(discriminant);
         auto root = (-half_b - sqrtd) / a;
         if (!ray_t.surrounds(root)) {
             root = (-half_b + sqrtd) / a;
@@ -72,13 +72,13 @@ struct sphere final : public hittable {
         return true;
     }
 
-    point3 sphere_center(double time) const {
+    point3 sphere_center(float time) const {
         // Linearly interpolate from center1 to center2 according to time, where
         // t=0 yields center1, and t=1 yields center2.
         return center1 + time * center_vec;
     }
 
-    static void get_sphere_uv(point3 const& p, double& u, double& v) {
+    static void get_sphere_uv(point3 const& p, float& u, float& v) {
         // p: a given point on the sphere of radius one, centered at the origin.
         // u: returned value [0,1] of angle around the Y axis from X=-1.
         // v: returned value [0,1] of angle from Y=-1 to Y=+1.

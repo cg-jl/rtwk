@@ -22,6 +22,11 @@
 #include "hittable_view.h"
 #include "rtweekend.h"
 
+// NOTE: could unify all pointers in just one storage.
+// Each 'list' would have temporary ownership over the storage, so multiple
+// lists still use the same local space.
+// Then we could modify how things are allocated much easier.
+
 struct hittable_list final : public hittable {
    public:
     aabb bbox;

@@ -5,8 +5,8 @@
 #include "hittable.h"
 #include "rtweekend.h"
 struct hittable_view final : public hittable {
-    aabb bbox;
     std::span<shared_ptr<hittable> const> objects;
+    aabb bbox;
 
     hittable_view(std::span<shared_ptr<hittable> const> objects, aabb bb)
         : bbox(bb), objects(objects) {}

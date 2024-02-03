@@ -17,7 +17,6 @@
 #include "rtw_stb_image.h"
 #include "rtweekend.h"
 
-
 // NOTE: there is a tree structure in checker_texture.
 // Sizes:
 //  - solid_color: 32
@@ -25,22 +24,21 @@
 //  - noise: 48 (indirection through perlin)
 //  - image: 40
 
-
 struct texture {
    public:
     virtual ~texture() = default;
 
-    virtual color value(double u, double v, point3 const& p) const = 0;
+    virtual color value(float u, float v, point3 const& p) const = 0;
 };
 
 struct solid_color : public texture {
    public:
     solid_color(color c) : color_value(c) {}
 
-    solid_color(double red, double green, double blue)
+    solid_color(float red, float green, float blue)
         : solid_color(color(red, green, blue)) {}
 
-    color value(double u, double v, point3 const& p) const override {
+    color value(float u, float v, point3 const& p) const override {
         return color_value;
     }
 
@@ -50,16 +48,16 @@ struct solid_color : public texture {
 
 struct checker_texture : public texture {
    public:
-    checker_texture(double _scale, shared_ptr<texture> _even,
+    checker_texture(float _scale, shared_ptr<texture> _even,
                     shared_ptr<texture> _odd)
         : inv_scale(1.0 / _scale), even(_even), odd(_odd) {}
 
-    checker_texture(double _scale, color c1, color c2)
+    checker_texture(float _scale, color c1, color c2)
         : inv_scale(1.0 / _scale),
           even(make_shared<solid_color>(c1)),
           odd(make_shared<solid_color>(c2)) {}
 
-    color value(double u, double v, point3 const& p) const override {
+    color value(float u, float v, point3 const& p) const override {
         auto xInteger = static_cast<int>(std::floor(inv_scale * p.x()));
         auto yInteger = static_cast<int>(std::floor(inv_scale * p.y()));
         auto zInteger = static_cast<int>(std::floor(inv_scale * p.z()));
@@ -70,7 +68,7 @@ struct checker_texture : public texture {
     }
 
    private:
-    double inv_scale;
+    float inv_scale;
     shared_ptr<texture> even;
     shared_ptr<texture> odd;
 };
@@ -79,23 +77,23 @@ struct noise_texture : public texture {
    public:
     noise_texture() {}
 
-    noise_texture(double sc) : scale(sc) {}
+    noise_texture(float sc) : scale(sc) {}
 
-    color value(double u, double v, point3 const& p) const override {
+    color value(float u, float v, point3 const& p) const override {
         auto s = scale * p;
         return color(1, 1, 1) * 0.5 * (1 + sin(s.z() + 10 * noise.turb(s)));
     }
 
    private:
     perlin noise;
-    double scale;
+    float scale;
 };
 
 struct image_texture : public texture {
    public:
     image_texture(char const* filename) : image(filename) {}
 
-    color value(double u, double v, point3 const& p) const override {
+    color value(float u, float v, point3 const& p) const override {
         // If we have no texture data, then return solid cyan as a debugging
         // aid.
         if (image.height() <= 0) return color(0, 1, 1);
