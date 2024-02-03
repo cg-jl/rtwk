@@ -16,15 +16,21 @@
 #include "rtweekend.h"
 #include "vec3.h"
 
-struct quad : public hittable {
+struct quad final : public hittable {
    public:
-    quad(point3 const& _Q, vec3 const& _u, vec3 const& _v,
-         shared_ptr<material> m)
+    aabb bbox;
+    point3 Q;
+    vec3 u, v;
+    vec3 normal;
+    double inv_sqrtn;
+    shared_ptr<material> mat;
+    aabb bounding_box() const& override { return bbox; }
+
+    quad(point3 _Q, vec3 _u, vec3 _v, shared_ptr<material> m)
         : Q(_Q), u(_u), v(_v), mat(m) {
         auto n = cross(u, v);
-        normal = unit_vector(n);
-        D = dot(normal, Q);
-        w = n / dot(n, n);
+        inv_sqrtn = 1 / n.length();
+        normal = inv_sqrtn * n;
 
         set_bounding_box();
     }
@@ -37,10 +43,13 @@ struct quad : public hittable {
         // No hit if the ray is parallel to the plane.
         if (fabs(denom) < 1e-8) return false;
 
+        auto D = dot(normal, Q);
         // Return false if the hit point parameter t is outside the ray
         // interval.
         auto t = (D - dot(normal, r.origin)) / denom;
         if (!ray_t.contains(t)) return false;
+
+        auto w = normal * inv_sqrtn;
 
         // Determine the hit point lies within the planar shape using its plane
         // coordinates.
@@ -72,13 +81,6 @@ struct quad : public hittable {
         rec.v = b;
         return true;
     }
-
-   private:
-    point3 Q;
-    vec3 u, v, w;
-    vec3 normal;
-    double D;
-    shared_ptr<material> mat;
 };
 
 static inline void box_into(point3 a, point3 b, shared_ptr<material> mat,

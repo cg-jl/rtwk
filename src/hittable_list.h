@@ -22,8 +22,9 @@
 #include "hittable_view.h"
 #include "rtweekend.h"
 
-struct hittable_list : public hittable {
+struct hittable_list final : public hittable {
    public:
+    aabb bbox;
     std::vector<shared_ptr<hittable>> objects;
 
     hittable_list() {}
@@ -33,10 +34,12 @@ struct hittable_list : public hittable {
 
     void add(shared_ptr<hittable> object) {
         objects.push_back(object);
-        bbox = aabb(bbox, object->bbox);
+        bbox = aabb(bbox, object->bounding_box());
     }
 
     shared_ptr<hittable> split() { return bvh_node::split(objects); }
+
+    aabb bounding_box() const& override { return bbox; }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         std::span obs = objects;

@@ -15,8 +15,16 @@
 #include "hittable.h"
 #include "rtweekend.h"
 
-struct sphere : public hittable {
+struct sphere final : public hittable {
    public:
+    aabb bbox;
+    point3 center1;
+    double radius;
+    shared_ptr<material> mat;
+    vec3 center_vec;
+
+    aabb bounding_box() const& override { return bbox; }
+
     // Stationary Sphere
     sphere(point3 _center, double _radius, shared_ptr<material> _material)
         : center1(_center), radius(_radius), mat(_material) {
@@ -63,12 +71,6 @@ struct sphere : public hittable {
 
         return true;
     }
-
-   private:
-    point3 center1;
-    double radius;
-    shared_ptr<material> mat;
-    vec3 center_vec;
 
     point3 sphere_center(double time) const {
         // Linearly interpolate from center1 to center2 according to time, where

@@ -17,8 +17,13 @@
 #include "rtweekend.h"
 #include "texture.h"
 
-struct constant_medium : public hittable {
+struct constant_medium final : public hittable {
    public:
+    aabb bbox;
+    shared_ptr<hittable> boundary;
+    double neg_inv_density;
+    shared_ptr<material> phase_function;
+
     constant_medium(shared_ptr<hittable> b, double d, shared_ptr<texture> a)
         : boundary(b),
           neg_inv_density(-1 / d),
@@ -28,6 +33,8 @@ struct constant_medium : public hittable {
         : boundary(b),
           neg_inv_density(-1 / d),
           phase_function(make_shared<isotropic>(c)) {}
+
+    aabb bounding_box() const& override { return bbox; }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         hit_record rec1, rec2;
@@ -61,11 +68,6 @@ struct constant_medium : public hittable {
 
         return true;
     }
-
-   private:
-    shared_ptr<hittable> boundary;
-    double neg_inv_density;
-    shared_ptr<material> phase_function;
 };
 
 #endif

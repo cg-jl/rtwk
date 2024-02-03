@@ -39,19 +39,19 @@ struct hit_record {
     material const* mat;
 };
 
+// NOTE: storing bounding boxes on all hittables is a bad idea.
+// Better to cache it on construction if it acts as a top level!
+
 struct hittable {
    public:
-    aabb bbox = aabb{interval::empty, interval::empty, interval::empty};
-
-    hittable() {}
-    hittable(aabb bbox) : bbox(bbox) {}
+    virtual aabb bounding_box() const& = 0;
 
     virtual ~hittable() = default;
 
     virtual bool hit(ray const& r, interval& ray_t, hit_record& rec) const = 0;
 
     bool hit(ray const& r, hit_record& rec) const& {
-        auto bb = bbox;
+        auto bb = bounding_box();
         auto absolute_max_dist = (point3(bb.x.max, bb.y.max, bb.z.max) -
                                   point3(bb.x.min, bb.y.min, bb.z.min))
                                      .length_squared();
@@ -60,12 +60,14 @@ struct hittable {
     }
 };
 
-struct translate : public hittable {
+struct translate final : public hittable {
    public:
     translate(shared_ptr<hittable> p, vec3 const& displacement)
         : object(p), offset(displacement) {
-        bbox = object->bbox + offset;
+        bbox = object->bounding_box() + offset;
     }
+
+    aabb bounding_box() const& override { return bbox; }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         // Move the ray backwards by the offset
@@ -82,17 +84,24 @@ struct translate : public hittable {
     }
 
    private:
+    aabb bbox;
     shared_ptr<hittable> object;
     vec3 offset;
 };
 
-struct rotate_y : public hittable {
-   public:
+struct rotate_y final : public hittable {
+    aabb bbox;
+    shared_ptr<hittable> object;
+    double sin_theta;
+    double cos_theta;
+
+    aabb bounding_box() const& override { return bbox; }
+
     rotate_y(shared_ptr<hittable> p, double angle) : object(p) {
         auto radians = degrees_to_radians(angle);
         sin_theta = sin(radians);
         cos_theta = cos(radians);
-        bbox = object->bbox;
+        bbox = object->bounding_box();
 
         point3 min(infinity, infinity, infinity);
         point3 max(-infinity, -infinity, -infinity);
@@ -152,11 +161,6 @@ struct rotate_y : public hittable {
 
         return true;
     }
-
-   private:
-    shared_ptr<hittable> object;
-    double sin_theta;
-    double cos_theta;
 };
 
 #endif
