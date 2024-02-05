@@ -45,7 +45,7 @@ struct hittable_list final : public hittable {
         objects.emplace_back(std::move(object));
     }
 
-    shared_ptr<hittable> split() { return bvh::split_sah(objects, bbox); }
+    shared_ptr<hittable> split() { return bvh::split_random(objects); }
 
     aabb bounding_box() const& override { return bbox; }
 

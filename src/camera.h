@@ -91,8 +91,8 @@ struct camera {
             FILE* fp = fopen("test.png", "wb");
             assert(fp && "cannot create file for writing");
 
-            auto png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr,
-                                                   nullptr, nullptr);
+            auto png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
+                                                   nullptr, nullptr, nullptr);
             assert(png_ptr && "cannot create write struct");
 
             auto info_ptr = png_create_info_struct(png_ptr);
@@ -132,7 +132,7 @@ struct camera {
     }
 
    private:
-    int image_height{};     // Rendered image height
+    int image_height{};   // Rendered image height
     point3 center;        // Camera center
     point3 pixel00_loc;   // Location of pixel 0, 0
     vec3 pixel_delta_u;   // Offset to pixel to the right
