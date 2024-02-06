@@ -46,19 +46,27 @@ struct camera {
 
         auto px_count = image_width * image_height;
 
-        auto colors_mem = std::make_unique<icolor[]>(px_count);
+        auto fcolors_mem = std::make_unique<color[]>(px_count);
 
-        auto col_ptr = colors_mem.get();
+        auto fcol_ptr = fcolors_mem.get();
 
-#pragma omp parallel num_threads(12) \
-    firstprivate(col_ptr, image_height, image_width)
+        auto colors_mem = std::make_unique<uint8_t[]>(3ull * px_count);
+        auto ichannels = colors_mem.get();
+        auto channels = reinterpret_cast<float const*>(fcol_ptr);
+
+        // NOTE: 30% of the time (5 seconds) is spent just on a couple of
+        // threads. Consider sharing work, e.g lighting?
+
+        // NOTE: many page faults (15k/s) are happening.
+
+#pragma omp parallel num_threads(12)
         {
             // We do one per thread.
             auto light_info_uniq = std::make_unique<light_info[]>(max_depth);
 
             vecview light_infos(light_info_uniq.get(), max_depth);
 
-#pragma omp for
+#pragma omp for firstprivate(fcol_ptr, image_height, image_width)
             for (int j = 0; j < image_height; ++j) {
 #ifndef _OPENMP
                 // NOTE: doing this in MT will enable locks in I/O and
@@ -73,14 +81,21 @@ struct camera {
                         pixel_color +=
                             ray_color(r, background, world, light_infos);
                     }
-                    pixel_color /= float(samples_per_pixel);
-                    // NOTE: if discretizing becomes a problem, we can always
-                    // have a first render buffer and then a discretized buffer.
-                    // Perhaps we can even re-use the memory or smth.
-                    // NOTE: consider aligning col_ptr?
-                    discretize(pixel_color, col_ptr[j * image_width + i]);
+                    fcol_ptr[j * image_width + i] =
+                        pixel_color / float(samples_per_pixel);
                 }
             }
+        }
+
+#pragma omp for
+        for (int i = 0; i < 3 * px_count; ++i) {
+            auto channel = channels[i];
+            // Apply the linear to gamma transform.
+            channel = sqrtf(channel);
+            // Write the translated [0,255] value of each color
+            // component.
+            static const interval intensity(0.000, 0.999);
+            ichannels[i] = static_cast<uint8_t>(256 * intensity.clamp(channel));
         }
 
 #pragma omp single
@@ -118,8 +133,8 @@ struct camera {
 
             auto row_pointers = std::make_unique<uint8_t*[]>(image_height);
             for (size_t i = 0; i < image_height; ++i) {
-                row_pointers[i] = reinterpret_cast<uint8_t*>(colors_mem.get() +
-                                                             i * image_width);
+                row_pointers[i] = reinterpret_cast<uint8_t*>(
+                    colors_mem.get() + i * image_width * 3ull);
             }
 
             png_write_image(png_ptr, row_pointers.get());
