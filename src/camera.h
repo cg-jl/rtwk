@@ -213,7 +213,7 @@ struct camera {
         auto ray_direction = pixel_sample - ray_origin;
         auto ray_time = random_float();
 
-        return {ray_origin, ray_direction, ray_time};
+        return {ray_origin, unit_vector(ray_direction), ray_time};
     }
 
     [[nodiscard]] vec3 pixel_sample_square() const {

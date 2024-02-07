@@ -139,13 +139,24 @@ static vec3 random_in_unit_sphere() {
     return s * p;
 }
 
+// if |v| = |n|  = 1 => |reflect(v, n)| = 1
 static vec3 reflect(vec3 v, vec3 n) { return v - 2 * dot(v, n) * n; }
 
+// if |v| = |n| = 1 => |refract(uv, n)| = eta_squared
 static vec3 refract(vec3 uv, vec3 n, float cos_theta, float etai_over_etat) {
+    // if |uv| = |n| = 1 => |r_out_perp|^2 = etai_over_etat^2*(1 - cos_theta^2)
     vec3 r_out_perp = etai_over_etat * (uv + cos_theta * n);
+    auto eta_squared = etai_over_etat * etai_over_etat;
+
+    // |uv| = |n| = 1 => |r_out_parallel|^2 = 1 - eta_squared * sin_theta^2
     vec3 r_out_parallel =
-        -sqrtf(std::fabs(1.0f - r_out_perp.length_squared())) * n;
-    return r_out_perp + r_out_parallel;
+        -sqrtf(1.0f - eta_squared + eta_squared * cos_theta * cos_theta) * n;
+
+    // |r_out_parallel + r_out_perp|^2 = |r_out_perp|^2 + |r_out_parallel|^2 +
+    // 2*dot(r_out_perp, r_out_parallel) dot(r_out_parallel, r_out_perp) = 0 by construction, so:
+    // |r_out_parallel + r_out_perp|^2 = eta_squared
+
+    return (r_out_perp + r_out_parallel) / eta_squared;
 }
 
 #endif

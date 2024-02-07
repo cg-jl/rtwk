@@ -40,10 +40,17 @@ struct lambertian : public material {
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {
+        // NOTE: we shouldn't need any checks if we generate the random scatter
+        // according to lambert's law:
+        // https://en.wikipedia.org/wiki/Lambert%27s_cosine_law
+
         auto scatter_direction = rec.normal + random_unit_vector();
 
         // Catch degenerate scatter direction
-        if (scatter_direction.near_zero()) scatter_direction = rec.normal;
+        if (scatter_direction.near_zero())
+            scatter_direction = rec.normal;
+        else
+            scatter_direction = unit_vector(scatter_direction);
 
         scattered = scatter_direction;
     }
@@ -56,10 +63,13 @@ struct metal : public material {
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {
-        vec3 reflected = reflect(unit_vector(in_dir), rec.normal);
-        scattered = reflected + fuzz * random_in_unit_sphere();
+        vec3 reflected = reflect(in_dir, rec.normal);
+        // We use fuzz to 'grow' the scatter angle.
+        scattered = unit_vector(reflected + fuzz * random_in_unit_sphere());
 
         // invert if it's in the other face
+        // NOTE: This could be done with XORs with the sign bit of dot product,
+        // if we want our compiler to be fancy with it.
         scattered *= std::copysignf(1, dot(scattered, rec.normal));
     }
 
@@ -77,20 +87,20 @@ struct dielectric : public material {
                  vec3& scattered) const override {
         float refraction_ratio = rec.is_front ? (1.0f / ir) : ir;
 
-        vec3 unit_direction = unit_vector(in_dir);
-        float cos_theta = dot(-unit_direction, rec.normal);
+        float cos_theta = dot(-in_dir, rec.normal);
         assume(cos_theta * cos_theta <= 1.0);
-        float sin_theta = sqrtf(1.0f - cos_theta * cos_theta);
+        float sin_theta_squared = 1.0f - cos_theta * cos_theta;
 
-        bool cannot_refract = refraction_ratio * sin_theta > 1.0;
+        bool cannot_refract =
+            refraction_ratio * refraction_ratio * sin_theta_squared > 1.0f;
         vec3 direction;
 
         if (cannot_refract ||
             reflectance(cos_theta, refraction_ratio) > random_float())
-            direction = reflect(unit_direction, rec.normal);
+            direction = reflect(in_dir, rec.normal);
         else
-            direction = refract(unit_direction, rec.normal, cos_theta,
-                                refraction_ratio);
+            direction =
+                refract(in_dir, rec.normal, cos_theta, refraction_ratio);
 
         scattered = direction;
     }
