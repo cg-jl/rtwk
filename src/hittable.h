@@ -72,10 +72,24 @@ struct hittable {
         return hit(r, t, rec);
     }
 };
+inline bool hit_displaced(ray const& r, interval& ray_t, hit_record& rec,
+                          vec3 displacement, hittable const& obj) {
+    // Move the ray backwards by the offset
+    ray offset_r(r.origin - displacement, r.direction, r.time);
+
+    // Determine whether an intersection exists along the offset ray (and if
+    // so, where)
+    if (!obj.hit(offset_r, ray_t, rec)) return false;
+
+    // Move the intersection point forwards by the offset
+    rec.p += displacement;
+
+    return true;
+}
 
 struct translate final : public hittable {
    public:
-    translate(shared_ptr<hittable> p, vec3 const& displacement)
+    translate(shared_ptr<hittable> p, vec3 displacement)
         : object(std::move(p)), offset(displacement) {}
 
     [[nodiscard]] aabb bounding_box() const& override {
@@ -83,17 +97,7 @@ struct translate final : public hittable {
     }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
-        // Move the ray backwards by the offset
-        ray offset_r(r.origin - offset, r.direction, r.time);
-
-        // Determine whether an intersection exists along the offset ray (and if
-        // so, where)
-        if (!object->hit(offset_r, ray_t, rec)) return false;
-
-        // Move the intersection point forwards by the offset
-        rec.p += offset;
-
-        return true;
+        return hit_displaced(r, ray_t, rec, offset, *object);
     }
 
    private:
@@ -174,5 +178,25 @@ struct rotate_y final : public hittable {
         rec.normal = normal;
 
         return true;
+    }
+};
+
+// Move item along a line. It is a 'translate' that is dependent on time.
+struct move final : public hittable {
+    vec3 move_segment;
+    shared_ptr<hittable> child;
+
+    move(vec3 move_segment, shared_ptr<hittable> child)
+        : move_segment(move_segment), child(std::move(child)) {}
+
+    aabb bounding_box() const& override {
+        aabb orig = child->bounding_box();
+        return aabb(orig, orig + move_segment);
+    }
+
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
+        auto const displacement = move_segment * r.time;
+
+        return hit_displaced(r, ray_t, rec, displacement, *child);
     }
 };

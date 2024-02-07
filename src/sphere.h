@@ -12,13 +12,20 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <cmath>
+#include <utility>
+
 #include "hittable.h"
 #include "rtweekend.h"
 
+// NOTE: how about saving non-moving spheres differently in memory?
+// These moving spheres are just 'instanced' spheres with a translation that is
+// time-dpendent.
+// NOTE: This instancing could be done before each 'sample', as in *really*
+// taking a shot of the full scene and averaging it?
 struct sphere final : public hittable {
    public:
-    point3 center1;
-    vec3 center_vec;
+    point3 center;
     // NOTE: padding is being applied here.
     // Of 4 bytes, for some reason.
     float radius;
@@ -27,25 +34,14 @@ struct sphere final : public hittable {
 
     aabb bounding_box() const& override {
         auto rvec = vec3(radius, radius, radius);
-        auto center2 = center1 + center_vec;
-        aabb box1(center1 - rvec, center1 + rvec);
-        aabb box2(center2 - rvec, center2 + rvec);
-        return aabb(box1, box2);
+        return aabb(center + rvec, center - rvec);
     }
 
     // Stationary Sphere
     sphere(point3 _center, float _radius, shared_ptr<material> _material)
-        : center1(_center), radius(_radius), mat(_material) {}
-
-    // Moving Sphere
-    sphere(point3 _center1, point3 _center2, float _radius,
-           shared_ptr<material> _material)
-        : center1(_center1), radius(_radius), mat(_material) {
-        center_vec = _center2 - _center1;
-    }
+        : center(_center), radius(_radius), mat(std::move(_material)) {}
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
-        point3 center = sphere_center(r.time);
         vec3 oc = r.origin - center;
         auto a = r.direction.length_squared();
         auto half_b = dot(oc, r.direction);
@@ -72,12 +68,6 @@ struct sphere final : public hittable {
         return true;
     }
 
-    point3 sphere_center(float time) const {
-        // Linearly interpolate from center1 to center2 according to time, where
-        // t=0 yields center1, and t=1 yields center2.
-        return center1 + time * center_vec;
-    }
-
     static void get_sphere_uv(point3 const& p, float& u, float& v) {
         // p: a given point on the sphere of radius one, centered at the origin.
         // u: returned value [0,1] of angle around the Y axis from X=-1.
@@ -86,8 +76,8 @@ struct sphere final : public hittable {
         //     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
         //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
 
-        auto theta = acos(-p.y());
-        auto phi = atan2(-p.z(), p.x()) + pi;
+        auto theta = std::acos(-p.y());
+        auto phi = std::atan2(-p.z(), p.x()) + pi;
 
         u = phi / (2 * pi);
         v = theta / pi;
