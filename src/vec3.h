@@ -75,7 +75,7 @@ struct vec3 {
 
     static vec3 random(float min, float max) {
         return {random_float(min, max), random_float(min, max),
-                    random_float(min, max)};
+                random_float(min, max)};
     }
 };
 float vec3::z() const { return e[2]; }
@@ -116,8 +116,8 @@ static float dot(vec3 u, vec3 v) {
 
 static vec3 cross(vec3 u, vec3 v) {
     return {u.e[1] * v.e[2] - u.e[2] * v.e[1],
-                u.e[2] * v.e[0] - u.e[0] * v.e[2],
-                u.e[0] * v.e[1] - u.e[1] * v.e[0]};
+            u.e[2] * v.e[0] - u.e[0] * v.e[2],
+            u.e[0] * v.e[1] - u.e[1] * v.e[0]};
 }
 
 static vec3 unit_vector(vec3 v) { return v / v.length(); }
@@ -129,9 +129,7 @@ static vec3 random_in_unit_disk() {
     return s * p;
 }
 
-static vec3 random_unit_vector() {
-    return unit_vector(vec3::random(-1, 1));
-}
+static vec3 random_unit_vector() { return unit_vector(vec3::random(-1, 1)); }
 
 static vec3 random_in_unit_sphere() {
     auto p = random_unit_vector();
@@ -143,10 +141,10 @@ static vec3 random_in_unit_sphere() {
 
 static vec3 reflect(vec3 v, vec3 n) { return v - 2 * dot(v, n) * n; }
 
-static vec3 refract(vec3 uv, vec3 n, float cos_theta,
-                           float etai_over_etat) {
+static vec3 refract(vec3 uv, vec3 n, float cos_theta, float etai_over_etat) {
     vec3 r_out_perp = etai_over_etat * (uv + cos_theta * n);
-    vec3 r_out_parallel = -sqrtf(std::fabs(1.0f - r_out_perp.length_squared())) * n;
+    vec3 r_out_parallel =
+        -sqrtf(std::fabs(1.0f - r_out_perp.length_squared())) * n;
     return r_out_perp + r_out_parallel;
 }
 

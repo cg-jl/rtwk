@@ -33,8 +33,10 @@ struct material {
 
 struct lambertian : public material {
    public:
-    explicit lambertian(color const& a) : lambertian(make_shared<solid_color>(a)) {}
-    explicit lambertian(shared_ptr<texture> a) : material(false, std::move(a)) {}
+    explicit lambertian(color const& a)
+        : lambertian(make_shared<solid_color>(a)) {}
+    explicit lambertian(shared_ptr<texture> a)
+        : material(false, std::move(a)) {}
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {
@@ -109,8 +111,10 @@ struct dielectric : public material {
 
 struct diffuse_light : public material {
    public:
-    explicit diffuse_light(shared_ptr<texture> a) : material(true, std::move(a)) {}
-    explicit diffuse_light(color c) : diffuse_light(make_shared<solid_color>(c)) {}
+    explicit diffuse_light(shared_ptr<texture> a)
+        : material(true, std::move(a)) {}
+    explicit diffuse_light(color c)
+        : diffuse_light(make_shared<solid_color>(c)) {}
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {}

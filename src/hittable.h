@@ -22,7 +22,6 @@ struct material;
 // NOTE: each shared_ptr occupies 16 bytes. What if we move that to 8 bytes by
 // just having a const *?
 
-
 struct hit_record {
    public:
     struct face {

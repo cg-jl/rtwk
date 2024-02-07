@@ -44,6 +44,10 @@ static size_t partition(std::span<shared_ptr<hittable>> obs, int axis) {
     return mid;
 }
 
+// NOTE: what if we start making an API for making multiple hits?
+// Thinking about some way to do things layer by layer on the BVH, so that we
+// do more work per cache miss.
+
 // NOTE: currently assuming that partitions are always symmetric, meaning
 // that we can always compute the child spans from a parent span.
 struct tree final : public hittable {

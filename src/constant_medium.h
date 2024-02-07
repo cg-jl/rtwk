@@ -34,7 +34,9 @@ struct constant_medium final : public hittable {
           neg_inv_density(-1 / d),
           phase_function(make_shared<isotropic>(c)) {}
 
-    [[nodiscard]] aabb bounding_box() const& override { return boundary->bounding_box(); }
+    [[nodiscard]] aabb bounding_box() const& override {
+        return boundary->bounding_box();
+    }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         hit_record rec1, rec2;
