@@ -20,6 +20,7 @@
 #include "rtweekend.h"
 #include "sphere.h"
 #include "texture.h"
+#include "transform.h"
 
 static void random_spheres() {
     hittable_list world;
@@ -44,8 +45,8 @@ static void random_spheres() {
                     sphere_material = make_shared<lambertian>(albedo);
                     auto displacement = vec3(0, random_float(0, .5), 0);
 
-                    world.add(make_shared<move>(
-                        displacement,
+                    world.add(make_shared<transformed_geometry>(
+                        make_shared<move>(displacement),
                         make_shared<sphere>(center, 0.2, sphere_material)));
                 } else if (choose_mat < 0.95) {
                     // metal
@@ -268,15 +269,24 @@ static void cornell_box() {
 
     shared_ptr<hittable> box1 =
         box(point3(0, 0, 0), point3(165, 330, 165), white);
-    box1 = make_shared<rotate_y>(box1, 15);
-    box1 = make_shared<translate>(box1, vec3(265, 0, 295));
-    world.add(box1);
+    ordered_transforms transforms;
+    transforms.add<translate>(vec3(265, 0, 295));
+    transforms.add<rotate_y>(15);
+    world.add(make_shared<transformed_geometry>(
+        make_shared<ordered_transforms>(std::move(transforms)),
+        std::move(box1)));
 
     shared_ptr<hittable> box2 =
         box(point3(0, 0, 0), point3(165, 165, 165), white);
-    box2 = make_shared<rotate_y>(box2, -18);
-    box2 = make_shared<translate>(box2, vec3(130, 0, 65));
-    world.add(box2);
+    // NOTE: This is safe because we moved it
+    transforms.tfs.clear();
+
+    transforms.add<translate>(vec3(130, 0, 65));
+    transforms.add<rotate_y>(-18);
+
+    world.add(make_shared<transformed_geometry>(
+        make_shared<ordered_transforms>(std::move(transforms)),
+        std::move(box2)));
 
     camera cam;
 
@@ -319,13 +329,27 @@ static void cornell_smoke() {
 
     shared_ptr<hittable> box1 =
         box(point3(0, 0, 0), point3(165, 330, 165), white);
-    box1 = make_shared<rotate_y>(box1, 15);
-    box1 = make_shared<translate>(box1, vec3(265, 0, 295));
+
+    ordered_transforms transforms;
+    transforms.add<translate>(vec3(265, 0, 295));
+    transforms.add<rotate_y>(15);
+
+    box1 = make_shared<transformed_geometry>(
+        make_shared<ordered_transforms>(std::move(transforms)),
+        std::move(box1));
 
     shared_ptr<hittable> box2 =
         box(point3(0, 0, 0), point3(165, 165, 165), white);
-    box2 = make_shared<rotate_y>(box2, -18);
-    box2 = make_shared<translate>(box2, vec3(130, 0, 65));
+
+    // NOTE: We can do this because we moved earlier
+    transforms.tfs.clear();
+
+    transforms.add<translate>(vec3(130, 0, 65));
+    transforms.add<rotate_y>(-18);
+
+    box2 = make_shared<transformed_geometry>(
+        make_shared<ordered_transforms>(std::move(transforms)),
+        std::move(box2));
 
     world.add(make_shared<constant_medium>(box1, 0.01, color(0, 0, 0)));
     world.add(make_shared<constant_medium>(box2, 0.01, color(1, 1, 1)));
@@ -377,8 +401,9 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     auto center = point3(400, 400, 200);
     auto sphere_material = make_shared<lambertian>(color(0.7, 0.3, 0.1));
-    world.add(make_shared<move>(
-        vec3(30, 0, 0), make_shared<sphere>(center, 50, sphere_material)));
+    world.add(make_shared<transformed_geometry>(
+        make_shared<move>(vec3(30, 0, 0)),
+        make_shared<sphere>(center, 50, sphere_material)));
 
     world.add(make_shared<sphere>(point3(260, 150, 45), 50,
                                   make_shared<dielectric>(1.5)));
@@ -409,8 +434,12 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         boxes2.add(make_shared<sphere>(point3::random(0, 165), 10, white));
     }
 
-    world.add(make_shared<translate>(make_shared<rotate_y>(boxes2.split(), 15),
-                                     vec3(-100, 270, 395)));
+    ordered_transforms transforms;
+    transforms.with<translate>(vec3(-100, 270, 395));
+    transforms.with<rotate_y>(15);
+    world.add(make_shared<transformed_geometry>(
+        make_shared<ordered_transforms>(std::move(transforms)),
+        boxes2.split()));
 
     camera cam;
 

@@ -47,6 +47,12 @@ struct vec3 {
         e[2] *= v.e[2];
         return *this;
     }
+    vec3 &operator-=(vec3 v) {
+        e[0] -= v.e[0];
+        e[1] -= v.e[1];
+        e[2] -= v.e[2];
+        return *this;
+    }
 
     vec3 &operator*=(float t) {
         e[0] *= t;
@@ -153,8 +159,8 @@ static vec3 refract(vec3 uv, vec3 n, float cos_theta, float etai_over_etat) {
         -sqrtf(1.0f - eta_squared + eta_squared * cos_theta * cos_theta) * n;
 
     // |r_out_parallel + r_out_perp|^2 = |r_out_perp|^2 + |r_out_parallel|^2 +
-    // 2*dot(r_out_perp, r_out_parallel) dot(r_out_parallel, r_out_perp) = 0 by construction, so:
-    // |r_out_parallel + r_out_perp|^2 = eta_squared
+    // 2*dot(r_out_perp, r_out_parallel) dot(r_out_parallel, r_out_perp) = 0 by
+    // construction, so: |r_out_parallel + r_out_perp|^2 = eta_squared
 
     return (r_out_perp + r_out_parallel) / eta_squared;
 }

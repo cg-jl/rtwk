@@ -87,7 +87,7 @@ struct dielectric : public material {
                  vec3& scattered) const override {
         float refraction_ratio = rec.is_front ? (1.0f / ir) : ir;
 
-        float cos_theta = dot(-in_dir, rec.normal);
+        float cos_theta = -dot(in_dir, rec.normal);
         assume(cos_theta * cos_theta <= 1.0);
         float sin_theta_squared = 1.0f - cos_theta * cos_theta;
 

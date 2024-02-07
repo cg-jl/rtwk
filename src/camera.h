@@ -57,8 +57,6 @@ struct camera {
         // NOTE: 30% of the time (5 seconds) is spent just on a couple of
         // threads. Consider sharing work, e.g lighting?
 
-        // NOTE: many page faults (15k/s) are happening.
-
 #pragma omp parallel num_threads(12)
         {
             // We do one per thread.
