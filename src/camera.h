@@ -250,7 +250,7 @@ struct camera {
             hit_record rec;
 
             if (!world.hit(r, rec)) return ray_result::background;
-            lights.emplace_back(rec.mat->tex.get(), rec.p, rec.u, rec.v);
+            lights.emplace_back(rec.tex, rec.p, rec.u, rec.v);
 
             if (rec.mat->is_light_source) return ray_result::light;
 

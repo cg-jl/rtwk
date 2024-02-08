@@ -24,6 +24,10 @@
 #include "interval.h"
 #include "rtweekend.h"
 
+// NOTE: what if I use the BVH to make object selection on a bit array? This way
+// I may be able to process the hits as a masked line, and select the best one
+// that way.
+
 namespace bvh {
 
 static bool box_compare(shared_ptr<hittable> const& a,

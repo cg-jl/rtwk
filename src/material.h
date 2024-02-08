@@ -20,23 +20,18 @@
 struct material {
    public:
     bool is_light_source = false;
-    shared_ptr<texture> tex;
 
     virtual ~material() = default;
 
-    material(bool is_light_source, shared_ptr<texture> tex)
-        : is_light_source(is_light_source), tex(std::move(tex)) {}
+    explicit material(bool is_light_source) : is_light_source(is_light_source) {}
 
     virtual void scatter(vec3 in_dir, hit_record::face rec,
                          vec3& scattered) const = 0;
 };
 
-struct lambertian : public material {
+struct lambertian final : public material {
    public:
-    explicit lambertian(color const& a)
-        : lambertian(make_shared<solid_color>(a)) {}
-    explicit lambertian(shared_ptr<texture> a)
-        : material(false, std::move(a)) {}
+    explicit lambertian() : material(false) {}
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {
@@ -56,10 +51,9 @@ struct lambertian : public material {
     }
 };
 
-struct metal : public material {
+struct metal final : public material {
    public:
-    metal(color const& a, float f)
-        : material(false, make_shared<solid_color>(a)), fuzz(f < 1 ? f : 1) {}
+    explicit metal(float fuzz) : material(false), fuzz(fuzz < 1 ? fuzz : 1) {}
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {
@@ -77,11 +71,10 @@ struct metal : public material {
     float fuzz;
 };
 
-struct dielectric : public material {
+struct dielectric final : public material {
    public:
     explicit dielectric(float index_of_refraction)
-        : material(false, make_shared<solid_color>(color(1, 1, 1))),
-          ir(index_of_refraction) {}
+        : material(false), ir(index_of_refraction) {}
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {
@@ -119,21 +112,17 @@ struct dielectric : public material {
     }
 };
 
-struct diffuse_light : public material {
+struct diffuse_light final : public material {
    public:
-    explicit diffuse_light(shared_ptr<texture> a)
-        : material(true, std::move(a)) {}
-    explicit diffuse_light(color c)
-        : diffuse_light(make_shared<solid_color>(c)) {}
+    explicit diffuse_light() : material(true) {}
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {}
 };
 
-struct isotropic : public material {
+struct isotropic final : public material {
    public:
-    explicit isotropic(color c) : isotropic(make_shared<solid_color>(c)) {}
-    explicit isotropic(shared_ptr<texture> a) : material(false, std::move(a)) {}
+    explicit isotropic() : material(false) {}
 
     void scatter(vec3 in_dir, hit_record::face rec,
                  vec3& scattered) const override {

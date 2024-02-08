@@ -18,6 +18,12 @@
 #include "hittable.h"
 #include "rtweekend.h"
 
+// NOTE: With a different model for hittable collections, I could make every
+// entity have a:
+// - geometry component
+// - light model
+// - color model
+
 // NOTE: how about saving non-moving spheres differently in memory?
 // These moving spheres are just 'instanced' spheres with a translation that is
 // time-dpendent.
@@ -30,16 +36,21 @@ struct sphere final : public hittable {
     // Of 4 bytes, for some reason.
     float radius;
 
+    shared_ptr<texture> tex;
     shared_ptr<material> mat;
 
-    aabb bounding_box() const& override {
+    [[nodiscard]] aabb bounding_box() const& override {
         auto rvec = vec3(radius, radius, radius);
-        return aabb(center + rvec, center - rvec);
+        return {center + rvec, center - rvec};
     }
 
     // Stationary Sphere
-    sphere(point3 _center, float _radius, shared_ptr<material> _material)
-        : center(_center), radius(_radius), mat(std::move(_material)) {}
+    sphere(point3 _center, float _radius, shared_ptr<material> _material,
+           shared_ptr<texture> tex)
+        : center(_center),
+          radius(_radius),
+          mat(std::move(_material)),
+          tex(std::move(tex)) {}
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         vec3 oc = r.origin - center;
@@ -64,6 +75,7 @@ struct sphere final : public hittable {
         rec.normal = outward_normal;
         get_sphere_uv(outward_normal, rec.u, rec.v);
         rec.mat = mat.get();
+        rec.tex = tex.get();
 
         return true;
     }

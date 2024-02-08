@@ -1,5 +1,6 @@
 #pragma once
 
+#include "texture.h"
 #include "vec3.h"
 
 struct material;
@@ -21,4 +22,5 @@ struct hit_record {
     float u{};
     float v{};
     material const* mat{};
+    texture const* tex{};
 };

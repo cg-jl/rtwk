@@ -35,10 +35,8 @@ struct texture {
 
 struct solid_color : public texture {
    public:
-    solid_color(color c) : color_value(c) {}
-
-    solid_color(float red, float green, float blue)
-        : solid_color(color(red, green, blue)) {}
+    template <typename... Args>
+    solid_color(Args&&... args) : color_value(std::forward<Args&&>(args)...) {}
 
     color value(float u, float v, point3 const& p) const override {
         return color_value;

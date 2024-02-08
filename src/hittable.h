@@ -48,12 +48,6 @@ struct material;
 // NOTE: each shared_ptr occupies 16 bytes. What if we move that to 8 bytes by
 // just having a const *?
 
-struct light_info {
-    texture const* tex{};
-    point3 p;
-    float u{}, v{};
-};
-
 // NOTE: material could be the next thing to make common on all hittables so it
 // can be migrated to somewhere else! Reason is that we don't need to access the
 // material pointer until we're sure that it's the correct one. By doing this
