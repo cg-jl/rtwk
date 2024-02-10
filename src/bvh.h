@@ -221,12 +221,10 @@ struct tree final : public hittable {
     aabb whole_bb = empty_bb;
 
     // NOTE: duplicate work from eval_partition_cost
-    // NOTE: duplicate work from split_tree (on left)
     for (auto const& ob : objects.subspan(0, mid)) {
         left_part = interval(left_part, ob->bounding_box().axis(best_axis));
     }
 
-    // NOTE: duplicate work from both split_tree recursive calls (left & right)
     for (auto const& ob : objects) {
         whole_bb = aabb(whole_bb, ob->bounding_box());
     }

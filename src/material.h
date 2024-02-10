@@ -23,7 +23,8 @@ struct material {
 
     virtual ~material() = default;
 
-    explicit material(bool is_light_source) : is_light_source(is_light_source) {}
+    explicit material(bool is_light_source)
+        : is_light_source(is_light_source) {}
 
     virtual void scatter(vec3 in_dir, hit_record::face rec,
                          vec3& scattered) const = 0;
