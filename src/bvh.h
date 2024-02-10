@@ -113,10 +113,14 @@ static float eval_linear_cost(std::span<shared_ptr<hittable> const> obs) {
 // NOTE: currently assuming that partitions are always symmetric, meaning
 // that we can always compute the child spans from a parent span.
 struct tree final : public hittable {
+    // NOTE: Could split nodes into the info needed before the check and info
+    // needed for recursive traversal.
     struct node {
         aabb box;
         int left;
         int right;
+        int axis;
+        float split_point;
     };
 
     tree() = default;
@@ -148,13 +152,38 @@ struct tree final : public hittable {
 
             if (!node.box.hit(r, ray_t)) return false;
 
-            auto hits_left = hit_tree(r, ray_t, rec, nodes, node.left,
-                                      objects.subspan(0, objects.size() / 2));
+            // NOTE: space is partitioned along an axis, so we can know where
+            // the ray may hit first. We also may know if the ray hits along
+            // only one place or both.
+            //
+            // Remember that left means towards negative and right means towards
+            // positive.
 
-            auto hits_right = hit_tree(r, ray_t, rec, nodes, node.right,
-                                       objects.subspan(objects.size() / 2));
+            // NOTE: With this, now we don't always visit left first, but the
+            // best memory order is still in-order sorting.
 
-            return hits_left | hits_right;
+            auto const& ax = node.box.axis(node.axis);
+            auto space_mid = node.split_point;
+
+            int first_child = node.left;
+            int second_child = node.right;
+
+            auto first_span = objects.subspan(0, objects.size() / 2);
+            auto second_span = objects.subspan(objects.size() / 2);
+
+            // If the origin is on the right part and it goes into the left
+            // side, then we want to check right first
+
+            if (r.origin[node.axis] > space_mid && r.direction[node.axis] < 0) {
+                std::swap(first_child, second_child);
+                std::swap(first_span, second_span);
+            }
+
+            auto hits_first =
+                hit_tree(r, ray_t, rec, nodes, first_child, first_span);
+            if (hits_first) return true;
+
+            return hit_tree(r, ray_t, rec, nodes, second_child, second_span);
         }
     }
 };
@@ -188,7 +217,16 @@ struct tree final : public hittable {
     assert(mid == objects.size() / 2 &&
            "friendly reminder to add partition ranges to BVH nodes");
 
+    interval left_part = interval::empty;
     aabb whole_bb = empty_bb;
+
+    // NOTE: duplicate work from eval_partition_cost
+    // NOTE: duplicate work from split_tree (on left)
+    for (auto const& ob : objects.subspan(0, mid)) {
+        left_part = interval(left_part, ob->bounding_box().axis(best_axis));
+    }
+
+    // NOTE: duplicate work from both split_tree recursive calls (left & right)
     for (auto const& ob : objects) {
         whole_bb = aabb(whole_bb, ob->bounding_box());
     }
@@ -200,7 +238,8 @@ struct tree final : public hittable {
 
     auto right = split_tree(objects.subspan(mid), inorder_nodes, depth + 1);
 
-    new (&inorder_nodes[parent]) tree::node{whole_bb, left, right};
+    new (&inorder_nodes[parent])
+        tree::node{whole_bb, left, right, best_axis, left_part.max};
 
     return int(parent);
 }
