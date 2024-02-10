@@ -48,6 +48,64 @@ static size_t partition(std::span<shared_ptr<hittable>> obs, int axis) {
     return mid;
 }
 
+static constexpr float intersection_cost = 3;
+static constexpr float visit_left_cost = 0.01;
+// Visiting right means losing a cacheline potentially.
+// NOTE: This is diminished each depth, so maybe depth has to be tracked?
+static constexpr float visit_right_cost = 0.03;
+
+static float cumulative_left_visit(int depth) {
+    // visit_right_cost * sum(1, depth)
+    return visit_left_cost * float(depth * (depth + 1) / 2);
+}
+
+static float cumulative_right_visit(int depth) {
+    return visit_right_cost * float(depth * (depth + 1) / 2);
+}
+
+static float eval_partition_cost(size_t split_index,
+                                 std::span<shared_ptr<hittable> const> obs,
+                                 int axis, int depth) {
+    interval whole = interval::empty;
+    interval left = interval::empty;
+    interval right = interval::empty;
+
+    for (auto const& ob : obs.subspan(0, split_index)) {
+        left = interval(left, ob->bounding_box().axis(axis));
+    }
+
+    for (auto const& ob : obs.subspan(split_index)) {
+        right = interval(right, ob->bounding_box().axis(axis));
+    }
+
+    whole = interval(left, right);
+
+    // Probability that ray hits in each subdivision given that it hit here.
+    auto pa = left.size() / whole.size();
+    auto pb = right.size() / whole.size();
+
+    // Average number of hits to check on each partition, assuming it follows a
+    // uniform distribution.
+    auto hits_in_a = pa * float(split_index);
+    auto hits_in_b = pb * float(obs.size() - split_index);
+
+    auto a_cost = cumulative_left_visit(depth) + intersection_cost * hits_in_a;
+    auto b_cost = cumulative_right_visit(depth) + intersection_cost * hits_in_b;
+
+    return a_cost + b_cost;
+}
+
+static float eval_linear_cost(std::span<shared_ptr<hittable> const> obs) {
+    // NOTE: Since everything is going through shared pointers right now, I'll
+    // add another penalty to the linear one, since it isn't fully cached like
+    // we're assuming here!
+    static constexpr float traversal_penalty = 0.6;
+
+    // NOTE: Could add more information like number of cache misses due to
+    // visiting, but since it's linear that penalty might be very small
+    return float(obs.size()) * (intersection_cost + traversal_penalty);
+}
+
 // NOTE: what if we start making an API for making multiple hits?
 // Thinking about some way to do things layer by layer on the BVH, so that we
 // do more work per cache miss.
@@ -103,21 +161,29 @@ struct tree final : public hittable {
 
 // Returns the index for the parent, or -1 if not splitting
 [[nodiscard]] static int split_tree(std::span<shared_ptr<hittable>> objects,
-                                    std::vector<tree::node>& inorder_nodes) {
+                                    std::vector<tree::node>& inorder_nodes,
+                                    int depth = 0) {
     // Not required
     if (objects.size() == 1) return -1;
 
-    // TODO: estimate which axis is the more cost effective split.
+    int best_axis = -1;
+    auto linear_cost = eval_linear_cost(objects);
+    float best_cost = linear_cost;
 
-    // TODO: avoid splitting if our final partition cost is more than the
-    // linear cost.
+    // NOTE: this relies on bvh::partition being idempotent!
+    for (int axis = 0; axis < 3; ++axis) {
+        auto mid = bvh::partition(objects, axis);
+        auto partition_cost = eval_partition_cost(mid, objects, axis, depth);
+        // We only care about removing >70% of the cost
+        if (best_cost / partition_cost > 1.5) {
+            best_cost = partition_cost;
+            best_axis = axis;
+        }
+    }
 
-    // NOTE: can we optimize intersection resources (i.e how much data
-    // we need) by knowing what axis is each node split into? This would
-    // mean a reduction in node size.
-    int axis = random_int(0, 2);
+    if (best_axis == -1) return -1;
 
-    auto mid = bvh::partition(objects, axis);
+    auto mid = bvh::partition(objects, best_axis);
 
     assert(mid == objects.size() / 2 &&
            "friendly reminder to add partition ranges to BVH nodes");
@@ -127,12 +193,12 @@ struct tree final : public hittable {
         whole_bb = aabb(whole_bb, ob->bounding_box());
     }
 
-    auto left = split_tree(objects.subspan(0, mid), inorder_nodes);
+    auto left = split_tree(objects.subspan(0, mid), inorder_nodes, depth + 1);
 
     auto parent = inorder_nodes.size();
     inorder_nodes.emplace_back();
 
-    auto right = split_tree(objects.subspan(mid), inorder_nodes);
+    auto right = split_tree(objects.subspan(mid), inorder_nodes, depth + 1);
 
     new (&inorder_nodes[parent]) tree::node{whole_bb, left, right};
 
