@@ -113,6 +113,8 @@ struct dielectric final : public material {
     }
 };
 
+// NOTE: diffuse light won't scatter, but it can signal that it's a light
+// source.
 struct diffuse_light final : public material {
    public:
     explicit diffuse_light() : material(true) {}
@@ -130,3 +132,9 @@ struct isotropic final : public material {
         scattered = random_unit_vector();
     }
 };
+
+namespace singleton_materials {
+static auto const lambertian = make_shared<::lambertian>();
+static auto const isotropic = make_shared<::isotropic>();
+static auto const diffuse_light = make_shared<::diffuse_light>();
+}  // namespace singleton_materials
