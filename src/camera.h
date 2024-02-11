@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include <atomic>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <span>
@@ -32,11 +33,11 @@
 
 struct camera {
    public:
-    float aspect_ratio = 1.0;    // Ratio of image width over height
-    int image_width = 100;       // Rendered image width in pixel count
-    int samples_per_pixel = 10;  // Count of random samples for each pixel
-    int max_depth = 10;          // Maximum number of ray bounces into scene
-    color background;            // Scene background color
+    float aspect_ratio = 1.0;         // Ratio of image width over height
+    uint32_t image_width = 100;       // Rendered image width in pixel count
+    uint32_t samples_per_pixel = 10;  // Count of random samples for each pixel
+    uint32_t max_depth = 10;  // Maximum number of ray bounces into scene
+    color background;         // Scene background color
 
     float vfov = 90;                     // Vertical view angle (field of view)
     point3 lookfrom = point3(0, 0, -1);  // Point camera is looking from
@@ -89,25 +90,61 @@ struct camera {
 #pragma omp parallel num_threads(12)
         {
             // We do one per thread.
-            auto light_info_uniq = std::make_unique<light_info[]>(max_depth);
+            auto light_info_uniq = std::make_unique<light_info[]>(
+                size_t(max_depth) * size_t(samples_per_pixel));
 
-            vecview light_infos(light_info_uniq.get(), max_depth);
+            struct ray_info {
+                uint32_t num_samples;
+                enum ray_result finish_state;
+            };
+
+            auto geometry_results =
+                std::make_unique<ray_info[]>(samples_per_pixel);
 
 #pragma omp for firstprivate(fcol_ptr, image_height, image_width)
-            for (int j = 0; j < image_height; ++j) {
+            for (uint32_t j = 0; j < image_height; ++j) {
 #ifndef _OPENMP
                 // NOTE: doing this in MT will enable locks in I/O and
                 // synchronize the threads, which I don't want to :(
                 std::clog << "\rScanlines remaining: " << (image_height - j)
                           << ' ' << std::flush;
 #endif
-                for (int i = 0; i < image_width; ++i) {
-                    color pixel_color(0, 0, 0);
-                    for (int sample = 0; sample < samples_per_pixel; ++sample) {
+                for (uint32_t i = 0; i < image_width; ++i) {
+                    // geometry
+
+                    uint32_t total_geometry_samples = 0;
+                    for (uint32_t sample = 0; sample < samples_per_pixel;
+                         ++sample) {
+                        vecview light_infos(
+                            light_info_uniq.get() + total_geometry_samples,
+                            max_depth);
+
                         ray r = get_ray(i, j);
-                        pixel_color +=
-                            ray_color(r, background, world, light_infos);
+
+                        auto res = simulate_ray(r, world, light_infos);
+                        total_geometry_samples += light_infos.count;
+                        geometry_results[sample] =
+                            ray_info{light_infos.count, res};
                     }
+
+                    // color
+
+                    uint32_t used_light_count = 0;
+                    color pixel_color(0, 0, 0);
+                    for (uint32_t sample = 0; sample < samples_per_pixel;
+                         ++sample) {
+                        auto const& info = geometry_results[sample];
+
+                        auto const* lights =
+                            light_info_uniq.get() + used_light_count;
+
+                        used_light_count += info.num_samples;
+
+                        pixel_color +=
+                            sample_textures(info.finish_state, lights,
+                                            info.num_samples, background);
+                    }
+
                     fcol_ptr[j * image_width + i] =
                         pixel_color / float(samples_per_pixel);
                 }
@@ -123,7 +160,7 @@ struct camera {
         puts("\r\x1b[2KRender done. Outputting colors...\n");
 
 #pragma omp parallel for
-        for (int i = 0; i < 3 * px_count; ++i) {
+        for (uint32_t i = 0; i < 3 * px_count; ++i) {
             auto channel = channels[i];
             // Apply the linear to gamma transform.
             channel = sqrtf(channel);
@@ -182,17 +219,17 @@ struct camera {
     }
 
    private:
-    int image_height{};   // Rendered image height
-    point3 center;        // Camera center
-    point3 pixel00_loc;   // Location of pixel 0, 0
-    vec3 pixel_delta_u;   // Offset to pixel to the right
-    vec3 pixel_delta_v;   // Offset to pixel below
-    vec3 u, v, w;         // Camera frame basis vectors
-    vec3 defocus_disk_u;  // Defocus disk horizontal radius
-    vec3 defocus_disk_v;  // Defocus disk vertical radius
+    uint32_t image_height{};  // Rendered image height
+    point3 center;            // Camera center
+    point3 pixel00_loc;       // Location of pixel 0, 0
+    vec3 pixel_delta_u;       // Offset to pixel to the right
+    vec3 pixel_delta_v;       // Offset to pixel below
+    vec3 u, v, w;             // Camera frame basis vectors
+    vec3 defocus_disk_u;      // Defocus disk horizontal radius
+    vec3 defocus_disk_v;      // Defocus disk vertical radius
 
     void initialize() {
-        image_height = static_cast<int>(float(image_width) / aspect_ratio);
+        image_height = static_cast<uint32_t>(float(image_width) / aspect_ratio);
         image_height = (image_height < 1) ? 1 : image_height;
 
         center = lookfrom;
@@ -236,7 +273,7 @@ struct camera {
         defocus_disk_v = v * defocus_radius;
     }
 
-    [[nodiscard]] ray get_ray(int i, int j) const {
+    [[nodiscard]] ray get_ray(uint32_t i, uint32_t j) const {
         // Get a randomly-sampled camera ray for the pixel at location i,j,
         // originating from the camera defocus disk.
 
@@ -305,12 +342,8 @@ struct camera {
         return ray_result::shadow;
     }
 
-    static color ray_color(ray r, color background, hittable const& world,
-                           vecview<light_info>& lights) {
-        lights.clear();
-        // geometry
-        auto result = simulate_ray(r, world, lights);
-
+    static color sample_textures(ray_result result, light_info const* lights,
+                                 uint32_t lights_count, color background) {
         // lighting
         color begin_color;
         switch (result) {
@@ -331,7 +364,8 @@ struct camera {
         // Each of these is also independent since it's multiplying.
         // We may even add queues, although that would waste a ton of memory.
         // Do all the color samples for this ray.
-        for (auto info : lights.span()) {
+        for (uint32_t i = 0; i < lights_count; ++i) {
+            auto const& info = lights[i];
             begin_color *= info.tex->value(info.u, info.v, info.p);
         }
 
