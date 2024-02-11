@@ -11,8 +11,12 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <linux/futex.h>
 #include <png.h>
+#include <pthread.h>
+#include <unistd.h>
 
+#include <atomic>
 #include <iostream>
 #include <span>
 
@@ -41,6 +45,32 @@ struct camera {
     float focus_dist =
         10;  // Distance from camera look-from point to plane of perfect focus
 
+    struct thread_progress {
+        int volatile* progressp;
+        uint32_t total_count;
+
+        constexpr thread_progress(int volatile* progressp, uint32_t total_count)
+            : progressp(progressp), total_count(total_count) {}
+    };
+
+    static void* report_progress(void* wait_loc) {
+        thread_progress prog = *reinterpret_cast<thread_progress*>(wait_loc);
+
+        printf("Progress thread started @ %p, target = %u\n", prog.progressp,
+               prog.total_count);
+
+        // NOTE: this thread will get cancelled by the main one.
+        for (;;) {
+            int prog_read = __atomic_load_n(prog.progressp, __ATOMIC_ACQUIRE);
+            printf("\r\x1b[2KProgress: %u/%u", prog_read, prog.total_count);
+            fflush(stdout);
+
+            // Wait till it's updated
+            syscall(SYS_futex, prog.progressp, FUTEX_WAIT_PRIVATE, prog_read,
+                    NULL /* timeout */);
+        }
+    }
+
     void render(hittable const& world) {
         initialize();
 
@@ -53,6 +83,23 @@ struct camera {
         auto colors_mem = std::make_unique<uint8_t[]>(3ull * px_count);
         auto ichannels = colors_mem.get();
         auto channels = reinterpret_cast<float const*>(fcol_ptr);
+
+        pthread_t progress_thread;
+        int volatile __attribute__((aligned(64))) done_lines = 0;
+
+        {
+            thread_progress volatile progress(&done_lines, image_height);
+            int res = pthread_create(&progress_thread, NULL, report_progress,
+                                     (void*)(&progress));
+
+            if (res != 0) {
+                fprintf(stderr, "Could not setup progress thread! (%s)\n",
+                        strerror(res));
+                exit(1);
+            }
+        }
+
+        done_lines = 0;
 
         // NOTE: 30% of the time (5 seconds) is spent just on a couple of
         // threads. Consider sharing work, e.g lighting?
@@ -82,10 +129,16 @@ struct camera {
                     fcol_ptr[j * image_width + i] =
                         pixel_color / float(samples_per_pixel);
                 }
+                __atomic_fetch_add(&done_lines, 1, __ATOMIC_ACQ_REL);
+
+                syscall(SYS_futex, &done_lines, FUTEX_WAKE_PRIVATE, 1);
             }
         }
 
-#pragma omp for
+        pthread_cancel(progress_thread);
+        puts("\r\x1b[2KRender done. Outputting colors...\n");
+
+#pragma omp parallel for
         for (int i = 0; i < 3 * px_count; ++i) {
             auto channel = channels[i];
             // Apply the linear to gamma transform.

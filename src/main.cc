@@ -10,6 +10,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <time.h>
+
 #include "camera.h"
 #include "color.h"
 #include "constant_medium.h"
@@ -398,6 +400,10 @@ static void cornell_smoke() {
 }
 
 static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
+    struct timespec start;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
     hittable_list boxes1;
     auto ground_col = make_shared<solid_color>(0.48, 0.83, 0.53);
     auto ground = make_shared<lambertian>();
@@ -474,6 +480,15 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     world.add(make_shared<transformed_geometry>(
         make_shared<ordered_transforms>(std::move(transforms)),
         boxes2.split()));
+
+    struct timespec end;
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    auto start_ns = start.tv_sec * 1000000000ll + start.tv_nsec;
+    auto end_ns = end.tv_sec * 1000000000ll + end.tv_nsec;
+    auto total_ns = end_ns - start_ns;
+
+    printf("Loading the scene took %lf us\n", double(total_ns) / 1000.0);
 
     camera cam;
 
