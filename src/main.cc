@@ -23,6 +23,8 @@
 #include "texture.h"
 #include "transform.h"
 
+static bool enable_progress = true;
+
 static void random_spheres() {
     hittable_list world;
 
@@ -102,7 +104,7 @@ static void random_spheres() {
     cam.defocus_angle = 0.02;
     cam.focus_dist = 10.0;
 
-    cam.render(world);
+    cam.render(world, enable_progress);
 }
 
 static void two_spheres() {
@@ -131,7 +133,7 @@ static void two_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world);
+    cam.render(world, enable_progress);
 }
 
 static void earth() {
@@ -155,7 +157,7 @@ static void earth() {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_list(globe));
+    cam.render(hittable_list(globe), enable_progress);
 }
 
 static void two_perlin_spheres() {
@@ -182,7 +184,7 @@ static void two_perlin_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world);
+    cam.render(world, enable_progress);
 }
 
 static void quads() {
@@ -224,7 +226,7 @@ static void quads() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world);
+    cam.render(world, enable_progress);
 }
 
 static void simple_light() {
@@ -258,7 +260,7 @@ static void simple_light() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world);
+    cam.render(world, enable_progress);
 }
 
 static void cornell_box() {
@@ -324,7 +326,7 @@ static void cornell_box() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world);
+    cam.render(world, enable_progress);
 }
 
 static void cornell_smoke() {
@@ -396,7 +398,7 @@ static void cornell_smoke() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world);
+    cam.render(world, enable_progress);
 }
 
 static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
@@ -505,10 +507,21 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     cam.defocus_angle = 0;
 
-    cam.render(world);
+    cam.render(world, enable_progress);
 }
 
-int main() {
+int main(int argc, char const *argv[]) {
+    for (int i = 0; i < argc; ++i) {
+        if (strncmp(argv[i], "--disable-progress",
+                    sizeof("--disable-progress") - 1) == 0) {
+            fputs(
+                "WARN: Progress reporting is disabled. Expect no output "
+                "from here until the end\n",
+                stderr);
+            enable_progress = false;
+        }
+    }
+
     switch (0) {
         case 1:
             random_spheres();
