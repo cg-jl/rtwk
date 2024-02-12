@@ -28,16 +28,15 @@ struct quad final : public hittable {
     point3 Q;
 
     //  mat is accessed last, after all tests
-    shared_ptr<material> mat;
-    shared_ptr<texture> tex;
+    material const* mat;
+    texture const* tex;
 
     [[nodiscard]] aabb bounding_box() const& override {
         return aabb(Q, Q + u + v).pad();
     }
 
-    quad(point3 Q, vec3 u, vec3 v, shared_ptr<material> m,
-         shared_ptr<texture> tex)
-        : Q(Q), u(u), v(v), mat(std::move(m)), tex(std::move(tex)) {}
+    quad(point3 Q, vec3 u, vec3 v, material const* m, texture const* tex)
+        : Q(Q), u(u), v(v), mat(m), tex(tex) {}
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         auto n = cross(u, v);
@@ -70,8 +69,8 @@ struct quad final : public hittable {
         // true.
         ray_t.max = t;
         rec.p = intersection;
-        rec.mat = mat.get();
-        rec.tex = tex.get();
+        rec.mat = mat;
+        rec.tex = tex;
         rec.normal = normal;
 
         return true;
@@ -90,8 +89,9 @@ struct quad final : public hittable {
     }
 };
 
-inline void box_into(point3 a, point3 b, shared_ptr<material> const& mat,
-                     shared_ptr<texture> const& tex, hittable_list& sides) {
+inline void box_into(point3 a, point3 b, material const* mat,
+                     texture const* tex, hittable_list& sides,
+                     shared_ptr_storage<hittable>& storage) {
     // Construct the two opposite vertices with the minimum and maximum
     // coordinates.
     auto min =
@@ -103,29 +103,32 @@ inline void box_into(point3 a, point3 b, shared_ptr<material> const& mat,
     auto dy = vec3(0, max.y() - min.y(), 0);
     auto dz = vec3(0, 0, max.z() - min.z());
 
-    sides.add(make_shared<quad>(point3(min.x(), min.y(), max.z()), dx, dy, mat,
-                                tex));  // front
-    sides.add(make_shared<quad>(point3(max.x(), min.y(), max.z()), -dz, dy, mat,
-                                tex));  // right
-    sides.add(make_shared<quad>(point3(max.x(), min.y(), min.z()), -dx, dy, mat,
-                                tex));  // back
-    sides.add(make_shared<quad>(point3(min.x(), min.y(), min.z()), dz, dy, mat,
-                                tex));  // left
-    sides.add(make_shared<quad>(point3(min.x(), max.y(), max.z()), dx, -dz, mat,
-                                tex));  // top
-    sides.add(make_shared<quad>(point3(min.x(), min.y(), min.z()), dx, dz, mat,
-                                tex));  // bottom
+    sides.add(storage.make<quad>(point3(min.x(), min.y(), max.z()), dx, dy, mat,
+                                 tex));  // front
+    sides.add(storage.make<quad>(point3(max.x(), min.y(), max.z()), -dz, dy,
+                                 mat,
+                                 tex));  // right
+    sides.add(storage.make<quad>(point3(max.x(), min.y(), min.z()), -dx, dy,
+                                 mat,
+                                 tex));  // back
+    sides.add(storage.make<quad>(point3(min.x(), min.y(), min.z()), dz, dy, mat,
+                                 tex));  // left
+    sides.add(storage.make<quad>(point3(min.x(), max.y(), max.z()), dx, -dz,
+                                 mat,
+                                 tex));  // top
+    sides.add(storage.make<quad>(point3(min.x(), min.y(), min.z()), dx, dz, mat,
+                                 tex));  // bottom
 }
 
 inline shared_ptr<hittable_list> box(point3 const& a, point3 const& b,
-                                     shared_ptr<material> const& mat,
-                                     shared_ptr<texture> const& tex) {
+                                     material const* mat, texture const* tex,
+                                     shared_ptr_storage<hittable>& storage) {
     // Returns the 3D box (six sides) that contains the two opposite vertices a
     // & b.
 
     hittable_list sides;
 
-    box_into(a, b, mat, tex, sides);
+    box_into(a, b, mat, tex, sides, storage);
 
     return make_shared<hittable_list>(std::move(sides));
 }

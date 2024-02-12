@@ -27,6 +27,8 @@ struct vec3 {
     vec3() : e{0, 0, 0} {}
     vec3(float e0, float e1, float e2) : e{e0, e1, e2} {}
 
+    explicit vec3(float s) : e{s, s, s} {}
+
     [[nodiscard]] float x() const { return e[0]; }
     [[nodiscard]] float y() const { return e[1]; }
     [[nodiscard]] float z() const;

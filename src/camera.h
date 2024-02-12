@@ -11,14 +11,9 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
-#include <linux/futex.h>
 #include <png.h>
-#include <pthread.h>
-#include <unistd.h>
 
-#include <atomic>
 #include <cstdint>
-#include <cstring>
 #include <iostream>
 #include <span>
 
@@ -47,14 +42,6 @@ struct camera {
     float defocus_angle = 0;  // Variation angle of rays through each pixel
     float focus_dist =
         10;  // Distance from camera look-from point to plane of perfect focus
-
-    struct thread_progress {
-        int volatile* progressp;
-        uint32_t total_count;
-
-        constexpr thread_progress(int volatile* progressp, uint32_t total_count)
-            : progressp(progressp), total_count(total_count) {}
-    };
 
     void render(hittable const& world, bool enable_progress) {
         initialize();
@@ -316,6 +303,8 @@ struct camera {
         background,  // the ray escaped the world
     };
 
+    // NOTE: Could have the background as another light source.
+
     // Simulates a ray until either it hits too many times, hits a light, or
     // hits the skybox.
     static ray_result simulate_ray(ray r, hittable const& world,
@@ -326,7 +315,7 @@ struct camera {
             if (!world.hit(r, rec)) return ray_result::background;
             lights.emplace_back(rec.tex, rec.p, rec.u, rec.v);
 
-            if (rec.mat->is_light_source) return ray_result::light;
+            if (rec.mat->tag == material::kind::diffuse_light) return ray_result::light;
 
             auto face = hit_record::face(r.direction, rec.normal);
 

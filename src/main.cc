@@ -10,7 +10,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
-#include <time.h>
+#include <ctime>
 
 #include "camera.h"
 #include "color.h"
@@ -20,6 +20,7 @@
 #include "quad.h"
 #include "rtweekend.h"
 #include "sphere.h"
+#include "storage.h"
 #include "texture.h"
 #include "transform.h"
 
@@ -28,10 +29,19 @@ static bool enable_progress = true;
 static void random_spheres() {
     hittable_list world;
 
+    shared_ptr_storage<texture> tex_storage;
+    shared_ptr_storage<transform> tf_storage;
+    shared_ptr_storage<hittable> hit_storage;
+
     auto checker = make_shared<checker_texture>(0.32, color(.2, .3, .1),
-                                                color(.9, .9, .9));
-    world.add(make_shared<sphere>(point3(0, -1000, 0), 1000,
-                                  singleton_materials::lambertian, checker));
+                                                color(.9, .9, .9), tex_storage);
+    world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
+                                       &singleton_materials::lambertian,
+                                       checker.get()));
+
+    shared_ptr_storage<material> mat_storage;
+
+    auto dielectric = mat_storage.make<::dielectric>(1.5);
 
     for (int a = -11; a < 11; a++) {
         for (int b = -11; b < 11; b++) {
@@ -40,53 +50,51 @@ static void random_spheres() {
                           float(b) + 0.9f * random_float());
 
             if ((center - point3(4, 0.2, 0)).length() > 0.9) {
-                shared_ptr<material> sphere_material;
-                shared_ptr<texture> sphere_texture;
-
                 if (choose_mat < 0.8) {
                     // diffuse
                     auto albedo = color::random() * color::random();
-                    sphere_material = singleton_materials::lambertian;
-                    sphere_texture = make_shared<solid_color>(albedo);
+                    auto sphere_material = singleton_materials::lambertian;
+                    auto sphere_texture = make_shared<solid_color>(albedo);
                     auto displacement = vec3(0, random_float(0, .5), 0);
 
-                    world.add(make_shared<transformed_geometry>(
-                        make_shared<move>(displacement),
-                        make_shared<sphere>(center, 0.2, sphere_material,
-                                            sphere_texture)));
+                    world.add(hit_storage.make<transformed_geometry>(
+                        tf_storage.make<move>(displacement),
+                        hit_storage.make<sphere>(point3(center), 0.2,
+                                                 &sphere_material,
+                                                 sphere_texture.get())));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = color::random(0.5, 1);
                     auto fuzz = random_float(0, 0.5);
-                    sphere_material = make_shared<metal>(fuzz);
-                    world.add(
-                        make_shared<sphere>(center, 0.2, sphere_material,
-                                            make_shared<solid_color>(albedo)));
+                    auto sphere_material = make_shared<metal>(fuzz);
+                    world.add(hit_storage.make<sphere>(
+                        center, 0.2, sphere_material.get(),
+                        tex_storage.make<solid_color>(albedo)));
                 } else {
                     // glass
-                    sphere_material = make_shared<dielectric>(1.5);
-                    world.add(
-                        make_shared<sphere>(center, 0.2, sphere_material,
-                                            make_shared<solid_color>(1, 1, 1)));
+                    world.add(hit_storage.make<sphere>(
+                        center, 0.2, dielectric,
+                        tex_storage.make<solid_color>(1, 1, 1)));
                 }
             }
         }
     }
 
-    auto material1 = make_shared<dielectric>(1.5);
-    world.add(make_shared<sphere>(point3(0, 1, 0), 1.0, material1,
-                                  make_shared<solid_color>(1, 1, 1)));
+    auto material1 = mat_storage.make<::dielectric>(1.5);
+    world.add(hit_storage.make<sphere>(point3(0, 1, 0), 1.0, material1,
+                                       tex_storage.make<solid_color>(1, 1, 1)));
 
     auto material2 = singleton_materials::lambertian;
-    world.add(make_shared<sphere>(point3(-4, 1, 0), 1.0, material2,
-                                  make_shared<solid_color>(.4, .2, .1)));
+    world.add(
+        hit_storage.make<sphere>(point3(-4, 1, 0), 1.0, &material2,
+                                 tex_storage.make<solid_color>(.4, .2, .1)));
 
     auto material3 = make_shared<metal>(0.0);
-    world.add(
-        make_shared<sphere>(point3(4, 1, 0), 1.0, material3,
-                            make_shared<solid_color>(color(0.7, .6, .5))));
+    world.add(hit_storage.make<sphere>(
+        point3(4, 1, 0), 1.0, material3.get(),
+        tex_storage.make<solid_color>(color(0.7, .6, .5))));
 
-    world = hittable_list(world.split());
+    world = hittable_list(world.split(hit_storage));
 
     camera cam;
 
@@ -110,13 +118,17 @@ static void random_spheres() {
 static void two_spheres() {
     hittable_list world;
 
-    auto checker =
-        make_shared<checker_texture>(0.8, color(.2, .3, .1), color(.9, .9, .9));
+    shared_ptr_storage<hittable> hit_storage;
+    shared_ptr_storage<texture> tex_storage;
 
-    world.add(make_shared<sphere>(point3(0, -10, 0), 10,
-                                  singleton_materials::lambertian, checker));
-    world.add(make_shared<sphere>(point3(0, 10, 0), 10,
-                                  singleton_materials::lambertian, checker));
+    auto checker = tex_storage.make<checker_texture>(
+        0.8, color(.2, .3, .1), color(.9, .9, .9),
+        static_cast<decltype(tex_storage) &>(tex_storage));
+
+    world.add(hit_storage.make<sphere>(
+        point3(0, -10, 0), 10, &singleton_materials::lambertian, checker));
+    world.add(hit_storage.make<sphere>(
+        point3(0, 10, 0), 10, &singleton_materials::lambertian, checker));
 
     camera cam;
 
@@ -137,10 +149,12 @@ static void two_spheres() {
 }
 
 static void earth() {
+    shared_ptr_storage<hittable> hit_storage;
+
     auto earth_texture = make_shared<image_texture>("earthmap.jpg");
     auto earth_surface = singleton_materials::lambertian;
-    auto globe =
-        make_shared<sphere>(point3(0, 0, 0), 2, earth_surface, earth_texture);
+    auto globe = hit_storage.make<sphere>(point3(0, 0, 0), 2, &earth_surface,
+                                          earth_texture.get());
 
     camera cam;
 
@@ -163,11 +177,14 @@ static void earth() {
 static void two_perlin_spheres() {
     hittable_list world;
 
+    shared_ptr_storage<hittable> hit_storage;
+
     auto pertext = make_shared<noise_texture>(4);
-    world.add(make_shared<sphere>(point3(0, -1000, 0), 1000,
-                                  singleton_materials::lambertian, pertext));
-    world.add(make_shared<sphere>(point3(0, 2, 0), 2,
-                                  singleton_materials::lambertian, pertext));
+    world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
+                                       &singleton_materials::lambertian,
+                                       pertext.get()));
+    world.add(hit_storage.make<sphere>(
+        point3(0, 2, 0), 2, &singleton_materials::lambertian, pertext.get()));
 
     camera cam;
 
@@ -199,17 +216,23 @@ static void quads() {
 
     auto all_mat = singleton_materials::lambertian;
 
+    shared_ptr_storage<hittable> hit_storage;
+
     // Quads
-    world.add(make_shared<quad>(point3(-3, -2, 5), vec3(0, 0, -4),
-                                vec3(0, 4, 0), all_mat, left_red));
-    world.add(make_shared<quad>(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0),
-                                all_mat, back_green));
-    world.add(make_shared<quad>(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0),
-                                all_mat, right_blue));
-    world.add(make_shared<quad>(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4),
-                                all_mat, upper_orange));
-    world.add(make_shared<quad>(point3(-2, -3, 5), vec3(4, 0, 0),
-                                vec3(0, 0, -4), all_mat, lower_teal));
+    world.add(hit_storage.make<quad>(point3(-3, -2, 5), vec3(0, 0, -4),
+                                     vec3(0, 4, 0), &all_mat, left_red.get()));
+    world.add(hit_storage.make<quad>(point3(-2, -2, 0), vec3(4, 0, 0),
+                                     vec3(0, 4, 0), &all_mat,
+                                     back_green.get()));
+    world.add(hit_storage.make<quad>(point3(3, -2, 1), vec3(0, 0, 4),
+                                     vec3(0, 4, 0), &all_mat,
+                                     right_blue.get()));
+    world.add(hit_storage.make<quad>(point3(-2, 3, 1), vec3(4, 0, 0),
+                                     vec3(0, 0, 4), &all_mat,
+                                     upper_orange.get()));
+    world.add(hit_storage.make<quad>(point3(-2, -3, 5), vec3(4, 0, 0),
+                                     vec3(0, 0, -4), &all_mat,
+                                     lower_teal.get()));
 
     camera cam;
 
@@ -232,18 +255,22 @@ static void quads() {
 static void simple_light() {
     hittable_list world;
 
-    auto pertext = make_shared<noise_texture>(4);
-    world.add(make_shared<sphere>(point3(0, -1000, 0), 1000,
-                                  singleton_materials::lambertian, pertext));
-    world.add(make_shared<sphere>(point3(0, 2, 0), 2,
-                                  singleton_materials::lambertian, pertext));
+    shared_ptr_storage<hittable> hit_storage;
 
-    auto difflight = singleton_materials::diffuse_light;
+    auto pertext = make_shared<noise_texture>(4);
+    world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
+                                       &singleton_materials::lambertian,
+                                       pertext.get()));
+    world.add(hit_storage.make<sphere>(
+        point3(0, 2, 0), 2, &singleton_materials::lambertian, pertext.get()));
+
+    auto difflight = &singleton_materials::diffuse_light;
     auto difflight_color = make_shared<solid_color>(color(4, 4, 4));
-    world.add(
-        make_shared<sphere>(point3(0, 7, 0), 2, difflight, difflight_color));
-    world.add(make_shared<quad>(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0),
-                                difflight, difflight_color));
+    world.add(hit_storage.make<sphere>(point3(0, 7, 0), 2, difflight,
+                                       difflight_color.get()));
+    world.add(hit_storage.make<quad>(point3(3, 1, -2), vec3(2, 0, 0),
+                                     vec3(0, 2, 0), difflight,
+                                     difflight_color.get()));
 
     camera cam;
 
@@ -269,47 +296,55 @@ static void cornell_box() {
     auto red = make_shared<solid_color>(color(.65, .05, .05));
     auto white = make_shared<solid_color>(color(.73, .73, .73));
     auto green = make_shared<solid_color>(color(.12, .45, .15));
-    auto light = singleton_materials::diffuse_light;
+    auto light = &singleton_materials::diffuse_light;
     auto light_color = make_shared<solid_color>(15, 15, 15);
 
-    world.add(make_shared<quad>(point3(555, 0, 0), vec3(0, 555, 0),
-                                vec3(0, 0, 555),
-                                singleton_materials::lambertian, green));
-    world.add(make_shared<quad>(point3(0, 0, 0), vec3(0, 555, 0),
-                                vec3(0, 0, 555),
-                                singleton_materials::lambertian, red));
-    world.add(make_shared<quad>(point3(343, 554, 332), vec3(-130, 0, 0),
-                                vec3(0, 0, -105), light, light_color));
-    world.add(make_shared<quad>(point3(0, 0, 0), vec3(555, 0, 0),
-                                vec3(0, 0, 555),
-                                singleton_materials::lambertian, white));
-    world.add(make_shared<quad>(point3(555, 555, 555), vec3(-555, 0, 0),
-                                vec3(0, 0, -555),
-                                singleton_materials::lambertian, white));
-    world.add(make_shared<quad>(point3(0, 0, 555), vec3(555, 0, 0),
-                                vec3(0, 555, 0),
-                                singleton_materials::lambertian, white));
+    shared_ptr_storage<hittable> hit_storage;
 
-    shared_ptr<hittable> box1 = box(point3(0, 0, 0), point3(165, 330, 165),
-                                    singleton_materials::lambertian, white);
+    world.add(hit_storage.make<quad>(
+        point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555),
+        &singleton_materials::lambertian, green.get()));
+    world.add(hit_storage.make<quad>(
+        point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555),
+        &singleton_materials::lambertian, red.get()));
+    world.add(hit_storage.make<quad>(point3(343, 554, 332), vec3(-130, 0, 0),
+                                     vec3(0, 0, -105), light,
+                                     light_color.get()));
+    world.add(hit_storage.make<quad>(
+        point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555),
+        &singleton_materials::lambertian, white.get()));
+    world.add(hit_storage.make<quad>(
+        point3(555, 555, 555), vec3(-555, 0, 0), vec3(0, 0, -555),
+        &singleton_materials::lambertian, white.get()));
+    world.add(hit_storage.make<quad>(
+        point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0),
+        &singleton_materials::lambertian, white.get()));
+
+    shared_ptr<hittable const> box1 =
+        box(point3(0, 0, 0), point3(165, 330, 165),
+            &singleton_materials::lambertian, white.get(), hit_storage);
+
+    shared_ptr_storage<transform> tf_storage;
+
     ordered_transforms transforms;
-    transforms.add<translate>(vec3(265, 0, 295));
-    transforms.add<rotate_y>(15);
-    world.add(make_shared<transformed_geometry>(
-        make_shared<ordered_transforms>(std::move(transforms)),
-        std::move(box1)));
+    transforms.add(tf_storage.make<translate>(vec3(265, 0, 295)));
+    transforms.add(tf_storage.make<rotate_y>(15));
+    world.add(hit_storage.make<transformed_geometry>(
+        tf_storage.make<ordered_transforms>(std::move(transforms)),
+        box1.get()));
 
-    shared_ptr<hittable> box2 = box(point3(0, 0, 0), point3(165, 165, 165),
-                                    singleton_materials::lambertian, white);
+    shared_ptr<hittable const> box2 =
+        box(point3(0, 0, 0), point3(165, 165, 165),
+            &singleton_materials::lambertian, white.get(), hit_storage);
     // NOTE: This is safe because we moved it
     transforms.tfs.clear();
 
-    transforms.add<translate>(vec3(130, 0, 65));
-    transforms.add<rotate_y>(-18);
+    transforms.add(tf_storage.make<translate>(vec3(130, 0, 65)));
+    transforms.add(tf_storage.make<rotate_y>(-18));
 
-    world.add(make_shared<transformed_geometry>(
-        make_shared<ordered_transforms>(std::move(transforms)),
-        std::move(box2)));
+    world.add(hit_storage.make<transformed_geometry>(
+        tf_storage.make<ordered_transforms>(std::move(transforms)),
+        box2.get()));
 
     camera cam;
 
@@ -331,57 +366,64 @@ static void cornell_box() {
 
 static void cornell_smoke() {
     hittable_list world;
+    shared_ptr_storage<texture> tex_storage;
 
-    auto red = make_shared<solid_color>(color(.65, .05, .05));
-    auto white = make_shared<solid_color>(color(.73, .73, .73));
-    auto green = make_shared<solid_color>(color(.12, .45, .15));
-    auto light = make_shared<solid_color>(color(7, 7, 7));
+    auto red = tex_storage.make<solid_color>(color(.65, .05, .05));
+    auto white = tex_storage.make<solid_color>(color(.73, .73, .73));
+    auto green = tex_storage.make<solid_color>(color(.12, .45, .15));
+    auto light = tex_storage.make<solid_color>(color(7, 7, 7));
 
-    world.add(make_shared<quad>(point3(555, 0, 0), vec3(0, 555, 0),
-                                vec3(0, 0, 555),
-                                singleton_materials::lambertian, green));
-    world.add(make_shared<quad>(point3(0, 0, 0), vec3(0, 555, 0),
-                                vec3(0, 0, 555),
-                                singleton_materials::lambertian, red));
-    world.add(make_shared<quad>(point3(113, 554, 127), vec3(330, 0, 0),
-                                vec3(0, 0, 305),
-                                singleton_materials::diffuse_light, light));
-    world.add(make_shared<quad>(point3(0, 555, 0), vec3(555, 0, 0),
-                                vec3(0, 0, 555),
-                                singleton_materials::lambertian, white));
-    world.add(make_shared<quad>(point3(0, 0, 0), vec3(555, 0, 0),
-                                vec3(0, 0, 555),
-                                singleton_materials::lambertian, white));
-    world.add(make_shared<quad>(point3(0, 0, 555), vec3(555, 0, 0),
-                                vec3(0, 555, 0),
-                                singleton_materials::lambertian, white));
+    shared_ptr_storage<hittable> hit_storage;
 
-    shared_ptr<hittable> box1 = box(point3(0, 0, 0), point3(165, 330, 165),
-                                    singleton_materials::lambertian, white);
+    world.add(hit_storage.make<quad>(point3(555, 0, 0), vec3(0, 555, 0),
+                                     vec3(0, 0, 555),
+                                     &singleton_materials::lambertian, green));
+    world.add(hit_storage.make<quad>(point3(0, 0, 0), vec3(0, 555, 0),
+                                     vec3(0, 0, 555),
+                                     &singleton_materials::lambertian, red));
+    world.add(hit_storage.make<quad>(
+        point3(113, 554, 127), vec3(330, 0, 0), vec3(0, 0, 305),
+        &singleton_materials::diffuse_light, light));
+    world.add(hit_storage.make<quad>(point3(0, 555, 0), vec3(555, 0, 0),
+                                     vec3(0, 0, 555),
+                                     &singleton_materials::lambertian, white));
+    world.add(hit_storage.make<quad>(point3(0, 0, 0), vec3(555, 0, 0),
+                                     vec3(0, 0, 555),
+                                     &singleton_materials::lambertian, white));
+    world.add(hit_storage.make<quad>(point3(0, 0, 555), vec3(555, 0, 0),
+                                     vec3(0, 555, 0),
+                                     &singleton_materials::lambertian, white));
+
+    auto box1 = hit_storage.add(box(point3(0, 0, 0), point3(165, 330, 165),
+                                    &singleton_materials::lambertian, white,
+                                    hit_storage));
+
+    shared_ptr_storage<transform> tf_storage;
 
     ordered_transforms transforms;
-    transforms.add<translate>(vec3(265, 0, 295));
-    transforms.add<rotate_y>(15);
+    transforms.add(tf_storage.make<translate>(vec3(265, 0, 295)));
+    transforms.add(tf_storage.make<rotate_y>(15));
 
-    box1 = make_shared<transformed_geometry>(
-        make_shared<ordered_transforms>(std::move(transforms)),
-        std::move(box1));
+    box1 = hit_storage.make<transformed_geometry>(
+        tf_storage.make<ordered_transforms>(std::move(transforms)), box1);
 
-    shared_ptr<hittable> box2 = box(point3(0, 0, 0), point3(165, 165, 165),
-                                    singleton_materials::lambertian, white);
+    auto box2 = hit_storage.add(box(point3(0, 0, 0), point3(165, 165, 165),
+                                    &singleton_materials::lambertian, white,
+                                    hit_storage));
 
     // NOTE: We can do this because we moved earlier
     transforms.tfs.clear();
 
-    transforms.add<translate>(vec3(130, 0, 65));
-    transforms.add<rotate_y>(-18);
+    transforms.add(tf_storage.make<translate>(vec3(130, 0, 65)));
+    transforms.add(tf_storage.make<rotate_y>(-18));
 
-    box2 = make_shared<transformed_geometry>(
-        make_shared<ordered_transforms>(std::move(transforms)),
-        std::move(box2));
+    box2 = hit_storage.make<transformed_geometry>(
+        tf_storage.make<ordered_transforms>(std::move(transforms)), box2);
 
-    world.add(make_shared<constant_medium>(box1, 0.01, color(0, 0, 0)));
-    world.add(make_shared<constant_medium>(box2, 0.01, color(1, 1, 1)));
+    world.add(hit_storage.make<constant_medium>(box1, 0.01, color(0, 0, 0),
+                                                tex_storage));
+    world.add(hit_storage.make<constant_medium>(box2, 0.01, color(1, 1, 1),
+                                                tex_storage));
 
     camera cam;
 
@@ -408,7 +450,9 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     hittable_list boxes1;
     auto ground_col = make_shared<solid_color>(0.48, 0.83, 0.53);
-    auto ground = singleton_materials::lambertian;
+    auto ground = &singleton_materials::lambertian;
+
+    shared_ptr_storage<hittable> hit_storage;
 
     int boxes_per_side = 20;
     for (int i = 0; i < boxes_per_side; i++) {
@@ -421,67 +465,81 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto y1 = random_float(1, 101);
             auto z1 = z0 + w;
 
-            boxes1.add(box(point3(x0, y0, z0), point3(x1, y1, z1), ground,
-                           ground_col));
+            boxes1.add(
+                hit_storage.add(box(point3(x0, y0, z0), point3(x1, y1, z1),
+                                    ground, ground_col.get(), hit_storage)));
         }
     }
 
     hittable_list world;
 
-    world.add(boxes1.split());
+    shared_ptr_storage<transform> tf_storage;
 
-    auto light = singleton_materials::diffuse_light;
+    world.add(boxes1.split(hit_storage));
+
+    auto light = &singleton_materials::diffuse_light;
     auto light_color = make_shared<solid_color>(7, 7, 7);
 
-    world.add(make_shared<quad>(point3(123, 554, 147), vec3(300, 0, 0),
-                                vec3(0, 0, 265), light, light_color));
+    world.add(hit_storage.make<quad>(point3(123, 554, 147), vec3(300, 0, 0),
+                                     vec3(0, 0, 265), light,
+                                     light_color.get()));
 
     auto center = point3(400, 400, 200);
-    auto sphere_material = singleton_materials::lambertian;
+    auto sphere_material = &singleton_materials::lambertian;
     auto sphere_color = make_shared<solid_color>(0.7, 0.3, 0.1);
-    world.add(make_shared<transformed_geometry>(
-        make_shared<move>(vec3(30, 0, 0)),
-        make_shared<sphere>(center, 50, sphere_material, sphere_color)));
+    world.add(hit_storage.make<transformed_geometry>(
+        tf_storage.make<move>(vec3(30, 0, 0)),
+        hit_storage.make<sphere>(center, 50, sphere_material,
+                                 sphere_color.get())));
 
-    world.add(make_shared<sphere>(point3(260, 150, 45), 50,
-                                  make_shared<dielectric>(1.5),
-                                  make_shared<solid_color>(1, 1, 1)));
-    world.add(
-        make_shared<sphere>(point3(0, 150, 145), 50, make_shared<metal>(1.0),
-                            make_shared<solid_color>(color(0.8, 0.8, 0.9))));
+    shared_ptr_storage<material> mat_storage;
+    shared_ptr_storage<texture> tex_storage;
 
-    auto boundary = make_shared<sphere>(point3(360, 150, 145), 70,
-                                        make_shared<dielectric>(1.5),
-                                        make_shared<solid_color>(1, 1, 1));
+    auto dielectric = mat_storage.make<::dielectric>(1.5);
+
+    // NOTE: Lookuout for duplication of materials/colors!
+
+    world.add(hit_storage.make<sphere>(point3(260, 150, 45), 50, dielectric,
+                                       tex_storage.make<solid_color>(1, 1, 1)));
+    world.add(hit_storage.make<sphere>(
+        point3(0, 150, 145), 50, mat_storage.make<metal>(1.0),
+        tex_storage.make<solid_color>(color(0.8, 0.8, 0.9))));
+
+    auto boundary =
+        hit_storage.make<sphere>(point3(360, 150, 145), 70, dielectric,
+                                 tex_storage.make<solid_color>(1, 1, 1));
     world.add(boundary);
-    world.add(
-        make_shared<constant_medium>(boundary, 0.2, color(0.2, 0.4, 0.9)));
-    boundary =
-        make_shared<sphere>(point3(0, 0, 0), 5000, make_shared<dielectric>(1.5),
-                            make_shared<solid_color>(1, 1, 1));
-    world.add(make_shared<constant_medium>(boundary, .0001, color(1, 1, 1)));
+    world.add(hit_storage.make<constant_medium>(
+        boundary, 0.2, color(0.2, 0.4, 0.9), tex_storage));
+    boundary = hit_storage.make<sphere>(point3(0, 0, 0), 5000, dielectric,
+                                        tex_storage.make<solid_color>(1, 1, 1));
+    world.add(hit_storage.make<constant_medium>(boundary, .0001, color(1, 1, 1),
+                                                tex_storage));
 
     auto emat = (make_shared<image_texture>("earthmap.jpg"));
-    world.add(make_shared<sphere>(point3(400, 200, 400), 100,
-                                  singleton_materials::lambertian, emat));
+    world.add(hit_storage.make<sphere>(point3(400, 200, 400), 100,
+                                       &singleton_materials::lambertian,
+                                       emat.get()));
     auto pertext = make_shared<noise_texture>(0.1);
-    world.add(make_shared<sphere>(point3(220, 280, 300), 80,
-                                  singleton_materials::lambertian, pertext));
+    world.add(hit_storage.make<sphere>(point3(220, 280, 300), 80,
+                                       &singleton_materials::lambertian,
+                                       pertext.get()));
 
     hittable_list boxes2;
-    auto white = make_shared<solid_color>(color(.73, .73, .73));
+    auto white = tex_storage.make<solid_color>(color(.73, .73, .73));
     int ns = 1000;
     for (int j = 0; j < ns; j++) {
-        boxes2.add(make_shared<sphere>(point3::random(0, 165), 10,
-                                       singleton_materials::lambertian, white));
+        boxes2.add(hit_storage.make<sphere>(point3::random(0, 165), 10,
+                                            &singleton_materials::lambertian,
+                                            white));
     }
 
     ordered_transforms transforms;
-    transforms.with<translate>(vec3(-100, 270, 395));
-    transforms.with<rotate_y>(15);
-    world.add(make_shared<transformed_geometry>(
-        make_shared<ordered_transforms>(std::move(transforms)),
-        boxes2.split()));
+    transforms.add(tf_storage.make<translate>(vec3(-100, 270, 395)));
+    transforms.add(tf_storage.make<rotate_y>(15));
+    world.add(hit_storage.make<transformed_geometry>(
+        tf_storage.make<ordered_transforms>(std::move(transforms)),
+        boxes2.split(hit_storage)));
 
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);

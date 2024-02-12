@@ -19,23 +19,25 @@
 
 struct material {
    public:
-    bool is_light_source = false;
+    enum kind {
+        lambertian,
+        metal,
+        diffuse_light,
+        dielectric,
+        isotropic,
+    };
 
-    virtual ~material() = default;
+    kind tag;
 
-    explicit material(bool is_light_source)
-        : is_light_source(is_light_source) {}
+    explicit constexpr material(kind tag) : tag(tag) {}
 
-    virtual void scatter(vec3 in_dir, hit_record::face rec,
-                         vec3& scattered) const = 0;
+    void scatter(vec3 in_dir, hit_record::face rec, vec3& scattered) const&;
 };
 
-struct lambertian final : public material {
-   public:
-    explicit lambertian() : material(false) {}
+struct lambertian : public material {
+    constexpr lambertian() : material(material::kind::lambertian) {}
 
-    void scatter(vec3 in_dir, hit_record::face rec,
-                 vec3& scattered) const override {
+    static void scatter(vec3 in_dir, hit_record::face rec, vec3& scattered) {
         // NOTE: we shouldn't need any checks if we generate the random scatter
         // according to lambert's law:
         // https://en.wikipedia.org/wiki/Lambert%27s_cosine_law
@@ -54,10 +56,10 @@ struct lambertian final : public material {
 
 struct metal final : public material {
    public:
-    explicit metal(float fuzz) : material(false), fuzz(fuzz < 1 ? fuzz : 1) {}
+    explicit constexpr metal(float fuzz)
+        : material(material::kind::metal), fuzz(fuzz < 1 ? fuzz : 1) {}
 
-    void scatter(vec3 in_dir, hit_record::face rec,
-                 vec3& scattered) const override {
+    void scatter(vec3 in_dir, hit_record::face rec, vec3& scattered) const& {
         vec3 reflected = reflect(in_dir, rec.normal);
         // We use fuzz to 'grow' the scatter angle.
         scattered = unit_vector(reflected + fuzz * random_in_unit_sphere());
@@ -74,11 +76,10 @@ struct metal final : public material {
 
 struct dielectric final : public material {
    public:
-    explicit dielectric(float index_of_refraction)
-        : material(false), ir(index_of_refraction) {}
+    explicit constexpr dielectric(float index_of_refraction)
+        : material(material::kind::dielectric), ir(index_of_refraction) {}
 
-    void scatter(vec3 in_dir, hit_record::face rec,
-                 vec3& scattered) const override {
+    void scatter(vec3 in_dir, hit_record::face rec, vec3& scattered) const& {
         float refraction_ratio = rec.is_front ? (1.0f / ir) : ir;
 
         float cos_theta = -dot(in_dir, rec.normal);
@@ -117,24 +118,39 @@ struct dielectric final : public material {
 // source.
 struct diffuse_light final : public material {
    public:
-    explicit diffuse_light() : material(true) {}
-
-    void scatter(vec3 in_dir, hit_record::face rec,
-                 vec3& scattered) const override {}
+    explicit diffuse_light() : material(material::kind::diffuse_light) {}
 };
 
 struct isotropic final : public material {
    public:
-    explicit isotropic() : material(false) {}
+    explicit constexpr isotropic() : material(material::kind::isotropic) {}
 
-    void scatter(vec3 in_dir, hit_record::face rec,
-                 vec3& scattered) const override {
+    static void scatter(vec3 in_dir, hit_record::face rec, vec3& scattered) {
         scattered = random_unit_vector();
     }
 };
 
 namespace singleton_materials {
-static auto const lambertian = make_shared<::lambertian>();
-static auto const isotropic = make_shared<::isotropic>();
-static auto const diffuse_light = make_shared<::diffuse_light>();
+static auto const lambertian = ::lambertian{};
+static auto const isotropic = ::isotropic{};
+static auto const diffuse_light = ::diffuse_light{};
 }  // namespace singleton_materials
+
+inline void material::scatter(vec3 in_dir, hit_record::face rec,
+                              vec3& scattered) const& {
+    switch (tag) {
+        case lambertian:
+            return lambertian::scatter(in_dir, rec, scattered);
+        case metal:
+            return reinterpret_cast<::metal const&>(*this).scatter(in_dir, rec,
+                                                                   scattered);
+        case diffuse_light:
+            // Do nothing
+            break;
+        case isotropic:
+            return isotropic::scatter(in_dir, rec, scattered);
+        case dielectric:
+            return reinterpret_cast<::dielectric const&>(*this).scatter(
+                in_dir, rec, scattered);
+    }
+}

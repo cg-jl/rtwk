@@ -36,8 +36,8 @@ struct sphere final : public hittable {
     // Of 4 bytes, for some reason.
     float radius;
 
-    shared_ptr<texture> tex;
-    shared_ptr<material> mat;
+    texture const* tex;
+    material const* mat;
 
     [[nodiscard]] aabb bounding_box() const& override {
         auto rvec = vec3(radius, radius, radius);
@@ -45,12 +45,8 @@ struct sphere final : public hittable {
     }
 
     // Stationary Sphere
-    sphere(point3 _center, float _radius, shared_ptr<material> _material,
-           shared_ptr<texture> tex)
-        : center(_center),
-          radius(_radius),
-          mat(std::move(_material)),
-          tex(std::move(tex)) {}
+    sphere(point3 center, float radius, material const* mat, texture const* tex)
+        : center(center), radius(radius), mat(mat), tex(tex) {}
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         vec3 oc = r.origin - center;
@@ -74,8 +70,8 @@ struct sphere final : public hittable {
         vec3 outward_normal = (rec.p - center) / radius;
         rec.normal = outward_normal;
         get_sphere_uv(outward_normal, rec.u, rec.v);
-        rec.mat = mat.get();
-        rec.tex = tex.get();
+        rec.mat = mat;
+        rec.tex = tex;
 
         return true;
     }

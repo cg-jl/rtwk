@@ -8,6 +8,10 @@
 #include "ray.h"
 #include "rtweekend.h"
 
+// NOTE: What if I make 'packs' of transforms via some sort of storage?
+// I could then apply those rays differently to the shapes (and filters like BVH) that use those transforms,
+// and then hit all of them.
+
 // Transforms on an object prior to the ray intersection.
 // These transforms are applied first to the ray, and then applied in reverse to
 // the result.
@@ -119,7 +123,7 @@ struct move final : public transform {
 
 // NOTE: Maybe this should be directly integrated into transformed_geometry?
 struct ordered_transforms final : public transform {
-    std::vector<shared_ptr<transform>> tfs;
+    std::vector<transform const*> tfs;
 
     void apply_to_bbox(aabb& bbox) const& override {
         for (auto const& tf : tfs) {
@@ -139,30 +143,19 @@ struct ordered_transforms final : public transform {
             tfs[i]->apply_reverse(time, rec);
         }
     }
-    template <typename T, typename... Args>
-    void add(Args&&... args) {
-        tfs.push_back(std::make_shared<T>(std::forward<Args&&>(args)...));
-    }
 
-    // NOTE: Is this where C++23's 'deducing this' would come handy?
-    template <typename T, typename... Args>
-
-    ordered_transforms&& with(Args&&... args) {
-        tfs.push_back(std::make_shared<T>(std::forward<Args&&>(args)...));
-        return std::move(*this);
-    }
+    void add(transform const* tf) & { tfs.push_back(tf); }
 };
 
 // TODO: integrate transforms into hittable geometry, and return transform when
 // we get a hit. This will allow us to apply the reverse transform only once per
 // hit check.
 struct transformed_geometry final : public hittable {
-    shared_ptr<transform> transf;
-    shared_ptr<hittable> object;
+    transform const* transf;
+    hittable const* object;
 
-    transformed_geometry(shared_ptr<transform> transf,
-                         shared_ptr<hittable> object)
-        : transf(std::move(transf)), object(std::move(object)) {}
+    transformed_geometry(transform const* transf, hittable const* object)
+        : transf(transf), object(object) {}
 
     aabb bounding_box() const& override {
         aabb box = object->bounding_box();

@@ -30,22 +30,22 @@
 struct hittable_list final : public hittable {
    public:
     aabb bbox;
-    std::vector<shared_ptr<hittable>> objects;
+    std::vector<hittable const *> objects;
 
-    hittable_list() {}
-    hittable_list(shared_ptr<hittable> object) { add(std::move(object)); }
+    hittable_list() = default;
+    hittable_list(hittable const *obj) { add(obj); }
 
     void clear() { objects.clear(); }
 
-    void add(shared_ptr<hittable> object) {
+    void add(hittable const *ob) {
         // NOTE: maybe we don't need incremental calculation and can have a
         // final pass for caching it, or another hittable thing that caches the
         // AABB and inlines your thing.
-        bbox = aabb(bbox, object->bounding_box());
-        objects.emplace_back(std::move(object));
+        bbox = aabb(bbox, ob->bounding_box());
+        objects.push_back(ob);
     }
 
-    shared_ptr<hittable> split() { return bvh::split_random(objects); }
+    hittable const * split(shared_ptr_storage<hittable> &storage) { return bvh::split_random(objects, storage); }
 
     aabb bounding_box() const& override { return bbox; }
 

@@ -24,24 +24,34 @@
 #include "interval.h"
 #include "rtweekend.h"
 
+// NOTE: For layers, check if sorting the nodes via hit distance is better.
+// The theory is that if I sort the nodes by hit distance, then I can exit the
+// loop on the first hit, since I know it's not going to get better.
+// To sort by highest, maybe it's time to move to an octotree?
+
 // NOTE: what if I use the BVH to make object selection on a bit array? This way
 // I may be able to process the hits as a masked line, and select the best one
 // that way.
 
 namespace bvh {
 
-static bool box_compare(shared_ptr<hittable> const& a,
-                        shared_ptr<hittable> const& b, int axis_index) {
+static bool box_compare(hittable const * const& a,
+                        hittable const * const& b, int axis_index) {
     return a->bounding_box().axis(axis_index).min <
            b->bounding_box().axis(axis_index).min;
 }
 
-static size_t partition(std::span<shared_ptr<hittable>> obs, int axis) {
-    std::sort(
-        obs.begin(), obs.end(),
-        [axis](shared_ptr<hittable> const& a, shared_ptr<hittable> const& b) {
-            return box_compare(a, b, axis);
-        });
+// NOTE: what about using mean squares algorithm to fit a plane between the
+// boxes?
+// We could fit one plane for minimums and one plane for maximums. Check the
+// distance of the plane to the closest box
+
+static size_t partition(std::span<hittable const *> obs, int axis) {
+    std::sort(obs.begin(), obs.end(),
+              [axis](hittable const * const& a,
+                     hittable const * const& b) {
+                  return box_compare(a, b, axis);
+              });
 
     auto mid = obs.size() / 2;
 
@@ -63,9 +73,9 @@ static float cumulative_right_visit(int depth) {
     return visit_right_cost * float(depth * (depth + 1) / 2);
 }
 
-static float eval_partition_cost(size_t split_index,
-                                 std::span<shared_ptr<hittable> const> obs,
-                                 int axis, int depth) {
+static float eval_partition_cost(
+    size_t split_index, std::span<hittable const * const> obs,
+    int axis, int depth) {
     interval whole = interval::empty;
     interval left = interval::empty;
     interval right = interval::empty;
@@ -95,7 +105,7 @@ static float eval_partition_cost(size_t split_index,
     return a_cost + b_cost;
 }
 
-static float eval_linear_cost(std::span<shared_ptr<hittable> const> obs) {
+static float eval_linear_cost(std::span<hittable const * const> obs) {
     // NOTE: Since everything is going through shared pointers right now, I'll
     // add another penalty to the linear one, since it isn't fully cached like
     // we're assuming here!
@@ -127,10 +137,10 @@ struct tree final : public hittable {
 
     int root_node;
     std::vector<node> inorder_nodes;
-    std::span<shared_ptr<hittable> const> objects;
+    std::span<hittable const * const> objects;
 
     tree(int root_node, std::vector<node> inorder_nodes,
-         std::span<shared_ptr<hittable> const> objects)
+         std::span<hittable const * const> objects)
         : root_node(root_node),
           inorder_nodes(std::move(inorder_nodes)),
           objects(objects) {}
@@ -144,7 +154,7 @@ struct tree final : public hittable {
 
     static bool hit_tree(ray const& r, interval& ray_t, hit_record& rec,
                          node const* nodes, int root,
-                         std::span<shared_ptr<hittable> const> objects) {
+                         std::span<hittable const * const> objects) {
         if (root == -1) {
             return hittable_view::hit(r, ray_t, rec, objects);
         } else {
@@ -189,9 +199,9 @@ struct tree final : public hittable {
 };
 
 // Returns the index for the parent, or -1 if not splitting
-[[nodiscard]] static int split_tree(std::span<shared_ptr<hittable>> objects,
-                                    std::vector<tree::node>& inorder_nodes,
-                                    int depth = 0) {
+[[nodiscard]] static int split_tree(
+    std::span<hittable const *> objects,
+    std::vector<tree::node>& inorder_nodes, int depth = 0) {
     // Not required
     if (objects.size() == 1) return -1;
 
@@ -242,8 +252,8 @@ struct tree final : public hittable {
     return int(parent);
 }
 
-[[nodiscard]] static shared_ptr<hittable> split_random(
-    std::span<shared_ptr<hittable>> objects) {
+[[nodiscard]] static hittable const * split_random(
+    std::span<hittable const *> objects, shared_ptr_storage<hittable> &storage) {
     if (objects.size() == 1) return objects[0];
 
     std::vector<tree::node> inorder_nodes;
@@ -255,9 +265,9 @@ struct tree final : public hittable {
         for (auto const& ob : objects) {
             whole_bb = aabb(whole_bb, ob->bounding_box());
         }
-        return make_shared<hittable_view>(objects, whole_bb);
+        return storage.make<hittable_view>(objects, whole_bb);
     } else {
-        return make_shared<tree>(root, std::move(inorder_nodes), objects);
+        return storage.make<tree>(root, std::move(inorder_nodes), objects);
     }
 }
 }  // namespace bvh

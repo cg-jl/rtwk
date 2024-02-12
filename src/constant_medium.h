@@ -20,19 +20,20 @@
 
 struct constant_medium final : public hittable {
    public:
-    shared_ptr<hittable> boundary;
+    hittable const* boundary;
     float neg_inv_density;
-    shared_ptr<material> phase_function;
-    shared_ptr<texture> tex;
+    material const* phase_function;
+    texture const* tex;
 
-    constant_medium(shared_ptr<hittable> b, float d, shared_ptr<texture> tex)
-        : boundary(std::move(b)),
+    constant_medium(hittable const* b, float d,
+                    texture const* tex)
+        : boundary(b),
           neg_inv_density(-1 / d),
-          phase_function(make_shared<isotropic>()),
-          tex(std::move(tex)) {}
+          phase_function(&singleton_materials::isotropic),
+          tex(tex) {}
 
-    constant_medium(shared_ptr<hittable> b, float d, color c)
-        : constant_medium(std::move(b), d, make_shared<solid_color>(c)) {}
+    constant_medium(hittable const* b, float d, color c, shared_ptr_storage<texture> &tex_storage)
+        : constant_medium(b, d, tex_storage.make<solid_color>(c)) {}
 
     [[nodiscard]] aabb bounding_box() const& override {
         return boundary->bounding_box();
@@ -66,8 +67,8 @@ struct constant_medium final : public hittable {
         rec.p = r.at(ray_t.max);
 
         rec.normal = vec3(1, 0, 0);  // arbitrary
-        rec.mat = phase_function.get();
-        rec.tex = tex.get();
+        rec.mat = phase_function;
+        rec.tex = tex;
 
         return true;
     }

@@ -18,6 +18,7 @@
 #include "perlin.h"
 #include "rtw_stb_image.h"
 #include "rtweekend.h"
+#include "storage.h"
 
 // NOTE: there is a tree structure in checker_texture.
 // Sizes:
@@ -35,10 +36,11 @@ struct texture {
 
 struct solid_color : public texture {
    public:
-    template <typename... Args>
-    solid_color(Args&&... args) : color_value(std::forward<Args&&>(args)...) {}
 
-    color value(float u, float v, point3 const& p) const override {
+    template <typename... Args>
+    explicit solid_color(Args&&... args) : color_value(std::forward<Args>(args)...) {}
+
+    [[nodiscard]] color value(float u, float v, point3 const& p) const override {
         return color_value;
     }
 
@@ -48,16 +50,14 @@ struct solid_color : public texture {
 
 struct checker_texture : public texture {
    public:
-    checker_texture(float _scale, shared_ptr<texture> _even,
-                    shared_ptr<texture> _odd)
-        : inv_scale(1.0f / _scale),
-          even(std::move(_even)),
-          odd(std::move(_odd)) {}
+    checker_texture(float _scale, texture const* _even, texture const* _odd)
+        : inv_scale(1.0f / _scale), even(_even), odd(_odd) {}
 
-    checker_texture(float _scale, color c1, color c2)
+    checker_texture(float _scale, color c1, color c2,
+                    shared_ptr_storage<texture>& storage)
         : inv_scale(1.0f / _scale),
-          even(make_shared<solid_color>(c1)),
-          odd(make_shared<solid_color>(c2)) {}
+          even(storage.make<solid_color>(c1)),
+          odd(storage.make<solid_color>(c2)) {}
 
     color value(float u, float v, point3 const& p) const override {
         auto xInteger = static_cast<int>(std::floor(inv_scale * p.x()));
@@ -71,8 +71,8 @@ struct checker_texture : public texture {
 
    private:
     float inv_scale;
-    shared_ptr<texture> even;
-    shared_ptr<texture> odd;
+    texture const* even;
+    texture const* odd;
 };
 
 struct noise_texture : public texture {
