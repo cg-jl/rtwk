@@ -326,24 +326,21 @@ static void cornell_box() {
 
     shared_ptr_storage<transform> tf_storage;
 
-    ordered_transforms transforms;
-    transforms.add(tf_storage.make<translate>(vec3(265, 0, 295)));
-    transforms.add(tf_storage.make<rotate_y>(15));
     world.add(hit_storage.make<transformed_geometry>(
-        tf_storage.make<ordered_transforms>(std::move(transforms)),
+        std::vector<transform const *>{
+            tf_storage.make<translate>(vec3(265, 0, 295)),
+            tf_storage.make<rotate_y>(15)},
+
         box1.get()));
 
     shared_ptr<hittable const> box2 =
         box(point3(0, 0, 0), point3(165, 165, 165),
             &singleton_materials::lambertian, white.get(), hit_storage);
-    // NOTE: This is safe because we moved it
-    transforms.tfs.clear();
-
-    transforms.add(tf_storage.make<translate>(vec3(130, 0, 65)));
-    transforms.add(tf_storage.make<rotate_y>(-18));
 
     world.add(hit_storage.make<transformed_geometry>(
-        tf_storage.make<ordered_transforms>(std::move(transforms)),
+        std::vector<transform const *>{
+            tf_storage.make<translate>(vec3(130, 0, 65)),
+            tf_storage.make<rotate_y>(-18)},
         box2.get()));
 
     camera cam;
@@ -400,25 +397,22 @@ static void cornell_smoke() {
 
     shared_ptr_storage<transform> tf_storage;
 
-    ordered_transforms transforms;
-    transforms.add(tf_storage.make<translate>(vec3(265, 0, 295)));
-    transforms.add(tf_storage.make<rotate_y>(15));
-
     box1 = hit_storage.make<transformed_geometry>(
-        tf_storage.make<ordered_transforms>(std::move(transforms)), box1);
+
+        std::vector<transform const *>{
+            tf_storage.make<translate>(vec3(265, 0, 295)),
+            tf_storage.make<rotate_y>(15)},
+        box1);
 
     auto box2 = hit_storage.add(box(point3(0, 0, 0), point3(165, 165, 165),
                                     &singleton_materials::lambertian, white,
                                     hit_storage));
 
-    // NOTE: We can do this because we moved earlier
-    transforms.tfs.clear();
-
-    transforms.add(tf_storage.make<translate>(vec3(130, 0, 65)));
-    transforms.add(tf_storage.make<rotate_y>(-18));
-
     box2 = hit_storage.make<transformed_geometry>(
-        tf_storage.make<ordered_transforms>(std::move(transforms)), box2);
+        std::vector<transform const *>{
+            tf_storage.make<translate>(vec3(130, 0, 65)),
+            tf_storage.make<rotate_y>(-18)},
+        box2);
 
     world.add(hit_storage.make<constant_medium>(box1, 0.01, color(0, 0, 0),
                                                 tex_storage));
@@ -534,11 +528,11 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
                                             white));
     }
 
-    ordered_transforms transforms;
-    transforms.add(tf_storage.make<translate>(vec3(-100, 270, 395)));
-    transforms.add(tf_storage.make<rotate_y>(15));
     world.add(hit_storage.make<transformed_geometry>(
-        tf_storage.make<ordered_transforms>(std::move(transforms)),
+        std::vector<transform const *>{
+            tf_storage.make<translate>(vec3(-100, 270, 395)),
+            tf_storage.make<rotate_y>(15)},
+
         boxes2.split(hit_storage)));
 
     struct timespec end;

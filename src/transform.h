@@ -9,8 +9,8 @@
 #include "rtweekend.h"
 
 // NOTE: What if I make 'packs' of transforms via some sort of storage?
-// I could then apply those rays differently to the shapes (and filters like BVH) that use those transforms,
-// and then hit all of them.
+// I could then apply those rays differently to the shapes (and filters like
+// BVH) that use those transforms, and then hit all of them.
 
 // Transforms on an object prior to the ray intersection.
 // These transforms are applied first to the ray, and then applied in reverse to
@@ -121,56 +121,41 @@ struct move final : public transform {
     }
 };
 
-// NOTE: Maybe this should be directly integrated into transformed_geometry?
-struct ordered_transforms final : public transform {
-    std::vector<transform const*> tfs;
-
-    void apply_to_bbox(aabb& bbox) const& override {
-        for (auto const& tf : tfs) {
-            tf->apply_to_bbox(bbox);
-        }
-    }
-
-    void apply(ray& r, float time) const& override {
-        for (auto const& tf : tfs) {
-            tf->apply(r, time);
-        }
-    }
-
-    void apply_reverse(float time, hit_record& rec) const& override {
-        for (size_t i = tfs.size(); i > 0;) {
-            --i;
-            tfs[i]->apply_reverse(time, rec);
-        }
-    }
-
-    void add(transform const* tf) & { tfs.push_back(tf); }
-};
-
 // TODO: integrate transforms into hittable geometry, and return transform when
 // we get a hit. This will allow us to apply the reverse transform only once per
 // hit check.
 struct transformed_geometry final : public hittable {
-    transform const* transf;
+    std::vector<transform const*> transf;
     hittable const* object;
 
-    transformed_geometry(transform const* transf, hittable const* object)
-        : transf(transf), object(object) {}
+    transformed_geometry(std::vector<transform const*> transf,
+                         hittable const* object)
+        : transf(std::move(transf)), object(object) {}
+    transformed_geometry(transform const* tf, hittable const* object)
+        : transformed_geometry(std::vector{tf}, object) {}
 
-    aabb bounding_box() const& override {
+    [[nodiscard]] aabb bounding_box() const& override {
         aabb box = object->bounding_box();
-        transf->apply_to_bbox(box);
+        for (auto const tf : transf) {
+            tf->apply_to_bbox(box);
+        }
         return box;
     }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         ray r_copy = r;
 
-        transf->apply(r_copy, r.time);
+        for (auto const tf : transf) {
+            tf->apply(r_copy, r.time);
+        }
 
         if (!object->hit(r_copy, ray_t, rec)) return false;
 
-        transf->apply_reverse(r.time, rec);
+        for (size_t i = transf.size(); i > 0;) {
+            --i;
+            auto const tf = transf[i];
+            tf->apply_reverse(r.time, rec);
+        }
         return true;
     }
 };
