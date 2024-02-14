@@ -30,7 +30,6 @@ static void random_spheres() {
     hittable_list world;
 
     shared_ptr_storage<texture> tex_storage;
-    shared_ptr_storage<transform> tf_storage;
     shared_ptr_storage<hittable> hit_storage;
 
     auto checker = make_shared<checker_texture>(0.32, color(.2, .3, .1),
@@ -58,7 +57,7 @@ static void random_spheres() {
                     auto displacement = vec3(0, random_float(0, .5), 0);
 
                     world.add(hit_storage.make<transformed_geometry>(
-                        tf_storage.make<move>(displacement),
+                        transform::move(displacement),
                         hit_storage.make<sphere>(point3(center), 0.2,
                                                  &sphere_material,
                                                  sphere_texture.get())));
@@ -324,12 +323,9 @@ static void cornell_box() {
         box(point3(0, 0, 0), point3(165, 330, 165),
             &singleton_materials::lambertian, white.get(), hit_storage);
 
-    shared_ptr_storage<transform> tf_storage;
-
     world.add(hit_storage.make<transformed_geometry>(
-        std::vector<transform const *>{
-            tf_storage.make<translate>(vec3(265, 0, 295)),
-            tf_storage.make<rotate_y>(15)},
+        std::vector<transform>{transform::translate(vec3(265, 0, 295)),
+                               transform::rotate_y(15)},
 
         box1.get()));
 
@@ -338,9 +334,8 @@ static void cornell_box() {
             &singleton_materials::lambertian, white.get(), hit_storage);
 
     world.add(hit_storage.make<transformed_geometry>(
-        std::vector<transform const *>{
-            tf_storage.make<translate>(vec3(130, 0, 65)),
-            tf_storage.make<rotate_y>(-18)},
+        std::vector<transform>{transform::translate(vec3(130, 0, 65)),
+                               transform::rotate_y(-18)},
         box2.get()));
 
     camera cam;
@@ -395,13 +390,10 @@ static void cornell_smoke() {
                                     &singleton_materials::lambertian, white,
                                     hit_storage));
 
-    shared_ptr_storage<transform> tf_storage;
-
     box1 = hit_storage.make<transformed_geometry>(
 
-        std::vector<transform const *>{
-            tf_storage.make<translate>(vec3(265, 0, 295)),
-            tf_storage.make<rotate_y>(15)},
+        std::vector<transform>{transform::translate(vec3(265, 0, 295)),
+                               transform::rotate_y(15)},
         box1);
 
     auto box2 = hit_storage.add(box(point3(0, 0, 0), point3(165, 165, 165),
@@ -409,9 +401,8 @@ static void cornell_smoke() {
                                     hit_storage));
 
     box2 = hit_storage.make<transformed_geometry>(
-        std::vector<transform const *>{
-            tf_storage.make<translate>(vec3(130, 0, 65)),
-            tf_storage.make<rotate_y>(-18)},
+        std::vector<transform>{transform::translate(vec3(130, 0, 65)),
+                               transform::rotate_y(-18)},
         box2);
 
     world.add(hit_storage.make<constant_medium>(box1, 0.01, color(0, 0, 0),
@@ -467,8 +458,6 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     hittable_list world;
 
-    shared_ptr_storage<transform> tf_storage;
-
     world.add(boxes1.split(hit_storage));
 
     auto light = &singleton_materials::diffuse_light;
@@ -482,7 +471,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto sphere_material = &singleton_materials::lambertian;
     auto sphere_color = make_shared<solid_color>(0.7, 0.3, 0.1);
     world.add(hit_storage.make<transformed_geometry>(
-        tf_storage.make<move>(vec3(30, 0, 0)),
+        transform::move(vec3(30, 0, 0)),
         hit_storage.make<sphere>(center, 50, sphere_material,
                                  sphere_color.get())));
 
@@ -529,9 +518,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     }
 
     world.add(hit_storage.make<transformed_geometry>(
-        std::vector<transform const *>{
-            tf_storage.make<translate>(vec3(-100, 270, 395)),
-            tf_storage.make<rotate_y>(15)},
+        std::vector<transform>{transform::translate(vec3(-100, 270, 395)),
+                               transform::rotate_y(15)},
 
         boxes2.split(hit_storage)));
 

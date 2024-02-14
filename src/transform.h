@@ -16,128 +16,73 @@
 // These transforms are applied first to the ray, and then applied in reverse to
 // the result.
 struct transform {
-    virtual void apply(ray& r, float time) const& = 0;
-    virtual void apply_reverse(float time, hit_record& rec) const& = 0;
-    virtual void apply_to_bbox(aabb& box) const& = 0;
-};
+    enum class kind {
+        // NOTE: translate can be seen as a move with fixed time.
+        translate,
+        rotate_y,
+        // NOTE: move can be seen as a partial translate
+        move,
+    } tag{};
 
-struct translate final : public transform {
-   public:
-    translate(vec3 displacement) : offset(displacement) {}
+    union data {
+        vec3 displacement;
+        struct rotate_y {
+            float sin_theta;
+            float cos_theta;
+        } rotation{};
 
-    void apply(ray& r, float time) const& override { r.origin -= offset; }
-    void apply_reverse(float time, hit_record& rec) const& override {
-        rec.p += offset;
+        constexpr data() {}
+        ~data() {}
+    } as;
+
+    static transform move(vec3 displacement) {
+        transform tf;
+        tf.tag = kind::move;
+        tf.as.displacement = displacement;
+        return tf;
     }
 
-    void apply_to_bbox(aabb& box) const& override { box = box + offset; }
+    static transform translate(vec3 displacement) {
+        transform tf;
+        tf.tag = kind::translate;
+        tf.as.displacement = displacement;
+        return tf;
+    }
+
+    static transform rotate_y(float degrees) {
+        transform tf;
+        tf.tag = kind::rotate_y;
+        sincosf(degrees_to_radians(degrees), &tf.as.rotation.sin_theta,
+                &tf.as.rotation.cos_theta);
+        return tf;
+    }
+
+    explicit constexpr transform(kind tag) : tag(tag) {}
+
+    void apply(ray& r, float time) const&;
+    void apply_reverse(float time, hit_record& rec) const&;
+    void apply_to_bbox(aabb& box) const&;
 
    private:
-    vec3 offset;
-};
-
-struct rotate_y final : public transform {
-    float cos_theta, sin_theta;
-
-    void apply_to_bbox(aabb& bbox) const& override {
-        point3 min(infinity, infinity, infinity);
-        point3 max(-infinity, -infinity, -infinity);
-
-        for (int i = 0; i < 2; i++) {
-            for (int j = 0; j < 2; j++) {
-                for (int k = 0; k < 2; k++) {
-                    auto x = float(i) * bbox.x.max + float(1 - i) * bbox.x.min;
-                    auto y = float(j) * bbox.y.max + float(1 - j) * bbox.y.min;
-                    auto z = float(k) * bbox.z.max + float(1 - k) * bbox.z.min;
-
-                    auto newx = cos_theta * x + sin_theta * z;
-                    auto newz = -sin_theta * x + cos_theta * z;
-
-                    vec3 tester(newx, y, newz);
-
-                    for (int c = 0; c < 3; c++) {
-                        min[c] = std::fmin(min[c], tester[c]);
-                        max[c] = std::fmax(max[c], tester[c]);
-                    }
-                }
-            }
-        }
-
-        bbox = aabb(min, max);
-    }
-
-    void apply(ray& r, float time) const& override {
-        vec3 origin = r.origin;
-        vec3 direction = r.direction;
-        origin[0] = cos_theta * r.origin[0] - sin_theta * r.origin[2];
-        origin[2] = sin_theta * r.origin[0] + cos_theta * r.origin[2];
-
-        direction[0] = cos_theta * r.direction[0] - sin_theta * r.direction[2];
-        direction[2] = sin_theta * r.direction[0] + cos_theta * r.direction[2];
-
-        r.origin = origin;
-        r.direction = direction;
-    }
-
-    void apply_reverse(float time, hit_record& rec) const& override {
-        // Change the intersection point from object space to world space
-        auto p = rec.p;
-        p[0] = cos_theta * rec.p[0] + sin_theta * rec.p[2];
-        p[2] = -sin_theta * rec.p[0] + cos_theta * rec.p[2];
-
-        // Change the normal from object space to world space
-        auto normal = rec.normal;
-        normal[0] = cos_theta * rec.normal[0] + sin_theta * rec.normal[2];
-        normal[2] = -sin_theta * rec.normal[0] + cos_theta * rec.normal[2];
-
-        rec.p = p;
-        rec.normal = normal;
-    }
-
-    rotate_y(float angle) {
-        auto radians = degrees_to_radians(angle);
-        sincosf(radians, &sin_theta, &cos_theta);
-    }
-};
-
-struct move final : public transform {
-    vec3 move_segment;
-
-    move(vec3 move_segment) : move_segment(move_segment) {}
-
-    void apply_to_bbox(aabb& bbox) const& override {
-        bbox = aabb(bbox, bbox + move_segment);
-    }
-
-    void apply(ray& r, float time) const& override {
-        auto displacement = move_segment * time;
-
-        r.origin -= displacement;
-    }
-
-    void apply_reverse(float time, hit_record& rec) const& override {
-        auto displacement = move_segment * time;
-        rec.p += displacement;
-    }
+    constexpr transform() = default;
 };
 
 // TODO: integrate transforms into hittable geometry, and return transform when
 // we get a hit. This will allow us to apply the reverse transform only once per
 // hit check.
 struct transformed_geometry final : public hittable {
-    std::vector<transform const*> transf;
+    std::vector<transform> transf;
     hittable const* object;
 
-    transformed_geometry(std::vector<transform const*> transf,
-                         hittable const* object)
+    transformed_geometry(std::vector<transform> transf, hittable const* object)
         : transf(std::move(transf)), object(object) {}
-    transformed_geometry(transform const* tf, hittable const* object)
-        : transformed_geometry(std::vector{tf}, object) {}
+    transformed_geometry(transform tf, hittable const* object)
+        : transformed_geometry(std::vector{std::move(tf)}, object) {}
 
     [[nodiscard]] aabb bounding_box() const& override {
         aabb box = object->bounding_box();
-        for (auto const tf : transf) {
-            tf->apply_to_bbox(box);
+        for (auto const& tf : transf) {
+            tf.apply_to_bbox(box);
         }
         return box;
     }
@@ -145,17 +90,129 @@ struct transformed_geometry final : public hittable {
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         ray r_copy = r;
 
-        for (auto const tf : transf) {
-            tf->apply(r_copy, r.time);
+        for (auto const& tf : transf) {
+            tf.apply(r_copy, r.time);
         }
 
         if (!object->hit(r_copy, ray_t, rec)) return false;
 
         for (size_t i = transf.size(); i > 0;) {
             --i;
-            auto const tf = transf[i];
-            tf->apply_reverse(r.time, rec);
+            auto const& tf = transf[i];
+            tf.apply_reverse(r.time, rec);
         }
         return true;
     }
 };
+inline void transform::apply(ray& r, float time) const& {
+    switch (tag) {
+        case kind::translate:
+            r.origin -= as.displacement;
+            break;
+        case kind::rotate_y: {
+            vec3 origin = r.origin;
+            vec3 direction = r.direction;
+
+            auto cos_theta = as.rotation.cos_theta;
+            auto sin_theta = as.rotation.sin_theta;
+
+            origin[0] = cos_theta * r.origin[0] - sin_theta * r.origin[2];
+            origin[2] = sin_theta * r.origin[0] + cos_theta * r.origin[2];
+
+            direction[0] =
+                cos_theta * r.direction[0] - sin_theta * r.direction[2];
+            direction[2] =
+                sin_theta * r.direction[0] + cos_theta * r.direction[2];
+
+            r.origin = origin;
+            r.direction = direction;
+        } break;
+
+            // NOTE: only 'move' requires the time sample. Maybe there's some
+            // way to cache the sampled time value with a thread local? When
+            // switching to a component-based approach, maybe the sample can be
+            // done earlier. idea: Some kind of structure that allows me to
+            // separate each move set by threads, and make each thread sample
+            // the move at the time they want to. idea: Have threads sample a
+            // new value each time, and share the value (cache coherency?)
+        case kind::move: {
+            auto displacement = as.displacement * time;
+
+            r.origin -= displacement;
+        } break;
+    }
+}
+inline void transform::apply_reverse(float time, hit_record& rec) const& {
+    switch (tag) {
+        case kind::move: {
+            auto displacement = as.displacement * time;
+            rec.p += displacement;
+        } break;
+        case kind::rotate_y: {
+            // Change the intersection point from object space to world space
+            auto p = rec.p;
+
+            auto cos_theta = as.rotation.cos_theta;
+            auto sin_theta = as.rotation.sin_theta;
+
+            p[0] = cos_theta * rec.p[0] + sin_theta * rec.p[2];
+            p[2] = -sin_theta * rec.p[0] + cos_theta * rec.p[2];
+
+            // Change the normal from object space to world space
+            auto normal = rec.normal;
+            normal[0] = cos_theta * rec.normal[0] + sin_theta * rec.normal[2];
+            normal[2] = -sin_theta * rec.normal[0] + cos_theta * rec.normal[2];
+
+            rec.p = p;
+            rec.normal = normal;
+        } break;
+
+        case kind::translate:
+            rec.p += as.displacement;
+            break;
+    }
+}
+inline void transform::apply_to_bbox(aabb& box) const& {
+    switch (tag) {
+        case kind::translate:
+            box = box + as.displacement;
+            break;
+        case kind::rotate_y: {
+            point3 min(infinity, infinity, infinity);
+            point3 max(-infinity, -infinity, -infinity);
+
+            auto cos_theta = as.rotation.cos_theta;
+            auto sin_theta = as.rotation.sin_theta;
+
+            for (int i = 0; i < 2; i++) {
+                for (int j = 0; j < 2; j++) {
+                    for (int k = 0; k < 2; k++) {
+                        auto x =
+                            float(i) * box.x.max + float(1 - i) * box.x.min;
+                        auto y =
+                            float(j) * box.y.max + float(1 - j) * box.y.min;
+                        auto z =
+                            float(k) * box.z.max + float(1 - k) * box.z.min;
+
+                        auto newx = cos_theta * x + sin_theta * z;
+                        auto newz = -sin_theta * x + cos_theta * z;
+
+                        vec3 tester(newx, y, newz);
+
+                        for (int c = 0; c < 3; c++) {
+                            min[c] = std::fmin(min[c], tester[c]);
+                            max[c] = std::fmax(max[c], tester[c]);
+                        }
+                    }
+                }
+            }
+
+            box = aabb(min, max);
+        } break;
+        case kind::move: {
+            box = aabb(box, box + as.displacement);
+        } break;
+        default:
+            __builtin_unreachable();
+    }
+}
