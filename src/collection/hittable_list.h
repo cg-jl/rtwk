@@ -27,17 +27,20 @@
 // lists still use the same local space.
 // Then we could modify how things are allocated much easier.
 
-struct hittable_list final : public hittable {
+// NOTE: Maybe hittable list should be just a builder and not a final view.
+// This way we may cache the AABB in it as a way to get the layering part for
+// BVH easily, but get just the span for the final thing.
+struct hittable_list final : public collection {
    public:
     aabb bbox;
-    std::vector<hittable const *> objects;
+    std::vector<hittable const*> objects;
 
     hittable_list() = default;
-    hittable_list(hittable const *obj) { add(obj); }
+    explicit hittable_list(hittable const* obj) { add(obj); }
 
     void clear() { objects.clear(); }
 
-    void add(hittable const *ob) {
+    void add(hittable const* ob) {
         // NOTE: maybe we don't need incremental calculation and can have a
         // final pass for caching it, or another hittable thing that caches the
         // AABB and inlines your thing.
@@ -45,13 +48,16 @@ struct hittable_list final : public hittable {
         objects.push_back(ob);
     }
 
-    hittable const * split(shared_ptr_storage<hittable> &storage) { return bvh::split_random(objects, storage); }
+    hittable const* split(shared_ptr_storage<hittable>& storage,
+                          shared_ptr_storage<collection>& coll_storage) {
+        return bvh::split_random(objects, storage, coll_storage);
+    }
 
-    aabb bounding_box() const& override { return bbox; }
+    [[nodiscard]] aabb aggregate_box() const& override { return bbox; }
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
-        std::span obs = objects;
-        return hittable_view(obs, bbox).hit(r, ray_t, rec);
+    void propagate(ray const& r, hit_status& status,
+                   hit_record& rec) const& override {
+        return hittable_view::propagate(r, status, rec, objects);
     }
 };
 

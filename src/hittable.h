@@ -25,11 +25,6 @@
 //      by. Some joint materials like dielectric or metal don't accept any
 //      texturer.
 //
-// Some "hittable"s are collections of objects, like BVH, hittable view and
-// hittable list. Since BVH is the only 'weird' one, it will act as a 'filter'
-// to select which objects are finally tested. BVHs are only used in geometry
-// though.
-//
 // Last, I could separate storage for different types of objects, although then
 // a BVH that goes over a disjoint set of objects might be more difficult to
 // implement (other than having 3 BVHs). Specialization here might give this a
@@ -42,11 +37,6 @@
 #include "hit_record.h"
 #include "rtweekend.h"
 #include "texture.h"
-
-struct material;
-
-// NOTE: each shared_ptr occupies 16 bytes. What if we move that to 8 bytes by
-// just having a const *?
 
 // NOTE: material could be the next thing to make common on all hittables so it
 // can be migrated to somewhere else! Reason is that we don't need to access the

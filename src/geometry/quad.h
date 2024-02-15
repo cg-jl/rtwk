@@ -12,8 +12,8 @@
 
 #include <utility>
 
+#include "collection/hittable_list.h"  // for box(). NOTE: maybe this should be in main.cc, or some other builder module
 #include "hittable.h"
-#include "hittable_list.h"
 #include "material.h"
 #include "rtweekend.h"
 #include "vec3.h"
@@ -120,9 +120,10 @@ inline void box_into(point3 a, point3 b, material const& mat,
                                  tex));  // bottom
 }
 
-inline shared_ptr<hittable_list> box(point3 const& a, point3 const& b,
-                                     material const& mat, texture const* tex,
-                                     shared_ptr_storage<hittable>& storage) {
+inline hittable const* box(point3 const& a, point3 const& b,
+                           material const& mat, texture const* tex,
+                           shared_ptr_storage<hittable>& storage,
+                           shared_ptr_storage<collection>& coll_storage) {
     // Returns the 3D box (six sides) that contains the two opposite vertices a
     // & b.
 
@@ -130,7 +131,8 @@ inline shared_ptr<hittable_list> box(point3 const& a, point3 const& b,
 
     box_into(a, b, mat, tex, sides, storage);
 
-    return make_shared<hittable_list>(std::move(sides));
+    return storage.make<hittable_collection>(
+        coll_storage.make<hittable_list>(std::move(sides)));
 }
 
 #endif

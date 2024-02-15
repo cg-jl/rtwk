@@ -14,12 +14,12 @@
 
 #include "camera.h"
 #include "color.h"
-#include "constant_medium.h"
-#include "hittable_list.h"
+#include "geometry/constant_medium.h"
+#include "collection/hittable_list.h"
 #include "material.h"
-#include "quad.h"
+#include "geometry/quad.h"
 #include "rtweekend.h"
-#include "sphere.h"
+#include "geometry/sphere.h"
 #include "storage.h"
 #include "texture.h"
 #include "transform.h"
@@ -92,7 +92,9 @@ static void random_spheres() {
         point3(4, 1, 0), 1.0, material3,
         tex_storage.make<solid_color>(color(0.7, .6, .5))));
 
-    world = hittable_list(world.split(hit_storage));
+    shared_ptr_storage<collection> coll_storage;
+
+    world = hittable_list(world.split(hit_storage, coll_storage));
 
     camera cam;
 
@@ -110,7 +112,7 @@ static void random_spheres() {
     cam.defocus_angle = 0.02;
     cam.focus_dist = 10.0;
 
-    cam.render(world, enable_progress);
+    cam.render(hittable_collection(&world), enable_progress);
 }
 
 static void two_spheres() {
@@ -143,7 +145,7 @@ static void two_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world, enable_progress);
+    cam.render(hittable_collection(&world), enable_progress);
 }
 
 static void earth() {
@@ -169,7 +171,7 @@ static void earth() {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_list(globe), enable_progress);
+    cam.render(*globe, enable_progress);
 }
 
 static void two_perlin_spheres() {
@@ -198,7 +200,7 @@ static void two_perlin_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world, enable_progress);
+    cam.render(hittable_collection(&world), enable_progress);
 }
 
 static void quads() {
@@ -244,7 +246,7 @@ static void quads() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world, enable_progress);
+    cam.render(hittable_collection(&world), enable_progress);
 }
 
 static void simple_light() {
@@ -281,7 +283,7 @@ static void simple_light() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world, enable_progress);
+    cam.render(hittable_collection(&world), enable_progress);
 }
 
 static void cornell_box() {
@@ -314,24 +316,26 @@ static void cornell_box() {
                                      vec3(0, 555, 0), material::lambertian(),
                                      white.get()));
 
-    shared_ptr<hittable const> box1 =
+    shared_ptr_storage<collection> coll_storage;
+
+    auto box1 =
         box(point3(0, 0, 0), point3(165, 330, 165), material::lambertian(),
-            white.get(), hit_storage);
+            white.get(), hit_storage, coll_storage);
 
     world.add(hit_storage.make<transformed_geometry>(
         std::vector<transform>{transform::translate(vec3(265, 0, 295)),
                                transform::rotate_y(15)},
 
-        box1.get()));
+        box1));
 
-    shared_ptr<hittable const> box2 =
+    auto box2 =
         box(point3(0, 0, 0), point3(165, 165, 165), material::lambertian(),
-            white.get(), hit_storage);
+            white.get(), hit_storage, coll_storage);
 
     world.add(hit_storage.make<transformed_geometry>(
         std::vector<transform>{transform::translate(vec3(130, 0, 65)),
                                transform::rotate_y(-18)},
-        box2.get()));
+        box2));
 
     camera cam;
 
@@ -348,7 +352,7 @@ static void cornell_box() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world, enable_progress);
+    cam.render(hittable_collection(&world), enable_progress);
 }
 
 static void cornell_smoke() {
@@ -380,10 +384,10 @@ static void cornell_smoke() {
     world.add(hit_storage.make<quad>(point3(0, 0, 555), vec3(555, 0, 0),
                                      vec3(0, 555, 0), material::lambertian(),
                                      white));
+    shared_ptr_storage<collection> coll_storage;
 
-    auto box1 =
-        hit_storage.add(box(point3(0, 0, 0), point3(165, 330, 165),
-                            material::lambertian(), white, hit_storage));
+    auto box1 = box(point3(0, 0, 0), point3(165, 330, 165),
+                    material::lambertian(), white, hit_storage, coll_storage);
 
     box1 = hit_storage.make<transformed_geometry>(
 
@@ -391,9 +395,8 @@ static void cornell_smoke() {
                                transform::rotate_y(15)},
         box1);
 
-    auto box2 =
-        hit_storage.add(box(point3(0, 0, 0), point3(165, 165, 165),
-                            material::lambertian(), white, hit_storage));
+    auto box2 = box(point3(0, 0, 0), point3(165, 165, 165),
+                    material::lambertian(), white, hit_storage, coll_storage);
 
     box2 = hit_storage.make<transformed_geometry>(
         std::vector<transform>{transform::translate(vec3(130, 0, 65)),
@@ -420,7 +423,7 @@ static void cornell_smoke() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world, enable_progress);
+    cam.render(hittable_collection(&world), enable_progress);
 }
 
 static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
@@ -433,6 +436,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto ground = material::lambertian();
 
     shared_ptr_storage<hittable> hit_storage;
+    shared_ptr_storage<collection> coll_storage;
 
     int boxes_per_side = 20;
     for (int i = 0; i < boxes_per_side; i++) {
@@ -445,15 +449,14 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto y1 = random_float(1, 101);
             auto z1 = z0 + w;
 
-            boxes1.add(
-                hit_storage.add(box(point3(x0, y0, z0), point3(x1, y1, z1),
-                                    ground, ground_col.get(), hit_storage)));
+            boxes1.add(box(point3(x0, y0, z0), point3(x1, y1, z1), ground,
+                           ground_col.get(), hit_storage, coll_storage));
         }
     }
 
     hittable_list world;
 
-    world.add(boxes1.split(hit_storage));
+    world.add(boxes1.split(hit_storage, coll_storage));
 
     auto light = material::diffuse_light();
     auto light_color = make_shared<solid_color>(7, 7, 7);
@@ -512,7 +515,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         std::vector<transform>{transform::translate(vec3(-100, 270, 395)),
                                transform::rotate_y(15)},
 
-        boxes2.split(hit_storage)));
+        boxes2.split(hit_storage, coll_storage)));
 
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);
@@ -538,7 +541,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     cam.defocus_angle = 0;
 
-    cam.render(world, enable_progress);
+    cam.render(hittable_collection(&world), enable_progress);
 }
 
 int main(int argc, char const *argv[]) {

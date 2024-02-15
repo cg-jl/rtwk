@@ -120,7 +120,7 @@ static float eval_linear_cost(std::span<hittable const* const> obs) {
 
 // NOTE: currently assuming that partitions are always symmetric, meaning
 // that we can always compute the child spans from a parent span.
-struct tree final : public hittable {
+struct tree final : public collection {
     // NOTE: Could split nodes into the info needed before the check and info
     // needed for recursive traversal.
     struct node {
@@ -143,22 +143,25 @@ struct tree final : public hittable {
           inorder_nodes(std::move(inorder_nodes)),
           objects(objects) {}
 
-    aabb bounding_box() const& override { return inorder_nodes[root_node].box; }
+    [[nodiscard]] aabb aggregate_box() const& override {
+        return inorder_nodes[root_node].box;
+    }
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
-        return hit_tree(r, ray_t, rec, inorder_nodes.data(), root_node,
+    void propagate(ray const& r, hit_status& status,
+                   hit_record& rec) const& override {
+        return hit_tree(r, status, rec, inorder_nodes.data(), root_node,
                         objects);
     }
 
-    static bool hit_tree(ray const& r, interval& ray_t, hit_record& rec,
+    static void hit_tree(ray const& r, hit_status& status, hit_record& rec,
                          node const* nodes, int root,
                          std::span<hittable const* const> objects) {
         if (root == -1) {
-            return hittable_view::hit(r, ray_t, rec, objects);
+            return hittable_view::propagate(r, status, rec, objects);
         } else {
             auto const& node = nodes[root];
 
-            if (!node.box.hit(r, ray_t)) return false;
+            if (!node.box.hit(r, status.ray_t)) return;
 
             // NOTE: space is partitioned along an axis, so we can know where
             // the ray may hit first. We also may know if the ray hits along
@@ -187,11 +190,10 @@ struct tree final : public hittable {
                 std::swap(first_span, second_span);
             }
 
-            auto hits_first =
-                hit_tree(r, ray_t, rec, nodes, first_child, first_span);
-            if (hits_first) return true;
+            hit_tree(r, status, rec, nodes, first_child, first_span);
+            if (status.hit_anything) return;
 
-            return hit_tree(r, ray_t, rec, nodes, second_child, second_span);
+            return hit_tree(r, status, rec, nodes, second_child, second_span);
         }
     }
 };
@@ -251,21 +253,21 @@ struct tree final : public hittable {
 }
 
 [[nodiscard]] static hittable const* split_random(
-    std::span<hittable const*> objects, shared_ptr_storage<hittable>& storage) {
+    std::span<hittable const*> objects, shared_ptr_storage<hittable>& storage,
+    shared_ptr_storage<collection>& coll_storage) {
+    // TODO: panic if size is <  2. This way we can always return a collection
     if (objects.size() == 1) return objects[0];
 
     std::vector<tree::node> inorder_nodes;
 
     auto root = split_tree(objects, inorder_nodes);
 
+    collection const* coll;
     if (root == -1) {
-        aabb whole_bb = empty_bb;
-        for (auto const& ob : objects) {
-            whole_bb = aabb(whole_bb, ob->bounding_box());
-        }
-        return storage.make<hittable_view>(objects, whole_bb);
+        coll = coll_storage.make<hittable_view>(objects);
     } else {
-        return storage.make<tree>(root, std::move(inorder_nodes), objects);
+        coll = coll_storage.make<tree>(root, std::move(inorder_nodes), objects);
     }
+    return storage.make<hittable_collection>(coll);
 }
 }  // namespace bvh
