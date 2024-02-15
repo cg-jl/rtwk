@@ -36,11 +36,12 @@ struct texture {
 
 struct solid_color : public texture {
    public:
-
     template <typename... Args>
-    explicit solid_color(Args&&... args) : color_value(std::forward<Args>(args)...) {}
+    explicit solid_color(Args&&... args)
+        : color_value(std::forward<Args>(args)...) {}
 
-    [[nodiscard]] color value(float u, float v, point3 const& p) const override {
+    [[nodiscard]] color value(float u, float v,
+                              point3 const& p) const override {
         return color_value;
     }
 
@@ -93,12 +94,12 @@ struct noise_texture : public texture {
 
 struct image_texture : public texture {
    public:
-    image_texture(char const* filename) : image(filename) {}
+    explicit image_texture(char const* filename) : image(filename) {}
 
     color value(float u, float v, point3 const& p) const override {
         // If we have no texture data, then return solid cyan as a debugging
         // aid.
-        if (image.height() <= 0) return color(0, 1, 1);
+        if (image.height() <= 0) return {0, 1, 1};
 
         // Clamp input texture coordinates to [0,1] x [1,0]
         u = interval(0, 1).clamp(u);
@@ -109,9 +110,8 @@ struct image_texture : public texture {
         auto pixel = image.pixel_data(i, j);
 
         auto color_scale = 1.0f / 255.0f;
-        return color(color_scale * float(pixel[0]),
-                     color_scale * float(pixel[1]),
-                     color_scale * float(pixel[2]));
+        return {color_scale * float(pixel[0]), color_scale * float(pixel[1]),
+                color_scale * float(pixel[2])};
     }
 
    private:

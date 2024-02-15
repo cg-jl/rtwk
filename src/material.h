@@ -13,144 +13,154 @@
 
 #include <utility>
 
-#include "hittable.h"
+#include "hit_face.h"
 #include "rtweekend.h"
-#include "texture.h"
 
 struct material {
    public:
-    enum kind {
-        lambertian,
+    enum class kind {
         metal,
-        diffuse_light,
         dielectric,
+        // NOTE: these three don't need more data than their tag.
+        // NOTE: diffuse light won't scatter, but it can signal that it's a
+        // light source.
+        diffuse_light,
         isotropic,
+        lambertian,
     };
 
-    kind tag;
+    kind tag{};
 
-    explicit constexpr material(kind tag) : tag(tag) {}
+    union data {
+        struct metal_mat {
+            float fuzz;
+        } metal{};
+        struct dielectric_mat {
+            float ir;
+        } dielectric;
 
-    void scatter(vec3 in_dir, hit_record::face rec, vec3& scattered) const&;
-};
+        // NOTE: It's ok to do this since all have the same layout.
+        constexpr data(data const& other) noexcept : metal(other.metal) {}
+        constexpr data(data&& other) noexcept : metal(other.metal) {}
 
-struct lambertian : public material {
-    constexpr lambertian() : material(material::kind::lambertian) {}
+        constexpr data& operator=(data const& other) noexcept {
+            metal = other.metal;
+            return *this;
+        }
 
-    static void scatter(vec3 in_dir, hit_record::face rec, vec3& scattered) {
-        // NOTE: we shouldn't need any checks if we generate the random scatter
-        // according to lambert's law:
-        // https://en.wikipedia.org/wiki/Lambert%27s_cosine_law
+        constexpr data& operator=(data&& other) noexcept {
+            metal = other.metal;
+            return *this;
+        }
 
-        auto scatter_direction = rec.normal + random_unit_vector();
+        constexpr data() {}
+        ~data() {}
+    } data{};
 
-        // Catch degenerate scatter direction
-        if (scatter_direction.near_zero())
-            scatter_direction = rec.normal;
-        else
-            scatter_direction = unit_vector(scatter_direction);
+    // NOTE: does *not* initialize things
+    constexpr material() = default;
 
-        scattered = scatter_direction;
-    }
-};
-
-struct metal final : public material {
-   public:
-    explicit constexpr metal(float fuzz)
-        : material(material::kind::metal), fuzz(fuzz < 1 ? fuzz : 1) {}
-
-    void scatter(vec3 in_dir, hit_record::face rec, vec3& scattered) const& {
-        vec3 reflected = reflect(in_dir, rec.normal);
-        // We use fuzz to 'grow' the scatter angle.
-        scattered = unit_vector(reflected + fuzz * random_in_unit_sphere());
-
-        // invert if it's in the other face
-        // NOTE: This could be done with XORs with the sign bit of dot product,
-        // if we want our compiler to be fancy with it.
-        scattered *= std::copysignf(1, dot(scattered, rec.normal));
+    static material lambertian() {
+        material mat;
+        mat.tag = kind::lambertian;
+        return mat;
     }
 
-   private:
-    float fuzz;
-};
-
-struct dielectric final : public material {
-   public:
-    explicit constexpr dielectric(float index_of_refraction)
-        : material(material::kind::dielectric), ir(index_of_refraction) {}
-
-    void scatter(vec3 in_dir, hit_record::face rec, vec3& scattered) const& {
-        float refraction_ratio = rec.is_front ? (1.0f / ir) : ir;
-
-        float cos_theta = -dot(in_dir, rec.normal);
-        assume(cos_theta * cos_theta <= 1.0);
-        float sin_theta_squared = 1.0f - cos_theta * cos_theta;
-
-        bool cannot_refract =
-            refraction_ratio * refraction_ratio * sin_theta_squared > 1.0f;
-        vec3 direction;
-
-        if (cannot_refract ||
-            reflectance(cos_theta, refraction_ratio) > random_float())
-            direction = reflect(in_dir, rec.normal);
-        else
-            direction =
-                refract(in_dir, rec.normal, cos_theta, refraction_ratio);
-
-        scattered = direction;
+    static material metal(float fuzz) {
+        material mat;
+        mat.tag = kind::metal;
+        mat.data.metal.fuzz = fminf(fuzz, 1.0);
+        return mat;
     }
 
-   private:
-    float ir;  // Index of Refraction
-
-    static float reflectance(float cosine, float ref_idx) {
-        // Use Schlick's approximation for reflectance.
-        auto r0 = (1 - ref_idx) / (1 + ref_idx);
-        auto one_minus_cosine = 1 - cosine;
-        one_minus_cosine *= one_minus_cosine * one_minus_cosine *
-                            one_minus_cosine * one_minus_cosine;
-        r0 = r0 * r0;
-        return r0 + (1 - r0) * one_minus_cosine;
+    static material dielectric(float index_of_refraction) {
+        material mat;
+        mat.tag = kind::dielectric;
+        mat.data.dielectric.ir = index_of_refraction;
+        return mat;
     }
-};
 
-// NOTE: diffuse light won't scatter, but it can signal that it's a light
-// source.
-struct diffuse_light final : public material {
-   public:
-    explicit diffuse_light() : material(material::kind::diffuse_light) {}
-};
-
-struct isotropic final : public material {
-   public:
-    explicit constexpr isotropic() : material(material::kind::isotropic) {}
-
-    static void scatter(vec3 in_dir, hit_record::face rec, vec3& scattered) {
-        scattered = random_unit_vector();
+    static material diffuse_light() {
+        material mat;
+        mat.tag = kind::diffuse_light;
+        return mat;
     }
+    static material isotropic() {
+        material mat;
+        mat.tag = kind::isotropic;
+        return mat;
+    }
+
+    void scatter(vec3 in_dir, face rec, vec3& scattered) const&;
 };
 
-namespace singleton_materials {
-static auto const lambertian = ::lambertian{};
-static auto const isotropic = ::isotropic{};
-static auto const diffuse_light = ::diffuse_light{};
-}  // namespace singleton_materials
-
-inline void material::scatter(vec3 in_dir, hit_record::face rec,
-                              vec3& scattered) const& {
+static inline float reflectance(float cosine, float ref_idx) {
+    // Use Schlick's approximation for reflectance.
+    auto r0 = (1 - ref_idx) / (1 + ref_idx);
+    auto one_minus_cosine = 1 - cosine;
+    one_minus_cosine *= one_minus_cosine * one_minus_cosine * one_minus_cosine *
+                        one_minus_cosine;
+    r0 = r0 * r0;
+    return r0 + (1 - r0) * one_minus_cosine;
+}
+inline void material::scatter(vec3 in_dir, face rec, vec3& scattered) const& {
     switch (tag) {
-        case lambertian:
-            return lambertian::scatter(in_dir, rec, scattered);
-        case metal:
-            return reinterpret_cast<::metal const&>(*this).scatter(in_dir, rec,
-                                                                   scattered);
-        case diffuse_light:
+        case kind::lambertian: {
+            // NOTE: we shouldn't need any checks if we generate the random
+            // scatter according to lambert's law:
+            // https://en.wikipedia.org/wiki/Lambert%27s_cosine_law
+
+            auto scatter_direction = rec.normal + random_unit_vector();
+
+            // Catch degenerate scatter direction
+            if (scatter_direction.near_zero())
+                scatter_direction = rec.normal;
+            else
+                scatter_direction = unit_vector(scatter_direction);
+
+            scattered = scatter_direction;
+        } break;
+        case kind::metal: {
+            vec3 reflected = reflect(in_dir, rec.normal);
+            // We use fuzz to 'grow' the scatter angle.
+            scattered = unit_vector(reflected +
+                                    data.metal.fuzz * random_in_unit_sphere());
+
+            // invert if it's in the other face
+            // NOTE: This could be done with XORs with the sign bit of dot
+            // product, if we want our compiler to be fancy with it.
+            scattered *= std::copysignf(1, dot(scattered, rec.normal));
+        } break;
+        case kind::diffuse_light:
             // Do nothing
             break;
-        case isotropic:
-            return isotropic::scatter(in_dir, rec, scattered);
-        case dielectric:
-            return reinterpret_cast<::dielectric const&>(*this).scatter(
-                in_dir, rec, scattered);
+        case kind::isotropic: {
+            scattered = random_unit_vector();
+        } break;
+        case kind::dielectric: {
+            {
+                auto ir = data.dielectric.ir;
+                float refraction_ratio = rec.is_front ? (1.0f / ir) : ir;
+
+                float cos_theta = -dot(in_dir, rec.normal);
+                assume(cos_theta * cos_theta <= 1.0);
+                float sin_theta_squared = 1.0f - cos_theta * cos_theta;
+
+                bool cannot_refract =
+                    refraction_ratio * refraction_ratio * sin_theta_squared >
+                    1.0f;
+                vec3 direction;
+
+                if (cannot_refract ||
+                    reflectance(cos_theta, refraction_ratio) > random_float())
+                    direction = reflect(in_dir, rec.normal);
+                else
+                    direction = refract(in_dir, rec.normal, cos_theta,
+                                        refraction_ratio);
+
+                scattered = direction;
+            }
+            break;
+        }
     }
 }

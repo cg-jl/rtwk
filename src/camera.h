@@ -153,7 +153,7 @@ struct camera {
             channel = sqrtf(channel);
             // Write the translated [0,255] value of each color
             // component.
-            static const interval intensity(0.000, 0.999);
+            static interval const intensity(0.000, 0.999);
             ichannels[i] = static_cast<uint8_t>(256 * intensity.clamp(channel));
         }
 
@@ -315,13 +315,14 @@ struct camera {
             if (!world.hit(r, rec)) return ray_result::background;
             lights.emplace_back(rec.tex, rec.p, rec.u, rec.v);
 
-            if (rec.mat->tag == material::kind::diffuse_light) return ray_result::light;
+            if (rec.mat.tag == material::kind::diffuse_light)
+                return ray_result::light;
 
-            auto face = hit_record::face(r.direction, rec.normal);
+            auto face = ::face(r.direction, rec.normal);
 
             vec3 scattered;
 
-            rec.mat->scatter(r.direction, face, scattered);
+            rec.mat.scatter(r.direction, face, scattered);
 
             r = ray(rec.p, scattered, r.time);
         }

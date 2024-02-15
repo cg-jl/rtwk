@@ -22,17 +22,17 @@ struct constant_medium final : public hittable {
    public:
     hittable const* boundary;
     float neg_inv_density;
-    material const* phase_function;
+    material phase_function;
     texture const* tex;
 
-    constant_medium(hittable const* b, float d,
-                    texture const* tex)
+    constant_medium(hittable const* b, float d, texture const* tex)
         : boundary(b),
           neg_inv_density(-1 / d),
-          phase_function(&singleton_materials::isotropic),
+          phase_function(material::isotropic()),
           tex(tex) {}
 
-    constant_medium(hittable const* b, float d, color c, shared_ptr_storage<texture> &tex_storage)
+    constant_medium(hittable const* b, float d, color c,
+                    shared_ptr_storage<texture>& tex_storage)
         : constant_medium(b, d, tex_storage.make<solid_color>(c)) {}
 
     [[nodiscard]] aabb bounding_box() const& override {

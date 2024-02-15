@@ -17,7 +17,7 @@ struct rtw_image {
    public:
     rtw_image() : data(nullptr) {}
 
-    rtw_image(char const* image_filename) {
+    explicit rtw_image(char const* image_filename) : rtw_image() {
         // Loads image data from the specified file. If the RTW_IMAGES
         // environment variable is defined, looks only in that directory for the
         // image file. If the image was not found, searches for the specified
@@ -47,21 +47,28 @@ struct rtw_image {
 
     ~rtw_image() { STBI_FREE(data); }
 
-    bool load(const std::string filename) {
+    bool load(std::string const& filename) {
         // Loads image data from the given file name. Returns true if the load
         // succeeded.
         auto n = bytes_per_pixel;  // Dummy out parameter: original components
                                    // per pixel
         data = stbi_load(filename.c_str(), &image_width, &image_height, &n,
                          bytes_per_pixel);
-        bytes_per_scanline = image_width * bytes_per_pixel;
         return data != nullptr;
     }
 
-    int width() const { return (data == nullptr) ? 0 : image_width; }
-    int height() const { return (data == nullptr) ? 0 : image_height; }
+    [[nodiscard]] int width() const {
+        return (data == nullptr) ? 0 : image_width;
+    }
+    [[nodiscard]] int height() const {
+        return (data == nullptr) ? 0 : image_height;
+    }
 
-    unsigned char const* pixel_data(int x, int y) const {
+    [[nodiscard]] size_t bytes_per_scanline() const noexcept {
+        return image_width * bytes_per_pixel;
+    }
+
+    [[nodiscard]] unsigned char const* pixel_data(int x, int y) const {
         // Return the address of the three bytes of the pixel at x,y (or magenta
         // if no data).
         static unsigned char magenta[] = {255, 0, 255};
@@ -70,14 +77,13 @@ struct rtw_image {
         x = clamp(x, 0, image_width);
         y = clamp(y, 0, image_height);
 
-        return data + y * bytes_per_scanline + x * bytes_per_pixel;
+        return data + y * bytes_per_scanline() + x * bytes_per_pixel;
     }
 
    private:
     int const bytes_per_pixel = 3;
     unsigned char* data;
-    int image_width, image_height;
-    int bytes_per_scanline;
+    int image_width{}, image_height{};
 
     static int clamp(int x, int low, int high) {
         // Return the value clamped to the range [low, high).

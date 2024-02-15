@@ -28,15 +28,15 @@ struct quad final : public hittable {
     point3 Q;
 
     //  mat is accessed last, after all tests
-    material const* mat;
+    material mat;
     texture const* tex;
 
     [[nodiscard]] aabb bounding_box() const& override {
         return aabb(Q, Q + u + v).pad();
     }
 
-    quad(point3 Q, vec3 u, vec3 v, material const* m, texture const* tex)
-        : Q(Q), u(u), v(v), mat(m), tex(tex) {}
+    quad(point3 Q, vec3 u, vec3 v, material m, texture const* tex)
+        : Q(Q), u(u), v(v), mat(std::move(m)), tex(tex) {}
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         auto n = cross(u, v);
@@ -89,7 +89,7 @@ struct quad final : public hittable {
     }
 };
 
-inline void box_into(point3 a, point3 b, material const* mat,
+inline void box_into(point3 a, point3 b, material const& mat,
                      texture const* tex, hittable_list& sides,
                      shared_ptr_storage<hittable>& storage) {
     // Construct the two opposite vertices with the minimum and maximum
@@ -121,7 +121,7 @@ inline void box_into(point3 a, point3 b, material const* mat,
 }
 
 inline shared_ptr<hittable_list> box(point3 const& a, point3 const& b,
-                                     material const* mat, texture const* tex,
+                                     material const& mat, texture const* tex,
                                      shared_ptr_storage<hittable>& storage) {
     // Returns the 3D box (six sides) that contains the two opposite vertices a
     // & b.
