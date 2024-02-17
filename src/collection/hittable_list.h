@@ -48,7 +48,7 @@ struct hittable_list final : public collection {
         objects.push_back(ob);
     }
 
-    collection const* split(shared_ptr_storage<collection>& coll_storage) {
+    collection const* split(typed_storage<collection>& coll_storage) {
         return bvh::split_random(objects, coll_storage);
     }
 

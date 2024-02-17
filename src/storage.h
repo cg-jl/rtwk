@@ -9,7 +9,7 @@
 // NOTE: should rename this to 'type storage' or something like that, and maybe
 // switch the underlying impl to be some sort of arena allocator
 template <typename T>
-struct shared_ptr_storage {
+struct typed_storage {
     std::vector<shared_ptr<T>> ptrs;
 
     template <typename U>

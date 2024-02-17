@@ -32,7 +32,7 @@ struct constant_medium final : public hittable {
           tex(tex) {}
 
     constant_medium(hittable const* b, float d, color c,
-                    shared_ptr_storage<texture>& tex_storage)
+                    typed_storage<texture>& tex_storage)
         : constant_medium(b, d, tex_storage.make<solid_color>(c)) {}
 
     [[nodiscard]] aabb bounding_box() const& override {
