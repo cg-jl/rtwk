@@ -48,9 +48,8 @@ struct hittable_list final : public collection {
         objects.push_back(ob);
     }
 
-    hittable const* split(shared_ptr_storage<hittable>& storage,
-                          shared_ptr_storage<collection>& coll_storage) {
-        return bvh::split_random(objects, storage, coll_storage);
+    collection const* split(shared_ptr_storage<collection>& coll_storage) {
+        return bvh::split_random(objects, coll_storage);
     }
 
     [[nodiscard]] aabb aggregate_box() const& override { return bbox; }

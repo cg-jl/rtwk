@@ -31,7 +31,8 @@ struct texture {
    public:
     virtual ~texture() = default;
 
-    [[nodiscard]] virtual color value(float u, float v, point3 const& p) const = 0;
+    [[nodiscard]] virtual color value(float u, float v,
+                                      point3 const& p) const = 0;
 };
 
 struct solid_color : public texture {
@@ -60,7 +61,8 @@ struct checker_texture : public texture {
           even(storage.make<solid_color>(c1)),
           odd(storage.make<solid_color>(c2)) {}
 
-    [[nodiscard]] color value(float u, float v, point3 const& p) const override {
+    [[nodiscard]] color value(float u, float v,
+                              point3 const& p) const override {
         auto xInteger = static_cast<int>(std::floor(inv_scale * p.x()));
         auto yInteger = static_cast<int>(std::floor(inv_scale * p.y()));
         auto zInteger = static_cast<int>(std::floor(inv_scale * p.z()));
@@ -82,7 +84,8 @@ struct noise_texture : public texture {
 
     explicit noise_texture(float sc) : scale(sc) {}
 
-    [[nodiscard]] color value(float u, float v, point3 const& p) const override {
+    [[nodiscard]] color value(float u, float v,
+                              point3 const& p) const override {
         auto s = scale * p;
         return color(1, 1, 1) * 0.5 * (1 + sin(s.z() + 10 * noise.turb(s)));
     }
@@ -96,7 +99,8 @@ struct image_texture : public texture {
    public:
     explicit image_texture(char const* filename) : image(filename) {}
 
-    [[nodiscard]] color value(float u, float v, point3 const& p) const override {
+    [[nodiscard]] color value(float u, float v,
+                              point3 const& p) const override {
         // If we have no texture data, then return solid cyan as a debugging
         // aid.
         if (image.height() <= 0) return {0, 1, 1};

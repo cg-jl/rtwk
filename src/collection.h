@@ -1,10 +1,19 @@
 #pragma once
+#include <concepts>
+#include <span>
+#include <type_traits>
+
 #include "hittable.h"
 
-#include <span>
+// NOTE: Maybe it's wise to select the best one in layers when I have a layering
+// builder. Perhaps the important thing next is to 'refactor' hittable_list into
+// a builder, and redirect all main.cc operations through it. We can already
+// swap the storage, and the next thing is to swap the building method (which
+// for geometry will be the storage, too!).
 
-// IDEA: have hittable list contain all the juice?
-// Maybe layer it up with accumulator as parameter?
+// NOTE: Should I make it a tagged union?
+// Given that there is only BVH and hittable view (and hittable list while it's
+// not a builder), it would remove one layer of indirection.
 
 // Abstraction over a collection. Will be used as I prototype different ways of
 // fitting the final geometries into a separate structure, so that I con move
@@ -27,9 +36,15 @@ struct collection {
     [[nodiscard]] virtual aabb aggregate_box() const & = 0;
 };
 
+// NOTE: Should I restrict sets of transforms to different collections?
+// Maybe it's not a good idea if I want to separate differently rotated objects
+// very near each other? Or is it actually better, since "editing" the ray
+// doesn't take as much as the intersections?
+
 // Implementation of 'hittable' for any collection. Ideally this should be
 // removed as I progress in dissecting the properties of hittables vs
-// collections
+// collections.
+// It serves as a way to layer collections
 struct hittable_collection final : public hittable {
     collection const *wrapped;
 

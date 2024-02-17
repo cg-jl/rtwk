@@ -252,11 +252,10 @@ struct tree final : public collection {
     return int(parent);
 }
 
-[[nodiscard]] static hittable const* split_random(
-    std::span<hittable const*> objects, shared_ptr_storage<hittable>& storage,
+[[nodiscard]] static collection const* split_random(
+    std::span<hittable const*> objects,
     shared_ptr_storage<collection>& coll_storage) {
-    // TODO: panic if size is <  2. This way we can always return a collection
-    if (objects.size() == 1) return objects[0];
+    assert(objects.size() >= 2 && "There's no need to split this!");
 
     std::vector<tree::node> inorder_nodes;
 
@@ -268,6 +267,6 @@ struct tree final : public collection {
     } else {
         coll = coll_storage.make<tree>(root, std::move(inorder_nodes), objects);
     }
-    return storage.make<hittable_collection>(coll);
+    return coll;
 }
 }  // namespace bvh

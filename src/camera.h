@@ -304,6 +304,8 @@ struct camera {
     };
 
     // NOTE: Could have the background as another light source.
+    // NOTE: Maybe it's interesting to tell the renderer that it's going to get
+    // a collection of geometries?
 
     // Simulates a ray until either it hits too many times, hits a light, or
     // hits the skybox.

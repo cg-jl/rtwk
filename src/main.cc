@@ -10,16 +10,21 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+// NOTE: If ever going for raymarchin, consider a Voronoi LUT! This will tell
+// the 'closest' object from a ray before considering it a hit. The layering is
+// clear, too! Once the ray has got into a hit, then it can progress to the next
+// 'layer' which is the objects that are inside of it.
+
 #include <ctime>
 
 #include "camera.h"
+#include "collection/hittable_list.h"
 #include "color.h"
 #include "geometry/constant_medium.h"
-#include "collection/hittable_list.h"
-#include "material.h"
 #include "geometry/quad.h"
-#include "rtweekend.h"
 #include "geometry/sphere.h"
+#include "material.h"
+#include "rtweekend.h"
 #include "storage.h"
 #include "texture.h"
 #include "transform.h"
@@ -94,7 +99,7 @@ static void random_spheres() {
 
     shared_ptr_storage<collection> coll_storage;
 
-    world = hittable_list(world.split(hit_storage, coll_storage));
+    auto const *scene = world.split(coll_storage);
 
     camera cam;
 
@@ -112,7 +117,7 @@ static void random_spheres() {
     cam.defocus_angle = 0.02;
     cam.focus_dist = 10.0;
 
-    cam.render(hittable_collection(&world), enable_progress);
+    cam.render(hittable_collection(scene), enable_progress);
 }
 
 static void two_spheres() {
@@ -456,7 +461,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     hittable_list world;
 
-    world.add(boxes1.split(hit_storage, coll_storage));
+    world.add(
+        hit_storage.make<hittable_collection>(boxes1.split(coll_storage)));
 
     auto light = material::diffuse_light();
     auto light_color = make_shared<solid_color>(7, 7, 7);
@@ -515,7 +521,10 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         std::vector<transform>{transform::translate(vec3(-100, 270, 395)),
                                transform::rotate_y(15)},
 
-        boxes2.split(hit_storage, coll_storage)));
+        // NOTE: Maybe it's interesting to shift to a `transformed_collection`,
+        // so we can have only one set of transforms per collection. Maybe force
+        // it, like I said in `collection.h`.
+        hit_storage.make<hittable_collection>(boxes2.split(coll_storage))));
 
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);
