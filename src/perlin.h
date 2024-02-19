@@ -41,9 +41,9 @@ struct perlin {
         for (int di = 0; di < 2; di++)
             for (int dj = 0; dj < 2; dj++)
                 for (int dk = 0; dk < 2; dk++)
-                    c[di][dj][dk] =
-                        ranvec[perm_x[(i + di) & 255] ^ perm_y[(j + dj) & 255] ^
-                               perm_z[(k + dk) & 255]];
+                    c[di][dj][dk] = ranvec[perm_x[(i + di) % point_count] ^
+                                           perm_y[(j + dj) % point_count] ^
+                                           perm_z[(k + dk) % point_count]];
 
         return perlin_interp(c, u, v, w);
     }
@@ -63,7 +63,7 @@ struct perlin {
     }
 
    private:
-    static int constexpr point_count = 256;
+    static int constexpr point_count = 128;
     std::array<vec3, point_count> ranvec;
     std::array<int, point_count> perm_x{};
     std::array<int, point_count> perm_y{};

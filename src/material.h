@@ -143,7 +143,7 @@ inline void material::scatter(vec3 in_dir, face rec, vec3& scattered) const& {
                 float refraction_ratio = rec.is_front ? (1.0f / ir) : ir;
 
                 float cos_theta = -dot(in_dir, rec.normal);
-                assume(cos_theta * cos_theta <= 1.0);
+                assume(cos_theta * cos_theta <= 1.0f);
                 float sin_theta_squared = 1.0f - cos_theta * cos_theta;
 
                 bool cannot_refract =
