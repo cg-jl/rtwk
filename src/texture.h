@@ -20,11 +20,11 @@
 #include "rtweekend.h"
 #include "storage.h"
 
-// NOTE: Before moving checker_texture into a tree, I should first make 'texture'
-// enum based, so that samplers don't have to deal with extra layers of indirection.
-// The maximum size for each texture is 1 cacheline.The sampling loop could then move
-// to sampling per texture and not per pixel, filtering through e.g texture kinds instead
-// of just the pointers.
+// NOTE: Before moving checker_texture into a tree, I should first make
+// 'texture' enum based, so that samplers don't have to deal with extra layers
+// of indirection. The maximum size for each texture is 1 cacheline.The sampling
+// loop could then move to sampling per texture and not per pixel, filtering
+// through e.g texture kinds instead of just the pointers.
 
 // NOTE: there is a tree structure in checker_texture.
 // Sizes:
@@ -85,11 +85,9 @@ struct checker_texture : public texture {
 };
 
 // NOTE: ideally there should be only one perlin device.
-// We don't loose anything for moving it out of here because it's readonly.
+// We don't lose anything for moving it out of here because it's readonly.
 struct noise_texture : public texture {
    public:
-    noise_texture() = default;
-
     explicit noise_texture(float sc) : scale(sc) {}
 
     [[nodiscard]] color value(float u, float v,

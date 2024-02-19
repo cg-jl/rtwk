@@ -22,14 +22,10 @@ struct constant_medium final : public hittable {
    public:
     hittable const* boundary;
     float neg_inv_density;
-    material phase_function;
     texture const* tex;
 
     constant_medium(hittable const* b, float d, texture const* tex)
-        : boundary(b),
-          neg_inv_density(-1 / d),
-          phase_function(material::isotropic()),
-          tex(tex) {}
+        : boundary(b), neg_inv_density(-1 / d), tex(tex) {}
 
     constant_medium(hittable const* b, float d, color c,
                     typed_storage<texture>& tex_storage)
@@ -67,7 +63,7 @@ struct constant_medium final : public hittable {
         rec.p = r.at(ray_t.max);
 
         rec.normal = vec3(1, 0, 0);  // arbitrary
-        rec.mat = phase_function;
+        rec.mat = material::isotropic();
         rec.tex = tex;
 
         return true;
