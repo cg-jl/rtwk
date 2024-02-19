@@ -20,21 +20,13 @@
 struct perlin {
    public:
     perlin() {
-        ranvec = new vec3[point_count];
-        for (int i = 0; i < point_count; ++i) {
-            ranvec[i] = unit_vector(vec3::random(-1, 1));
+        for (auto& v : ranvec) {
+            v = unit_vector(vec3::random(-1, 1));
         }
 
-        perm_x = perlin_generate_perm();
-        perm_y = perlin_generate_perm();
-        perm_z = perlin_generate_perm();
-    }
-
-    ~perlin() {
-        delete[] ranvec;
-        delete[] perm_x;
-        delete[] perm_y;
-        delete[] perm_z;
+        perlin_generate_perm(perm_x);
+        perlin_generate_perm(perm_y);
+        perlin_generate_perm(perm_z);
     }
 
     [[nodiscard]] float noise(point3 const& p) const {
@@ -71,24 +63,21 @@ struct perlin {
     }
 
    private:
-    static int const point_count = 256;
-    vec3* ranvec;
-    int* perm_x;
-    int* perm_y;
-    int* perm_z;
+    static int constexpr point_count = 256;
+    std::array<vec3, point_count> ranvec;
+    std::array<int, point_count> perm_x{};
+    std::array<int, point_count> perm_y{};
+    std::array<int, point_count> perm_z{};
 
-    static int* perlin_generate_perm() {
-        auto p = new int[point_count];
-
+    static void perlin_generate_perm(std::span<int> p) {
         for (int i = 0; i < point_count; i++) p[i] = i;
 
         permute(p);
-
-        return p;
     }
 
-    static void permute(int* p) {
-        for (int i = point_count - 1; i > 0; i--) {
+    static void permute(std::span<int> p) {
+        for (int i = int(p.size()); i > 0;) {
+            --i;
             int target = random_int(0, i);
             int tmp = p[i];
             p[i] = p[target];

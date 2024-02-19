@@ -184,7 +184,9 @@ static void two_perlin_spheres() {
 
     typed_storage<hittable> hit_storage;
 
-    auto pertext = make_shared<noise_texture>(4);
+    perlin noise;
+
+    auto pertext = make_shared<noise_texture>(4, &noise);
     world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
                                        material::lambertian(), pertext.get()));
     world.add(hit_storage.make<sphere>(point3(0, 2, 0), 2,
@@ -259,7 +261,9 @@ static void simple_light() {
 
     typed_storage<hittable> hit_storage;
 
-    auto pertext = make_shared<noise_texture>(4);
+    perlin noise;
+
+    auto pertext = make_shared<noise_texture>(4, &noise);
     world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
                                        material::lambertian(), pertext.get()));
     world.add(hit_storage.make<sphere>(point3(0, 2, 0), 2,
@@ -436,6 +440,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     clock_gettime(CLOCK_MONOTONIC, &start);
 
+    perlin noise;
+
     hittable_list boxes1;
     auto ground_col = make_shared<solid_color>(0.48, 0.83, 0.53);
     auto ground = material::lambertian();
@@ -505,7 +511,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto emat = (make_shared<image_texture>("earthmap.jpg"));
     world.add(hit_storage.make<sphere>(point3(400, 200, 400), 100,
                                        material::lambertian(), emat.get()));
-    auto pertext = make_shared<noise_texture>(0.1);
+    auto pertext = make_shared<noise_texture>(0.1, &noise);
     world.add(hit_storage.make<sphere>(point3(220, 280, 300), 80,
                                        material::lambertian(), pertext.get()));
 

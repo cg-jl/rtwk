@@ -88,16 +88,17 @@ struct checker_texture : public texture {
 // We don't lose anything for moving it out of here because it's readonly.
 struct noise_texture : public texture {
    public:
-    explicit noise_texture(float sc) : scale(sc) {}
+    explicit noise_texture(float sc, perlin const* dev)
+        : scale(sc), noise(dev) {}
 
     [[nodiscard]] color value(float u, float v,
                               point3 const& p) const override {
         auto s = scale * p;
-        return color(1, 1, 1) * 0.5 * (1 + sin(s.z() + 10 * noise.turb(s)));
+        return color(1, 1, 1) * 0.5 * (1 + sin(s.z() + 10 * noise->turb(s)));
     }
 
    private:
-    perlin noise;
+    perlin const* noise;
     float scale{};
 };
 
