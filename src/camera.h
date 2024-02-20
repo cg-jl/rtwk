@@ -81,8 +81,10 @@ struct camera {
             // We do one per thread.
             auto light_info_uniq = std::make_unique<light_info[]>(
                 size_t(max_depth) * size_t(samples_per_pixel));
+            auto sampled_colors = std::make_unique<color[]>(
+                size_t(max_depth) * size_t(samples_per_pixel));
 
-            auto light_counts = std::make_unique<uint32_t[]>(samples_per_pixel);
+            auto ray_counts = std::make_unique<uint32_t[]>(samples_per_pixel);
 
 #pragma omp for firstprivate(fcol_ptr, image_height, image_width)
             for (uint32_t j = 0; j < image_height; ++j) {
@@ -94,35 +96,46 @@ struct camera {
 #endif
                 for (uint32_t i = 0; i < image_width; ++i) {
                     // geometry
-
-                    uint32_t total_geometry_samples = 0;
+                    uint32_t total_ray_count = 0;
                     for (uint32_t sample = 0; sample < samples_per_pixel;
                          ++sample) {
                         vecview light_infos(
-                            light_info_uniq.get() + total_geometry_samples,
-                            max_depth);
+                            light_info_uniq.get() + total_ray_count, max_depth);
 
                         ray r = get_ray(i, j);
 
                         simulate_ray(r, world, light_infos);
-                        total_geometry_samples += light_infos.count;
-                        light_counts[sample] = light_infos.count;
+                        total_ray_count += light_infos.count;
+                        ray_counts[sample] = light_infos.count;
                     }
 
-                    // color
+                    // sample all textures
+                    for (uint32_t ray = 0; ray < total_ray_count; ++ray) {
+                        auto const& info = light_info_uniq.get()[ray];
+                        sampled_colors[ray] =
+                            info.tex->value(info.u, info.v, info.p);
+                    }
+
+                    // multiply + add colors
 
                     uint32_t used_light_count = 0;
                     color pixel_color(0, 0, 0);
                     for (uint32_t sample = 0; sample < samples_per_pixel;
                          ++sample) {
-                        auto const num_samples = light_counts[sample];
+                        auto const num_samples = ray_counts[sample];
 
-                        auto const* lights =
-                            light_info_uniq.get() + used_light_count;
+                        auto const* colors =
+                            sampled_colors.get() + used_light_count;
 
                         used_light_count += num_samples;
 
-                        pixel_color += sample_textures(lights, num_samples);
+                        color col(1, 1, 1);
+                        // Aggregate in multiplication
+                        for (uint32_t k = 0; k < num_samples; ++k) {
+                            col *= colors[k];
+                        }
+
+                        pixel_color += col;
                     }
 
                     fcol_ptr[j * image_width + i] =
@@ -323,22 +336,5 @@ struct camera {
         // returned
         lights.clear();
         lights.emplace_back(&black_texture, point3(0), 0, 0);
-    }
-
-    static color sample_textures(light_info const* lights,
-                                 uint32_t lights_count) {
-        // lighting
-        color begin_color = color(1, 1, 1);
-
-        // NOTE: This is independent and can be done by any thread!
-        // Each of these is also independent since it's multiplying.
-        // We may even add queues, although that would waste a ton of memory.
-        // Do all the color samples for this ray.
-        for (uint32_t i = 0; i < lights_count; ++i) {
-            auto const& info = lights[i];
-            begin_color *= info.tex->value(info.u, info.v, info.p);
-        }
-
-        return begin_color;
     }
 };

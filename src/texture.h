@@ -39,20 +39,6 @@ static inline color value(struct texture const*, float u, float v,
                           point3 const& p) noexcept;
 }
 
-struct solid_color {
-   public:
-    template <typename... Args>
-    explicit constexpr solid_color(Args&&... args)
-        : color_value(std::forward<Args>(args)...) {}
-
-    [[nodiscard]] color value(float u, float v, point3 const& p) const {
-        return color_value;
-    }
-
-   private:
-    color color_value;
-};
-
 struct checker_texture {
    public:
     constexpr checker_texture(float _scale, texture const* _even,
@@ -91,18 +77,6 @@ struct noise_texture {
    private:
     perlin const* noise;
     float scale{};
-};
-
-struct image_texture {
-   public:
-    explicit image_texture(char const* filename) : image(filename) {}
-
-    [[nodiscard]] color value(float u, float v, point3 const& p) const {
-        return image.sample(u, v);
-    }
-
-   private:
-    rtw_image image;
 };
 
 struct texture {
