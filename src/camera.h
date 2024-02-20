@@ -26,6 +26,7 @@
 #include "progress.h"
 #include "ray.h"
 #include "rtweekend.h"
+#include "transform.h"
 
 struct camera {
    public:
@@ -317,6 +318,7 @@ struct camera {
 
             interval ray_t{0.001, 10e10f};
             if (!world.hit(r, ray_t, rec)) return ray_result::background;
+            apply_reverse_transforms(rec.xforms, r.time, rec);
             lights.emplace_back(rec.tex, rec.p, rec.u, rec.v);
 
             if (rec.mat.tag == material::kind::diffuse_light)

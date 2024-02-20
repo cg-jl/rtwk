@@ -4,6 +4,8 @@
 #include "texture.h"
 #include "vec3.h"
 
+struct transform;
+
 struct hit_record {
    public:
     point3 p;
@@ -13,4 +15,5 @@ struct hit_record {
     material mat{};
     // TODO: Inline texture struct into this?
     texture const* tex{};
+    std::span<transform const> xforms{};
 };

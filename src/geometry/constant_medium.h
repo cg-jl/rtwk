@@ -18,6 +18,9 @@
 #include "rtweekend.h"
 #include "texture.h"
 
+// NOTE: this is a material that may also decide texturing, not a geometry.
+// To do this, we'll do a second hit to the same geometry once we know it's a hit.
+// We'll pass the ray through the object if the second hit doesn't check out.
 struct constant_medium final : public hittable {
    public:
     hittable const* boundary;
@@ -62,7 +65,6 @@ struct constant_medium final : public hittable {
         ray_t.max = first_hit + hit_distance / ray_length;
         rec.p = r.at(ray_t.max);
 
-        rec.normal = vec3(1, 0, 0);  // arbitrary
         rec.mat = material::isotropic();
         rec.tex = tex;
 

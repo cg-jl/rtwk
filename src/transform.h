@@ -67,10 +67,19 @@ struct transform {
     constexpr transform() = default;
 };
 
+static inline void apply_reverse_transforms(std::span<transform const> xforms,
+                                            float time, hit_record& rec) {
+    for (size_t i = xforms.size(); i != 0;) {
+        --i;
+        xforms[i].apply_reverse(time, rec);
+    }
+}
+
 // TODO: integrate transforms into hittable geometry, and return transform when
 // we get a hit. This will allow us to apply the reverse transform only once per
 // hit check.
 struct transformed_geometry final : public hittable {
+    // TODO: make these not owned
     std::vector<transform> transf;
     hittable const* object;
 
@@ -96,11 +105,7 @@ struct transformed_geometry final : public hittable {
 
         if (!object->hit(r_copy, ray_t, rec)) return false;
 
-        for (size_t i = transf.size(); i > 0;) {
-            --i;
-            auto const& tf = transf[i];
-            tf.apply_reverse(r.time, rec);
-        }
+        rec.xforms = transf;
         return true;
     }
 };
