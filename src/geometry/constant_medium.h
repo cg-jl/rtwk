@@ -19,8 +19,9 @@
 #include "texture.h"
 
 // NOTE: this is a material that may also decide texturing, not a geometry.
-// To do this, we'll do a second hit to the same geometry once we know it's a hit.
-// We'll pass the ray through the object if the second hit doesn't check out.
+// To do this, we'll do a second hit to the same geometry once we know it's a
+// hit. We'll pass the ray through the object if the second hit doesn't check
+// out.
 struct constant_medium final : public hittable {
    public:
     hittable const* boundary;
@@ -29,10 +30,6 @@ struct constant_medium final : public hittable {
 
     constant_medium(hittable const* b, float d, texture const* tex)
         : boundary(b), neg_inv_density(-1 / d), tex(tex) {}
-
-    constant_medium(hittable const* b, float d, color c,
-                    poly_storage<texture>& tex_storage)
-        : constant_medium(b, d, tex_storage.make<solid_color>(c)) {}
 
     [[nodiscard]] aabb bounding_box() const& override {
         return boundary->bounding_box();

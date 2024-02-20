@@ -318,15 +318,12 @@ struct camera {
 
             r = ray(rec.p, scattered, r.time);
         }
+        static texture const black_texture = texture::solid(0);
         // The ray didn't converge to a light source, so no light is to be
         // returned
         lights.clear();
         lights.emplace_back(&black_texture, point3(0), 0, 0);
     }
-
-    // TODO: can't make constexpr due to some weird thing happening with virtual
-    // destructors: 'calling destructor before its definition'
-    static solid_color black_texture;
 
     static color sample_textures(light_info const* lights,
                                  uint32_t lights_count) {
@@ -345,5 +342,3 @@ struct camera {
         return begin_color;
     }
 };
-
-solid_color camera::black_texture = solid_color(0);

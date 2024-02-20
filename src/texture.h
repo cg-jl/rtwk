@@ -32,22 +32,20 @@
 //  - noise: 48 (indirection through perlin)
 //  - image: 40
 
-struct texture {
-   public:
-    virtual ~texture() = default;
+struct texture;
 
-    [[nodiscard]] virtual color value(float u, float v,
-                                      point3 const& p) const = 0;
-};
+namespace detail::texture {
+static inline color value(struct texture const*, float u, float v,
+                          point3 const& p) noexcept;
+}
 
-struct solid_color : public texture {
+struct solid_color {
    public:
     template <typename... Args>
     explicit constexpr solid_color(Args&&... args)
         : color_value(std::forward<Args>(args)...) {}
 
-    [[nodiscard]] color value(float u, float v,
-                              point3 const& p) const override {
+    [[nodiscard]] color value(float u, float v, point3 const& p) const {
         return color_value;
     }
 
@@ -55,26 +53,21 @@ struct solid_color : public texture {
     color color_value;
 };
 
-struct checker_texture : public texture {
+struct checker_texture {
    public:
-    checker_texture(float _scale, texture const* _even, texture const* _odd)
+    constexpr checker_texture(float _scale, texture const* _even,
+                              texture const* _odd)
         : inv_scale(1.0f / _scale), even(_even), odd(_odd) {}
 
-    checker_texture(float _scale, color c1, color c2,
-                    poly_storage<texture>& storage)
-        : inv_scale(1.0f / _scale),
-          even(storage.make<solid_color>(c1)),
-          odd(storage.make<solid_color>(c2)) {}
-
-    [[nodiscard]] color value(float u, float v,
-                              point3 const& p) const override {
+    [[nodiscard]] color value(float u, float v, point3 const& p) const {
         auto xInteger = static_cast<int>(std::floor(inv_scale * p.x()));
         auto yInteger = static_cast<int>(std::floor(inv_scale * p.y()));
         auto zInteger = static_cast<int>(std::floor(inv_scale * p.z()));
 
         bool isEven = (xInteger + yInteger + zInteger) % 2 == 0;
 
-        return isEven ? even->value(u, v, p) : odd->value(u, v, p);
+        return isEven ? detail::texture::value(even, u, v, p)
+                      : detail::texture::value(odd, u, v, p);
     }
 
    private:
@@ -85,13 +78,12 @@ struct checker_texture : public texture {
 
 // NOTE: ideally there should be only one perlin device.
 // We don't lose anything for moving it out of here because it's readonly.
-struct noise_texture : public texture {
+struct noise_texture {
    public:
     explicit noise_texture(float sc, perlin const* dev)
         : scale(sc), noise(dev) {}
 
-    [[nodiscard]] color value(float u, float v,
-                              point3 const& p) const override {
+    [[nodiscard]] color value(float u, float v, point3 const& p) const {
         auto s = scale * p;
         return color(1, 1, 1) * 0.5 * (1 + sin(s.z() + 10 * noise->turb(s)));
     }
@@ -101,12 +93,11 @@ struct noise_texture : public texture {
     float scale{};
 };
 
-struct image_texture : public texture {
+struct image_texture {
    public:
     explicit image_texture(char const* filename) : image(filename) {}
 
-    [[nodiscard]] color value(float u, float v,
-                              point3 const& p) const override {
+    [[nodiscard]] color value(float u, float v, point3 const& p) const {
         return image.sample(u, v);
     }
 
@@ -114,3 +105,70 @@ struct image_texture : public texture {
     rtw_image image;
 };
 
+struct texture {
+    enum class kind { solid, checker, noise, image } tag{};
+
+    union data {
+        color solid{};
+        struct checker_texture checker;
+        struct noise_texture noise;
+        rtw_image image;
+        constexpr data() {}
+        ~data() {}
+    } as;
+
+    template <typename... Args>
+    static texture solid(Args&&... args) {
+        texture tex;
+        tex.tag = kind::solid;
+        new (&tex.as.solid) color(std::forward<Args&&>(args)...);
+        return tex;
+    }
+    template <typename... Args>
+    static texture checker(Args&&... args) {
+        texture tex;
+        tex.tag = kind::checker;
+        new (&tex.as.checker) checker_texture(std::forward<Args&&>(args)...);
+        return tex;
+    }
+    template <typename... Args>
+    static texture noise(Args&&... args) {
+        texture tex;
+        tex.tag = kind::noise;
+        new (&tex.as.noise) noise_texture(std::forward<Args&&>(args)...);
+        return tex;
+    }
+    template <typename... Args>
+    static texture image(Args&&... args) {
+        texture tex;
+        tex.tag = kind::image;
+        new (&tex.as.image) rtw_image(std::forward<Args&&>(args)...);
+        return tex;
+    }
+
+    [[nodiscard]] color value(float u, float v, point3 const& p) const noexcept;
+
+   private:
+    constexpr texture() = default;
+};
+color texture::value(float u, float v, point3 const& p) const noexcept {
+    switch (tag) {
+        case kind::solid:
+            return as.solid;
+        case kind::checker:
+            return as.checker.value(u, v, p);
+        case kind::noise:
+            return as.noise.value(u, v, p);
+        case kind::image:
+            return as.image.sample(u, v);
+        default:
+            __builtin_unreachable();
+    }
+}
+
+namespace detail::texture {
+static inline color value(struct texture const* tex, float u, float v,
+                          point3 const& p) noexcept {
+    return tex->value(u, v, p);
+}
+}  // namespace detail::texture

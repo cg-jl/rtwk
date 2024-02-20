@@ -6,6 +6,23 @@
 
 // Storage that maintains pointer stability for created objects.
 
+// Storage that only stores values of type T
+template <typename T>
+struct typed_storage {
+    std::vector<shared_ptr<T>> ptrs;
+
+    T* add(shared_ptr<T> obj) {
+        auto ptr = obj.get();
+        ptrs.emplace_back(std::move(obj));
+        return ptr;
+    }
+
+    template <typename... Args>
+    T* make(Args&&... args) & {
+        auto ptr = make_shared<T>(std::forward<Args&&>(args)...);
+        return add(std::move(ptr));
+    }
+};
 // Storage that allows multiple classes as long as they are derived from others.
 // NOTE: should rename this to 'type storage' or something like that, and maybe
 // switch the underlying impl to be some sort of arena allocator

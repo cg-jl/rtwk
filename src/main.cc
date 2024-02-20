@@ -19,7 +19,6 @@
 
 #include "camera.h"
 #include "collection/hittable_list.h"
-#include "color.h"
 #include "geometry/box.h"
 #include "geometry/constant_medium.h"
 #include "geometry/quad.h"
@@ -35,13 +34,15 @@ static bool enable_progress = true;
 static void random_spheres() {
     hittable_list world;
 
-    poly_storage<texture> tex_storage;
+    typed_storage<texture> tex_storage;
     poly_storage<hittable> hit_storage;
 
-    auto checker = make_shared<checker_texture>(0.32, color(.2, .3, .1),
-                                                color(.9, .9, .9), tex_storage);
+    auto checker = texture::checker(
+        0.32, tex_storage.make(texture::solid(color(.2, .3, .1))),
+        tex_storage.make(texture::solid(color(.9, .9, .9))));
+
     world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
-                                       material::lambertian(), checker.get()));
+                                       material::lambertian(), &checker));
 
     poly_storage<material> mat_storage;
 
@@ -58,14 +59,14 @@ static void random_spheres() {
                     // diffuse
                     auto albedo = color::random() * color::random();
                     auto sphere_material = material::lambertian();
-                    auto sphere_texture = make_shared<solid_color>(albedo);
+                    auto sphere_texture = texture::solid(albedo);
                     auto displacement = vec3(0, random_float(0, .5), 0);
 
                     world.add(hit_storage.make<transformed_geometry>(
                         transform::move(displacement),
                         hit_storage.make<sphere>(point3(center), 0.2,
                                                  sphere_material,
-                                                 sphere_texture.get())));
+                                                 &sphere_texture)));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = color::random(0.5, 1);
@@ -73,30 +74,31 @@ static void random_spheres() {
                     auto sphere_material = material::metal(fuzz);
                     world.add(hit_storage.make<sphere>(
                         center, 0.2, sphere_material,
-                        tex_storage.make<solid_color>(albedo)));
+                        tex_storage.make(texture::solid(albedo))));
                 } else {
                     // glass
                     world.add(hit_storage.make<sphere>(
                         center, 0.2, dielectric,
-                        tex_storage.make<solid_color>(1, 1, 1)));
+                        tex_storage.make(texture::solid(1, 1, 1))));
                 }
             }
         }
     }
 
     auto material1 = material::dielectric(1.5);
-    world.add(hit_storage.make<sphere>(point3(0, 1, 0), 1.0, material1,
-                                       tex_storage.make<solid_color>(1, 1, 1)));
+    world.add(
+        hit_storage.make<sphere>(point3(0, 1, 0), 1.0, material1,
+                                 tex_storage.make(texture::solid(1, 1, 1))));
 
     auto material2 = material::lambertian();
     world.add(
         hit_storage.make<sphere>(point3(-4, 1, 0), 1.0, material2,
-                                 tex_storage.make<solid_color>(.4, .2, .1)));
+                                 tex_storage.make(texture::solid(.4, .2, .1))));
 
     auto material3 = material::metal(0.0);
     world.add(hit_storage.make<sphere>(
         point3(4, 1, 0), 1.0, material3,
-        tex_storage.make<solid_color>(color(0.7, .6, .5))));
+        tex_storage.make(texture::solid(0.7, .6, .5))));
 
     poly_storage<collection> coll_storage;
 
@@ -125,16 +127,16 @@ static void two_spheres() {
     hittable_list world;
 
     poly_storage<hittable> hit_storage;
-    poly_storage<texture> tex_storage;
+    typed_storage<texture> tex_storage;
 
-    auto checker = tex_storage.make<checker_texture>(
-        0.8, color(.2, .3, .1), color(.9, .9, .9),
-        static_cast<decltype(tex_storage) &>(tex_storage));
+    auto checker =
+        texture::checker(0.8, tex_storage.make(texture::solid(.2, .3, .1)),
+                         tex_storage.make(texture::solid(.9, .9, .9)));
 
     world.add(hit_storage.make<sphere>(point3(0, -10, 0), 10,
-                                       material::lambertian(), checker));
+                                       material::lambertian(), &checker));
     world.add(hit_storage.make<sphere>(point3(0, 10, 0), 10,
-                                       material::lambertian(), checker));
+                                       material::lambertian(), &checker));
 
     camera cam;
 
@@ -157,10 +159,10 @@ static void two_spheres() {
 static void earth() {
     poly_storage<hittable> hit_storage;
 
-    auto earth_texture = make_shared<image_texture>("earthmap.jpg");
+    auto earth_texture = texture::image("earthmap.jpg");
     auto earth_surface = material::lambertian();
     auto globe = hit_storage.make<sphere>(point3(0, 0, 0), 2, earth_surface,
-                                          earth_texture.get());
+                                          &earth_texture);
 
     camera cam;
 
@@ -191,11 +193,11 @@ static void two_perlin_spheres() {
 
     auto noise = std::make_unique<perlin>();
 
-    auto pertext = make_shared<noise_texture>(4, noise.get());
+    auto pertext = texture::noise(4, noise.get());
     world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
-                                       material::lambertian(), pertext.get()));
+                                       material::lambertian(), &pertext));
     world.add(hit_storage.make<sphere>(point3(0, 2, 0), 2,
-                                       material::lambertian(), pertext.get()));
+                                       material::lambertian(), &pertext));
 
     camera cam;
 
@@ -219,11 +221,11 @@ static void quads() {
     hittable_list world;
 
     // Materials
-    auto left_red = make_shared<solid_color>(color(1.0, 0.2, 0.2));
-    auto back_green = make_shared<solid_color>(color(0.2, 1.0, 0.2));
-    auto right_blue = make_shared<solid_color>(color(0.2, 0.2, 1.0));
-    auto upper_orange = make_shared<solid_color>(color(1.0, 0.5, 0.0));
-    auto lower_teal = make_shared<solid_color>(color(0.2, 0.8, 0.8));
+    auto left_red = texture::solid(color(1.0, 0.2, 0.2));
+    auto back_green = texture::solid(color(0.2, 1.0, 0.2));
+    auto right_blue = texture::solid(color(0.2, 0.2, 1.0));
+    auto upper_orange = texture::solid(color(1.0, 0.5, 0.0));
+    auto lower_teal = texture::solid(color(0.2, 0.8, 0.8));
 
     auto all_mat = material::lambertian();
 
@@ -231,17 +233,15 @@ static void quads() {
 
     // Quads
     world.add(hit_storage.make<quad>(point3(-3, -2, 5), vec3(0, 0, -4),
-                                     vec3(0, 4, 0), all_mat, left_red.get()));
+                                     vec3(0, 4, 0), all_mat, &left_red));
     world.add(hit_storage.make<quad>(point3(-2, -2, 0), vec3(4, 0, 0),
-                                     vec3(0, 4, 0), all_mat, back_green.get()));
+                                     vec3(0, 4, 0), all_mat, &back_green));
     world.add(hit_storage.make<quad>(point3(3, -2, 1), vec3(0, 0, 4),
-                                     vec3(0, 4, 0), all_mat, right_blue.get()));
+                                     vec3(0, 4, 0), all_mat, &right_blue));
     world.add(hit_storage.make<quad>(point3(-2, 3, 1), vec3(4, 0, 0),
-                                     vec3(0, 0, 4), all_mat,
-                                     upper_orange.get()));
+                                     vec3(0, 0, 4), all_mat, &upper_orange));
     world.add(hit_storage.make<quad>(point3(-2, -3, 5), vec3(4, 0, 0),
-                                     vec3(0, 0, -4), all_mat,
-                                     lower_teal.get()));
+                                     vec3(0, 0, -4), all_mat, &lower_teal));
 
     camera cam;
 
@@ -268,19 +268,19 @@ static void simple_light() {
 
     auto noise = std::make_unique<perlin>();
 
-    auto pertext = make_shared<noise_texture>(4, noise.get());
+    auto pertext = texture::noise(4, noise.get());
     world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
-                                       material::lambertian(), pertext.get()));
+                                       material::lambertian(), &pertext));
     world.add(hit_storage.make<sphere>(point3(0, 2, 0), 2,
-                                       material::lambertian(), pertext.get()));
+                                       material::lambertian(), &pertext));
 
     auto difflight = material::diffuse_light();
-    auto difflight_color = make_shared<solid_color>(color(4, 4, 4));
+    auto difflight_color = texture::solid(4, 4, 4);
     world.add(hit_storage.make<sphere>(point3(0, 7, 0), 2, difflight,
-                                       difflight_color.get()));
+                                       &difflight_color));
     world.add(hit_storage.make<quad>(point3(3, 1, -2), vec3(2, 0, 0),
                                      vec3(0, 2, 0), difflight,
-                                     difflight_color.get()));
+                                     &difflight_color));
 
     camera cam;
 
@@ -303,37 +303,36 @@ static void simple_light() {
 static void cornell_box() {
     hittable_list world;
 
-    auto red = make_shared<solid_color>(color(.65, .05, .05));
-    auto white = make_shared<solid_color>(color(.73, .73, .73));
-    auto green = make_shared<solid_color>(color(.12, .45, .15));
+    auto red = texture::solid(.65, .05, .05);
+    auto white = texture::solid(.73, .73, .73);
+    auto green = texture::solid(.12, .45, .15);
     auto light = material::diffuse_light();
-    auto light_color = make_shared<solid_color>(15, 15, 15);
+    auto light_color = texture::solid(15, 15, 15);
 
     poly_storage<hittable> hit_storage;
 
     world.add(hit_storage.make<quad>(point3(555, 0, 0), vec3(0, 555, 0),
                                      vec3(0, 0, 555), material::lambertian(),
-                                     green.get()));
+                                     &green));
     world.add(hit_storage.make<quad>(point3(0, 0, 0), vec3(0, 555, 0),
                                      vec3(0, 0, 555), material::lambertian(),
-                                     red.get()));
+                                     &red));
     world.add(hit_storage.make<quad>(point3(343, 554, 332), vec3(-130, 0, 0),
-                                     vec3(0, 0, -105), light,
-                                     light_color.get()));
+                                     vec3(0, 0, -105), light, &light_color));
     world.add(hit_storage.make<quad>(point3(0, 0, 0), vec3(555, 0, 0),
                                      vec3(0, 0, 555), material::lambertian(),
-                                     white.get()));
+                                     &white));
     world.add(hit_storage.make<quad>(point3(555, 555, 555), vec3(-555, 0, 0),
                                      vec3(0, 0, -555), material::lambertian(),
-                                     white.get()));
+                                     &white));
     world.add(hit_storage.make<quad>(point3(0, 0, 555), vec3(555, 0, 0),
                                      vec3(0, 555, 0), material::lambertian(),
-                                     white.get()));
+                                     &white));
 
     poly_storage<collection> coll_storage;
 
     auto box1 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 330, 165),
-                                      material::lambertian(), white.get());
+                                      material::lambertian(), &white);
 
     world.add(hit_storage.make<transformed_geometry>(
         std::vector<transform>{transform::translate(vec3(265, 0, 295)),
@@ -342,7 +341,7 @@ static void cornell_box() {
         box1));
 
     auto box2 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 165, 165),
-                                      material::lambertian(), white.get());
+                                      material::lambertian(), &white);
 
     world.add(hit_storage.make<transformed_geometry>(
         std::vector<transform>{transform::translate(vec3(130, 0, 65)),
@@ -369,37 +368,37 @@ static void cornell_box() {
 
 static void cornell_smoke() {
     hittable_list world;
-    poly_storage<texture> tex_storage;
+    typed_storage<texture> tex_storage;
 
-    auto red = tex_storage.make<solid_color>(color(.65, .05, .05));
-    auto white = tex_storage.make<solid_color>(color(.73, .73, .73));
-    auto green = tex_storage.make<solid_color>(color(.12, .45, .15));
-    auto light = tex_storage.make<solid_color>(color(7, 7, 7));
+    auto red = texture::solid(.65, .05, .05);
+    auto white = texture::solid(.73, .73, .73);
+    auto green = texture::solid(.12, .45, .15);
+    auto light = texture::solid(7, 7, 7);
 
     poly_storage<hittable> hit_storage;
 
     world.add(hit_storage.make<quad>(point3(555, 0, 0), vec3(0, 555, 0),
                                      vec3(0, 0, 555), material::lambertian(),
-                                     green));
+                                     &green));
     world.add(hit_storage.make<quad>(point3(0, 0, 0), vec3(0, 555, 0),
                                      vec3(0, 0, 555), material::lambertian(),
-                                     red));
+                                     &red));
     world.add(hit_storage.make<quad>(point3(113, 554, 127), vec3(330, 0, 0),
                                      vec3(0, 0, 305), material::diffuse_light(),
-                                     light));
+                                     &light));
     world.add(hit_storage.make<quad>(point3(0, 555, 0), vec3(555, 0, 0),
                                      vec3(0, 0, 555), material::lambertian(),
-                                     white));
+                                     &white));
     world.add(hit_storage.make<quad>(point3(0, 0, 0), vec3(555, 0, 0),
                                      vec3(0, 0, 555), material::lambertian(),
-                                     white));
+                                     &white));
     world.add(hit_storage.make<quad>(point3(0, 0, 555), vec3(555, 0, 0),
                                      vec3(0, 555, 0), material::lambertian(),
-                                     white));
+                                     &white));
     poly_storage<collection> coll_storage;
 
     auto box1 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 330, 165),
-                                      material::lambertian(), white);
+                                      material::lambertian(), &white);
 
     box1 = hit_storage.make<transformed_geometry>(
 
@@ -408,17 +407,17 @@ static void cornell_smoke() {
         box1);
 
     auto box2 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 165, 165),
-                                      material::lambertian(), white);
+                                      material::lambertian(), &white);
 
     box2 = hit_storage.make<transformed_geometry>(
         std::vector<transform>{transform::translate(vec3(130, 0, 65)),
                                transform::rotate_y(-18)},
         box2);
 
-    world.add(hit_storage.make<constant_medium>(box1, 0.01, color(0, 0, 0),
-                                                tex_storage));
-    world.add(hit_storage.make<constant_medium>(box2, 0.01, color(1, 1, 1),
-                                                tex_storage));
+    world.add(hit_storage.make<constant_medium>(
+        box1, 0.01, tex_storage.make(texture::solid(0, 0, 0))));
+    world.add(hit_storage.make<constant_medium>(
+        box2, 0.01, tex_storage.make(texture::solid(1, 1, 1))));
 
     camera cam;
 
@@ -446,7 +445,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto noise = std::make_unique<perlin>();
 
     hittable_list boxes1;
-    auto ground_col = make_shared<solid_color>(0.48, 0.83, 0.53);
+    auto ground_col = texture::solid(0.48, 0.83, 0.53);
     auto ground = material::lambertian();
 
     poly_storage<hittable> hit_storage;
@@ -463,9 +462,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto y1 = random_float(1, 101);
             auto z1 = z0 + w;
 
-            boxes1.add(hit_storage.make<box>(point3(x0, y0, z0),
-                                             point3(x1, y1, z1), ground,
-                                             ground_col.get()));
+            boxes1.add(hit_storage.make<box>(
+                point3(x0, y0, z0), point3(x1, y1, z1), ground, &ground_col));
         }
     }
 
@@ -475,56 +473,54 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         hit_storage.make<hittable_collection>(boxes1.split(coll_storage)));
 
     auto light = material::diffuse_light();
-    auto light_color = make_shared<solid_color>(7, 7, 7);
+    auto light_color = texture::solid(7, 7, 7);
 
     world.add(hit_storage.make<quad>(point3(123, 554, 147), vec3(300, 0, 0),
-                                     vec3(0, 0, 265), light,
-                                     light_color.get()));
+                                     vec3(0, 0, 265), light, &light_color));
 
     auto center = point3(400, 400, 200);
     auto sphere_material = material::lambertian();
-    auto sphere_color = make_shared<solid_color>(0.7, 0.3, 0.1);
+    auto sphere_color = texture::solid(0.7, 0.3, 0.1);
     world.add(hit_storage.make<transformed_geometry>(
         transform::move(vec3(30, 0, 0)),
-        hit_storage.make<sphere>(center, 50, sphere_material,
-                                 sphere_color.get())));
+        hit_storage.make<sphere>(center, 50, sphere_material, &sphere_color)));
 
-    poly_storage<texture> tex_storage;
+    typed_storage<texture> tex_storage;
 
     auto dielectric = material::dielectric(1.5);
 
     // NOTE: Lookuout for duplication of materials/colors!
 
-    world.add(hit_storage.make<sphere>(point3(260, 150, 45), 50, dielectric,
-                                       tex_storage.make<solid_color>(1, 1, 1)));
+    world.add(
+        hit_storage.make<sphere>(point3(260, 150, 45), 50, dielectric,
+                                 tex_storage.make(texture::solid(1, 1, 1))));
     world.add(hit_storage.make<sphere>(
         point3(0, 150, 145), 50, material::metal(1.0),
-        tex_storage.make<solid_color>(color(0.8, 0.8, 0.9))));
+        tex_storage.make(texture::solid(0.8, 0.8, 0.9))));
 
-    auto boundary =
-        hit_storage.make<sphere>(point3(360, 150, 145), 70, dielectric,
-                                 tex_storage.make<solid_color>(1, 1, 1));
+    auto full_white = texture::solid(1);
+    auto boundary = hit_storage.make<sphere>(point3(360, 150, 145), 70,
+                                             dielectric, &full_white);
     world.add(boundary);
     world.add(hit_storage.make<constant_medium>(
-        boundary, 0.2, color(0.2, 0.4, 0.9), tex_storage));
+        boundary, 0.2, tex_storage.make(texture::solid(0.2, 0.4, 0.9))));
     boundary = hit_storage.make<sphere>(point3(0, 0, 0), 5000, dielectric,
-                                        tex_storage.make<solid_color>(1, 1, 1));
-    world.add(hit_storage.make<constant_medium>(boundary, .0001, color(1, 1, 1),
-                                                tex_storage));
+                                        &full_white);
+    world.add(hit_storage.make<constant_medium>(boundary, .0001, &full_white));
 
-    auto emat = (make_shared<image_texture>("earthmap.jpg"));
+    auto emat = texture::image("earthmap.jpg");
     world.add(hit_storage.make<sphere>(point3(400, 200, 400), 100,
-                                       material::lambertian(), emat.get()));
-    auto pertext = make_shared<noise_texture>(0.1, noise.get());
+                                       material::lambertian(), &emat));
+    auto pertext = texture::noise(0.1, noise.get());
     world.add(hit_storage.make<sphere>(point3(220, 280, 300), 80,
-                                       material::lambertian(), pertext.get()));
+                                       material::lambertian(), &pertext));
 
     hittable_list boxes2;
-    auto white = tex_storage.make<solid_color>(color(.73, .73, .73));
+    auto white = texture::solid(.73, .73, .73);
     int ns = 1000;
     for (int j = 0; j < ns; j++) {
         boxes2.add(hit_storage.make<sphere>(point3::random(0, 165), 10,
-                                            material::lambertian(), white));
+                                            material::lambertian(), &white));
     }
 
     world.add(hit_storage.make<transformed_geometry>(
