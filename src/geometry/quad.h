@@ -1,5 +1,4 @@
-#ifndef QUAD_H
-#define QUAD_H
+#pragma once
 //==============================================================================================
 // To the extent possible under law, the author(s) have dedicated all copyright
 // and related and neighboring rights to this software to the public domain
@@ -30,6 +29,8 @@ struct quad final : public hittable {
     //  mat is accessed last, after all tests
     material mat;
     texture const* tex;
+
+    quad() = default;
 
     [[nodiscard]] aabb bounding_box() const& override {
         return aabb(Q, Q + u + v).pad();
@@ -89,50 +90,3 @@ struct quad final : public hittable {
     }
 };
 
-inline void box_into(point3 a, point3 b, material const& mat,
-                     texture const* tex, hittable_list& sides,
-                     poly_storage<hittable>& storage) {
-    // Construct the two opposite vertices with the minimum and maximum
-    // coordinates.
-    auto min =
-        point3(fmin(a.x(), b.x()), fmin(a.y(), b.y()), fmin(a.z(), b.z()));
-    auto max =
-        point3(fmax(a.x(), b.x()), fmax(a.y(), b.y()), fmax(a.z(), b.z()));
-
-    auto dx = vec3(max.x() - min.x(), 0, 0);
-    auto dy = vec3(0, max.y() - min.y(), 0);
-    auto dz = vec3(0, 0, max.z() - min.z());
-
-    sides.add(storage.make<quad>(point3(min.x(), min.y(), max.z()), dx, dy, mat,
-                                 tex));  // front
-    sides.add(storage.make<quad>(point3(max.x(), min.y(), max.z()), -dz, dy,
-                                 mat,
-                                 tex));  // right
-    sides.add(storage.make<quad>(point3(max.x(), min.y(), min.z()), -dx, dy,
-                                 mat,
-                                 tex));  // back
-    sides.add(storage.make<quad>(point3(min.x(), min.y(), min.z()), dz, dy, mat,
-                                 tex));  // left
-    sides.add(storage.make<quad>(point3(min.x(), max.y(), max.z()), dx, -dz,
-                                 mat,
-                                 tex));  // top
-    sides.add(storage.make<quad>(point3(min.x(), min.y(), min.z()), dx, dz, mat,
-                                 tex));  // bottom
-}
-
-inline hittable const* box(point3 const& a, point3 const& b,
-                           material const& mat, texture const* tex,
-                           poly_storage<hittable>& storage,
-                           poly_storage<collection>& coll_storage) {
-    // Returns the 3D box (six sides) that contains the two opposite vertices a
-    // & b.
-
-    hittable_list sides;
-
-    box_into(a, b, mat, tex, sides, storage);
-
-    return storage.make<hittable_collection>(
-        coll_storage.make<hittable_list>(std::move(sides)));
-}
-
-#endif

@@ -20,6 +20,7 @@
 #include "camera.h"
 #include "collection/hittable_list.h"
 #include "color.h"
+#include "geometry/box.h"
 #include "geometry/constant_medium.h"
 #include "geometry/quad.h"
 #include "geometry/sphere.h"
@@ -331,9 +332,8 @@ static void cornell_box() {
 
     poly_storage<collection> coll_storage;
 
-    auto box1 =
-        box(point3(0, 0, 0), point3(165, 330, 165), material::lambertian(),
-            white.get(), hit_storage, coll_storage);
+    auto box1 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 330, 165),
+                                      material::lambertian(), white.get());
 
     world.add(hit_storage.make<transformed_geometry>(
         std::vector<transform>{transform::translate(vec3(265, 0, 295)),
@@ -341,9 +341,8 @@ static void cornell_box() {
 
         box1));
 
-    auto box2 =
-        box(point3(0, 0, 0), point3(165, 165, 165), material::lambertian(),
-            white.get(), hit_storage, coll_storage);
+    auto box2 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 165, 165),
+                                      material::lambertian(), white.get());
 
     world.add(hit_storage.make<transformed_geometry>(
         std::vector<transform>{transform::translate(vec3(130, 0, 65)),
@@ -399,8 +398,8 @@ static void cornell_smoke() {
                                      white));
     poly_storage<collection> coll_storage;
 
-    auto box1 = box(point3(0, 0, 0), point3(165, 330, 165),
-                    material::lambertian(), white, hit_storage, coll_storage);
+    auto box1 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 330, 165),
+                                      material::lambertian(), white);
 
     box1 = hit_storage.make<transformed_geometry>(
 
@@ -408,8 +407,8 @@ static void cornell_smoke() {
                                transform::rotate_y(15)},
         box1);
 
-    auto box2 = box(point3(0, 0, 0), point3(165, 165, 165),
-                    material::lambertian(), white, hit_storage, coll_storage);
+    auto box2 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 165, 165),
+                                      material::lambertian(), white);
 
     box2 = hit_storage.make<transformed_geometry>(
         std::vector<transform>{transform::translate(vec3(130, 0, 65)),
@@ -464,8 +463,9 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto y1 = random_float(1, 101);
             auto z1 = z0 + w;
 
-            boxes1.add(box(point3(x0, y0, z0), point3(x1, y1, z1), ground,
-                           ground_col.get(), hit_storage, coll_storage));
+            boxes1.add(hit_storage.make<box>(point3(x0, y0, z0),
+                                             point3(x1, y1, z1), ground,
+                                             ground_col.get()));
         }
     }
 
