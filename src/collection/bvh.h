@@ -254,7 +254,7 @@ struct tree final : public collection {
 
 [[nodiscard]] static collection const* split_random(
     std::span<hittable const*> objects,
-    typed_storage<collection>& coll_storage) {
+    poly_storage<collection>& coll_storage) {
     assert(objects.size() >= 2 && "There's no need to split this!");
 
     std::vector<tree::node> inorder_nodes;

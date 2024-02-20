@@ -62,7 +62,7 @@ struct checker_texture : public texture {
         : inv_scale(1.0f / _scale), even(_even), odd(_odd) {}
 
     checker_texture(float _scale, color c1, color c2,
-                    typed_storage<texture>& storage)
+                    poly_storage<texture>& storage)
         : inv_scale(1.0f / _scale),
           even(storage.make<solid_color>(c1)),
           odd(storage.make<solid_color>(c2)) {}

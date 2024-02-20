@@ -91,7 +91,7 @@ struct quad final : public hittable {
 
 inline void box_into(point3 a, point3 b, material const& mat,
                      texture const* tex, hittable_list& sides,
-                     typed_storage<hittable>& storage) {
+                     poly_storage<hittable>& storage) {
     // Construct the two opposite vertices with the minimum and maximum
     // coordinates.
     auto min =
@@ -122,8 +122,8 @@ inline void box_into(point3 a, point3 b, material const& mat,
 
 inline hittable const* box(point3 const& a, point3 const& b,
                            material const& mat, texture const* tex,
-                           typed_storage<hittable>& storage,
-                           typed_storage<collection>& coll_storage) {
+                           poly_storage<hittable>& storage,
+                           poly_storage<collection>& coll_storage) {
     // Returns the 3D box (six sides) that contains the two opposite vertices a
     // & b.
 

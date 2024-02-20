@@ -6,10 +6,11 @@
 
 // Storage that maintains pointer stability for created objects.
 
+// Storage that allows multiple classes as long as they are derived from others.
 // NOTE: should rename this to 'type storage' or something like that, and maybe
 // switch the underlying impl to be some sort of arena allocator
 template <typename T>
-struct typed_storage {
+struct poly_storage {
     std::vector<shared_ptr<T>> ptrs;
 
     template <typename U>

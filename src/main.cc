@@ -34,15 +34,15 @@ static bool enable_progress = true;
 static void random_spheres() {
     hittable_list world;
 
-    typed_storage<texture> tex_storage;
-    typed_storage<hittable> hit_storage;
+    poly_storage<texture> tex_storage;
+    poly_storage<hittable> hit_storage;
 
     auto checker = make_shared<checker_texture>(0.32, color(.2, .3, .1),
                                                 color(.9, .9, .9), tex_storage);
     world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
                                        material::lambertian(), checker.get()));
 
-    typed_storage<material> mat_storage;
+    poly_storage<material> mat_storage;
 
     auto dielectric = material::dielectric(1.5);
 
@@ -97,7 +97,7 @@ static void random_spheres() {
         point3(4, 1, 0), 1.0, material3,
         tex_storage.make<solid_color>(color(0.7, .6, .5))));
 
-    typed_storage<collection> coll_storage;
+    poly_storage<collection> coll_storage;
 
     auto const *scene = world.split(coll_storage);
 
@@ -123,8 +123,8 @@ static void random_spheres() {
 static void two_spheres() {
     hittable_list world;
 
-    typed_storage<hittable> hit_storage;
-    typed_storage<texture> tex_storage;
+    poly_storage<hittable> hit_storage;
+    poly_storage<texture> tex_storage;
 
     auto checker = tex_storage.make<checker_texture>(
         0.8, color(.2, .3, .1), color(.9, .9, .9),
@@ -154,7 +154,7 @@ static void two_spheres() {
 }
 
 static void earth() {
-    typed_storage<hittable> hit_storage;
+    poly_storage<hittable> hit_storage;
 
     auto earth_texture = make_shared<image_texture>("earthmap.jpg");
     auto earth_surface = material::lambertian();
@@ -182,7 +182,7 @@ static void earth() {
 static void two_perlin_spheres() {
     hittable_list world;
 
-    typed_storage<hittable> hit_storage;
+    poly_storage<hittable> hit_storage;
 
     auto noise = std::make_unique<perlin>();
 
@@ -222,7 +222,7 @@ static void quads() {
 
     auto all_mat = material::lambertian();
 
-    typed_storage<hittable> hit_storage;
+    poly_storage<hittable> hit_storage;
 
     // Quads
     world.add(hit_storage.make<quad>(point3(-3, -2, 5), vec3(0, 0, -4),
@@ -259,7 +259,7 @@ static void quads() {
 static void simple_light() {
     hittable_list world;
 
-    typed_storage<hittable> hit_storage;
+    poly_storage<hittable> hit_storage;
 
     auto noise = std::make_unique<perlin>();
 
@@ -304,7 +304,7 @@ static void cornell_box() {
     auto light = material::diffuse_light();
     auto light_color = make_shared<solid_color>(15, 15, 15);
 
-    typed_storage<hittable> hit_storage;
+    poly_storage<hittable> hit_storage;
 
     world.add(hit_storage.make<quad>(point3(555, 0, 0), vec3(0, 555, 0),
                                      vec3(0, 0, 555), material::lambertian(),
@@ -325,7 +325,7 @@ static void cornell_box() {
                                      vec3(0, 555, 0), material::lambertian(),
                                      white.get()));
 
-    typed_storage<collection> coll_storage;
+    poly_storage<collection> coll_storage;
 
     auto box1 =
         box(point3(0, 0, 0), point3(165, 330, 165), material::lambertian(),
@@ -366,14 +366,14 @@ static void cornell_box() {
 
 static void cornell_smoke() {
     hittable_list world;
-    typed_storage<texture> tex_storage;
+    poly_storage<texture> tex_storage;
 
     auto red = tex_storage.make<solid_color>(color(.65, .05, .05));
     auto white = tex_storage.make<solid_color>(color(.73, .73, .73));
     auto green = tex_storage.make<solid_color>(color(.12, .45, .15));
     auto light = tex_storage.make<solid_color>(color(7, 7, 7));
 
-    typed_storage<hittable> hit_storage;
+    poly_storage<hittable> hit_storage;
 
     world.add(hit_storage.make<quad>(point3(555, 0, 0), vec3(0, 555, 0),
                                      vec3(0, 0, 555), material::lambertian(),
@@ -393,7 +393,7 @@ static void cornell_smoke() {
     world.add(hit_storage.make<quad>(point3(0, 0, 555), vec3(555, 0, 0),
                                      vec3(0, 555, 0), material::lambertian(),
                                      white));
-    typed_storage<collection> coll_storage;
+    poly_storage<collection> coll_storage;
 
     auto box1 = box(point3(0, 0, 0), point3(165, 330, 165),
                     material::lambertian(), white, hit_storage, coll_storage);
@@ -446,8 +446,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto ground_col = make_shared<solid_color>(0.48, 0.83, 0.53);
     auto ground = material::lambertian();
 
-    typed_storage<hittable> hit_storage;
-    typed_storage<collection> coll_storage;
+    poly_storage<hittable> hit_storage;
+    poly_storage<collection> coll_storage;
 
     int boxes_per_side = 20;
     for (int i = 0; i < boxes_per_side; i++) {
@@ -485,7 +485,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         hit_storage.make<sphere>(center, 50, sphere_material,
                                  sphere_color.get())));
 
-    typed_storage<texture> tex_storage;
+    poly_storage<texture> tex_storage;
 
     auto dielectric = material::dielectric(1.5);
 
