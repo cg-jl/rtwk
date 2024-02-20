@@ -1,0 +1,25 @@
+--- src/camera.h	2024-02-21 00:07:01.842881038 +0100
++++ src/camera.h	2024-02-21 00:31:07.996334295 +0100
+@@ -112,8 +112,12 @@ struct camera {
+                     // sample all textures
+                     for (uint32_t ray = 0; ray < total_ray_count; ++ray) {
+                         auto const& info = light_info_uniq.get()[ray];
+-                        sampled_colors[ray] =
++                        sampled_colors[i] =
+                             info.tex->value(info.u, info.v, info.p);
++                        // Try fixing this one and not the one below!
++                        // Fixed vv
++                        /* sampled_colors[ray] = */
++                        /*     info.tex->value(info.u, info.v, info.p); */
+                     }
+ 
+                     // multiply + add colors
+@@ -132,7 +136,7 @@ struct camera {
+                         color col(1, 1, 1);
+                         // Aggregate in multiplication
+                         for (uint32_t k = 0; k < num_samples; ++k) {
+-                            col *= colors[k];
++                            col *= colors[i];
+                         }
+ 
+                         pixel_color += col;
