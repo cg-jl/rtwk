@@ -82,13 +82,7 @@ struct camera {
             auto light_info_uniq = std::make_unique<light_info[]>(
                 size_t(max_depth) * size_t(samples_per_pixel));
 
-            struct ray_info {
-                uint32_t num_samples;
-                enum ray_result finish_state;
-            };
-
-            auto geometry_results =
-                std::make_unique<ray_info[]>(samples_per_pixel);
+            auto light_counts = std::make_unique<uint32_t[]>(samples_per_pixel);
 
 #pragma omp for firstprivate(fcol_ptr, image_height, image_width)
             for (uint32_t j = 0; j < image_height; ++j) {
@@ -110,10 +104,9 @@ struct camera {
 
                         ray r = get_ray(i, j);
 
-                        auto res = simulate_ray(r, world, light_infos);
+                        simulate_ray(r, world, light_infos);
                         total_geometry_samples += light_infos.count;
-                        geometry_results[sample] =
-                            ray_info{light_infos.count, res};
+                        light_counts[sample] = light_infos.count;
                     }
 
                     // color
@@ -122,16 +115,14 @@ struct camera {
                     color pixel_color(0, 0, 0);
                     for (uint32_t sample = 0; sample < samples_per_pixel;
                          ++sample) {
-                        auto const& info = geometry_results[sample];
+                        auto const num_samples = light_counts[sample];
 
                         auto const* lights =
                             light_info_uniq.get() + used_light_count;
 
-                        used_light_count += info.num_samples;
+                        used_light_count += num_samples;
 
-                        pixel_color +=
-                            sample_textures(info.finish_state, lights,
-                                            info.num_samples, background);
+                        pixel_color += sample_textures(lights, num_samples);
                     }
 
                     fcol_ptr[j * image_width + i] =
@@ -299,30 +290,25 @@ struct camera {
         float u{}, v{};
     };
 
-    enum class ray_result {
-        shadow,  // the ray bounced too many times, so it's considered a shadow
-        light,   // the ray hit a light emitter
-        background,  // the ray escaped the world
-    };
-
     // NOTE: Could have the background as another light source.
     // NOTE: Maybe it's interesting to tell the renderer that it's going to get
     // a collection of geometries?
 
     // Simulates a ray until either it hits too many times, hits a light, or
     // hits the skybox.
-    static ray_result simulate_ray(ray r, hittable_collection const& world,
-                                   vecview<light_info>& lights) {
+    static void simulate_ray(ray r, hittable_collection const& world,
+                             vecview<light_info>& lights) {
         while (!lights.is_full()) {
             hit_record rec;
 
             interval ray_t{0.001, 10e10f};
-            if (!world.hit(r, ray_t, rec)) return ray_result::background;
+
+            if (!world.hit(r, ray_t, rec)) break;
+
             apply_reverse_transforms(rec.xforms, r.time, rec);
             lights.emplace_back(rec.tex, rec.p, rec.u, rec.v);
 
-            if (rec.mat.tag == material::kind::diffuse_light)
-                return ray_result::light;
+            if (rec.mat.tag == material::kind::diffuse_light) return;
 
             auto face = ::face(r.direction, rec.normal);
 
@@ -332,29 +318,20 @@ struct camera {
 
             r = ray(rec.p, scattered, r.time);
         }
-        // Too many bounces!
-        // NOTE: this acts like a shortcut, to avoid processing what would end
-        // in a zero anyway after correction & discretization
-        return ray_result::shadow;
+        // The ray didn't converge to a light source, so no light is to be
+        // returned
+        lights.clear();
+        lights.emplace_back(&black_texture, point3(0), 0, 0);
     }
 
-    static color sample_textures(ray_result result, light_info const* lights,
-                                 uint32_t lights_count, color background) {
-        // lighting
-        color begin_color;
-        switch (result) {
-            case ray_result::shadow:
-                return {0, 0, 0};
-            case ray_result::light:
-                // The emitted light information is in the material sample for
-                // the light.
-                begin_color = color(1, 1, 1);
+    // TODO: can't make constexpr due to some weird thing happening with virtual
+    // destructors: 'calling destructor before its definition'
+    static solid_color black_texture;
 
-                break;
-            case ray_result::background:
-                begin_color = background;
-                break;
-        }
+    static color sample_textures(light_info const* lights,
+                                 uint32_t lights_count) {
+        // lighting
+        color begin_color = color(1, 1, 1);
 
         // NOTE: This is independent and can be done by any thread!
         // Each of these is also independent since it's multiplying.
@@ -368,3 +345,5 @@ struct camera {
         return begin_color;
     }
 };
+
+solid_color camera::black_texture = solid_color(0);

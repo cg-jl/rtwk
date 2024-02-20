@@ -44,7 +44,7 @@ struct texture {
 struct solid_color : public texture {
    public:
     template <typename... Args>
-    explicit solid_color(Args&&... args)
+    explicit constexpr solid_color(Args&&... args)
         : color_value(std::forward<Args>(args)...) {}
 
     [[nodiscard]] color value(float u, float v,

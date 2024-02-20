@@ -24,18 +24,18 @@ struct vec3 {
    public:
     float e[3];
 
-    vec3() : e{0, 0, 0} {}
-    vec3(float e0, float e1, float e2) : e{e0, e1, e2} {}
+    constexpr vec3() : e{0, 0, 0} {}
+    constexpr vec3(float e0, float e1, float e2) : e{e0, e1, e2} {}
 
-    explicit vec3(float s) : e{s, s, s} {}
+    explicit constexpr vec3(float s) : e{s, s, s} {}
 
     [[nodiscard]] float x() const { return e[0]; }
     [[nodiscard]] float y() const { return e[1]; }
     [[nodiscard]] float z() const;
 
-    vec3 operator-() const { return {-e[0], -e[1], -e[2]}; }
-    float operator[](int i) const { return e[i]; }
-    float &operator[](int i) { return e[i]; }
+    constexpr vec3 operator-() const { return {-e[0], -e[1], -e[2]}; }
+    constexpr float operator[](int i) const { return e[i]; }
+    constexpr float &operator[](int i) { return e[i]; }
 
     vec3 &operator+=(vec3 v) {
         e[0] += v.e[0];
