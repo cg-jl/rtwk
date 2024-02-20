@@ -305,7 +305,7 @@ struct camera {
 
             if (!world.hit(r, ray_t, rec)) break;
 
-            apply_reverse_transforms(rec.xforms, r.time, rec);
+            apply_reverse_transforms(rec.xforms, rec.p, r.time, rec.normal);
             lights.emplace_back(rec.tex, rec.p, rec.u, rec.v);
 
             if (rec.mat.tag == material::kind::diffuse_light) return;

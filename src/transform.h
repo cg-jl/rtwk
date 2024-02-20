@@ -60,7 +60,7 @@ struct transform {
     explicit constexpr transform(kind tag) : tag(tag) {}
 
     void apply(ray& r, float time) const&;
-    void apply_reverse(float time, hit_record& rec) const&;
+    void apply_reverse(point3& p, float time, vec3& normal) const&;
     void apply_to_bbox(aabb& box) const&;
 
    private:
@@ -68,10 +68,11 @@ struct transform {
 };
 
 static inline void apply_reverse_transforms(std::span<transform const> xforms,
-                                            float time, hit_record& rec) {
+                                            point3& p, float time,
+                                            vec3& normal) {
     for (size_t i = xforms.size(); i != 0;) {
         --i;
-        xforms[i].apply_reverse(time, rec);
+        xforms[i].apply_reverse(p, time, normal);
     }
 }
 
@@ -147,33 +148,31 @@ inline void transform::apply(ray& r, float time) const& {
         } break;
     }
 }
-inline void transform::apply_reverse(float time, hit_record& rec) const& {
+static inline point3 inv_y_rotation(float cos_theta, float sin_theta,
+                                    point3 p) {
+    auto x = p.x();
+    auto y = p.y();
+    auto z = p.z();
+    return point3{x * cos_theta + sin_theta * z, y,
+                  -sin_theta * x + cos_theta * z};
+}
+inline void transform::apply_reverse(point3& p, float time,
+                                     vec3& normal_target) const& {
     switch (tag) {
         case kind::move: {
             auto displacement = as.displacement * time;
-            rec.p += displacement;
+            p += displacement;
         } break;
         case kind::rotate_y: {
-            // Change the intersection point from object space to world space
-            auto p = rec.p;
-
             auto cos_theta = as.rotation.cos_theta;
             auto sin_theta = as.rotation.sin_theta;
 
-            p[0] = cos_theta * rec.p[0] + sin_theta * rec.p[2];
-            p[2] = -sin_theta * rec.p[0] + cos_theta * rec.p[2];
-
-            // Change the normal from object space to world space
-            auto normal = rec.normal;
-            normal[0] = cos_theta * rec.normal[0] + sin_theta * rec.normal[2];
-            normal[2] = -sin_theta * rec.normal[0] + cos_theta * rec.normal[2];
-
-            rec.p = p;
-            rec.normal = normal;
+            p = inv_y_rotation(cos_theta, sin_theta, p);
+            normal_target = inv_y_rotation(cos_theta, sin_theta, normal_target);
         } break;
 
         case kind::translate:
-            rec.p += as.displacement;
+            p += as.displacement;
             break;
     }
 }
