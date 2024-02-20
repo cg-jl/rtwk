@@ -50,47 +50,44 @@ struct rtw_image {
     bool load(std::string const& filename) {
         // Loads image data from the given file name. Returns true if the load
         // succeeded.
-        auto n = bytes_per_pixel;  // Dummy out parameter: original components
-                                   // per pixel
-        data = stbi_load(filename.c_str(), &image_width, &image_height, &n,
+        int _n;
+        // per pixel
+        data = stbi_load(filename.c_str(), &image_width, &image_height, &_n,
                          bytes_per_pixel);
         return data != nullptr;
     }
 
-    [[nodiscard]] int width() const {
-        return (data == nullptr) ? 0 : image_width;
-    }
-    [[nodiscard]] int height() const {
-        return (data == nullptr) ? 0 : image_height;
-    }
-
-    [[nodiscard]] size_t bytes_per_scanline() const noexcept {
+    [[nodiscard]] constexpr size_t bytes_per_scanline() const noexcept {
         return image_width * bytes_per_pixel;
     }
 
-    [[nodiscard]] unsigned char const* pixel_data(int x, int y) const {
+    [[nodiscard]] color sample(float u, float v) const {
         // Return the address of the three bytes of the pixel at x,y (or magenta
         // if no data).
-        static unsigned char magenta[] = {255, 0, 255};
+        static auto magenta = color{1, 0, 1};
         if (data == nullptr) return magenta;
 
-        x = clamp(x, 0, image_width);
-        y = clamp(y, 0, image_height);
+        assume(u >= 0 && u <= 1);
+        assume(v >= 0 && v <= 1);
 
-        return data + y * bytes_per_scanline() + x * bytes_per_pixel;
+        auto x = uint32_t(float(image_width) * u);
+        auto y = uint32_t(float(image_height) * (1 - v));
+
+        auto pxdata = data + y * bytes_per_scanline() + x * bytes_per_pixel;
+        static constexpr auto scale = 1 / 255.f;
+
+        auto unscaled =
+            color(static_cast<float>(pxdata[0]), static_cast<float>(pxdata[1]),
+                  static_cast<float>(pxdata[2]));
+        return scale * unscaled;
     }
 
    private:
-    int const bytes_per_pixel = 3;
-    unsigned char* data;
+    static constexpr uint32_t bytes_per_pixel = 3;
+    // NOTE: we have to do one RGB8->RGB32f conversion per sample here... Is it
+    // ok?
+    uint8_t* data;
     int image_width{}, image_height{};
-
-    static int clamp(int x, int low, int high) {
-        // Return the value clamped to the range [low, high).
-        if (x < low) return low;
-        if (x < high) return x;
-        return high - 1;
-    }
 };
 
 // Restore MSVC compiler warnings

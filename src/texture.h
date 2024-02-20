@@ -1,5 +1,4 @@
-#ifndef TEXTURE_H
-#define TEXTURE_H
+#pragma once
 //==============================================================================================
 // Originally written in 2016 by Peter Shirley <ptrshrl@gmail.com>
 //
@@ -108,25 +107,10 @@ struct image_texture : public texture {
 
     [[nodiscard]] color value(float u, float v,
                               point3 const& p) const override {
-        // If we have no texture data, then return solid cyan as a debugging
-        // aid.
-        if (image.height() <= 0) return {0, 1, 1};
-
-        // Clamp input texture coordinates to [0,1] x [1,0]
-        u = interval(0, 1).clamp(u);
-        v = 1.0f - interval(0, 1).clamp(v);  // Flip V to image coordinates
-
-        auto i = static_cast<int>(u * float(image.width()));
-        auto j = static_cast<int>(v * float(image.height()));
-        auto pixel = image.pixel_data(i, j);
-
-        auto color_scale = 1.0f / 255.0f;
-        return {color_scale * float(pixel[0]), color_scale * float(pixel[1]),
-                color_scale * float(pixel[2])};
+        return image.sample(u, v);
     }
 
    private:
     rtw_image image;
 };
 
-#endif
