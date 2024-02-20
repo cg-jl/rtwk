@@ -17,6 +17,7 @@
 #include <iostream>
 #include <span>
 
+#include "collection.h"
 #include "color.h"
 #include "fixedvec.h"
 #include "hittable.h"
@@ -43,7 +44,7 @@ struct camera {
     float focus_dist =
         10;  // Distance from camera look-from point to plane of perfect focus
 
-    void render(hittable const& world, bool enable_progress) {
+    void render(hittable_collection const& world, bool enable_progress) {
         initialize();
 
         auto px_count = image_width * image_height;
@@ -309,12 +310,13 @@ struct camera {
 
     // Simulates a ray until either it hits too many times, hits a light, or
     // hits the skybox.
-    static ray_result simulate_ray(ray r, hittable const& world,
+    static ray_result simulate_ray(ray r, hittable_collection const& world,
                                    vecview<light_info>& lights) {
         while (!lights.is_full()) {
             hit_record rec;
 
-            if (!world.hit(r, rec)) return ray_result::background;
+            interval ray_t{0.001, 10e10f};
+            if (!world.hit(r, ray_t, rec)) return ray_result::background;
             lights.emplace_back(rec.tex, rec.p, rec.u, rec.v);
 
             if (rec.mat.tag == material::kind::diffuse_light)

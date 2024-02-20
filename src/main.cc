@@ -176,7 +176,11 @@ static void earth() {
 
     cam.defocus_angle = 0;
 
-    cam.render(*globe, enable_progress);
+    poly_storage<collection> collections;
+
+    cam.render(hittable_collection(
+                   collections.make<hittable_view>(std::span{&globe, 1})),
+               enable_progress);
 }
 
 static void two_perlin_spheres() {
