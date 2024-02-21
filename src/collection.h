@@ -5,8 +5,12 @@
 
 #include "hittable.h"
 
+// NOTE: On making hittable_collection explicit on collection:
+// It may force the compiler to produce multiple instantiations for each of the unused functions.
+// Compile times could skyrocket.
+
 // NOTE: Maybe it's wise to select the best one in layers when I have a layering
-// builder. Perhaps the important thing next is to 'refactor' hittable_list into
+// builder. Perhaps the important thing next is to 'refactor' poly_list into
 // a builder, and redirect all main.cc operations through it. We can already
 // swap the storage, and the next thing is to swap the building method (which
 // for geometry will be the storage, too!).

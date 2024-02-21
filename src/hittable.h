@@ -68,3 +68,19 @@ struct hittable {
         return hit(r, t, rec);
     }
 };
+
+template <typename T>
+concept is_hittable = std::is_base_of_v<hittable, T>;
+
+struct poly_hittable final : public hittable {
+    hittable const* ptr;
+
+    explicit constexpr poly_hittable(hittable const* ptr) : ptr(ptr) {}
+
+    [[nodiscard]] aabb bounding_box() const& override {
+        return ptr->bounding_box();
+    }
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
+        return ptr->hit(r, ray_t, rec);
+    }
+};

@@ -11,7 +11,7 @@
 
 #include <utility>
 
-#include "collection/hittable_list.h"  // for box(). NOTE: maybe this should be in main.cc, or some other builder module
+#include "collection/poly_list.h"  // for box(). NOTE: maybe this should be in main.cc, or some other builder module
 #include "hittable.h"
 #include "material.h"
 #include "rtweekend.h"

@@ -45,11 +45,11 @@ static bool box_compare(hittable const* a, hittable const* b, int axis_index) {
 // We could fit one plane for minimums and one plane for maximums. Check the
 // distance of the plane to the closest box
 
-static size_t partition(std::span<hittable const*> obs, int axis) {
-    std::sort(obs.begin(), obs.end(),
-              [axis](hittable const* const& a, hittable const* const& b) {
-                  return box_compare(a, b, axis);
-              });
+template <is_hittable T>
+static size_t partition(std::span<T> obs, int axis) {
+    std::sort(obs.begin(), obs.end(), [axis](T const& a, T const& b) {
+        return box_compare(&a, &b, axis);
+    });
 
     auto mid = obs.size() / 2;
 
@@ -71,19 +71,19 @@ static float cumulative_right_visit(int depth) {
     return visit_right_cost * float(depth * (depth + 1) / 2);
 }
 
-static float eval_partition_cost(size_t split_index,
-                                 std::span<hittable const* const> obs, int axis,
-                                 int depth) {
+template <is_hittable T>
+static float eval_partition_cost(size_t split_index, std::span<T const> obs,
+                                 int axis, int depth) {
     interval whole = interval::empty;
     interval left = interval::empty;
     interval right = interval::empty;
 
     for (auto const& ob : obs.subspan(0, split_index)) {
-        left = interval(left, ob->bounding_box().axis(axis));
+        left = interval(left, ob.bounding_box().axis(axis));
     }
 
     for (auto const& ob : obs.subspan(split_index)) {
-        right = interval(right, ob->bounding_box().axis(axis));
+        right = interval(right, ob.bounding_box().axis(axis));
     }
 
     whole = interval(left, right);
@@ -103,7 +103,8 @@ static float eval_partition_cost(size_t split_index,
     return a_cost + b_cost;
 }
 
-static float eval_linear_cost(std::span<hittable const* const> obs) {
+template <is_hittable T>
+static float eval_linear_cost(std::span<T const> obs) {
     // NOTE: Since everything is going through shared pointers right now, I'll
     // add another penalty to the linear one, since it isn't fully cached like
     // we're assuming here!
@@ -118,27 +119,27 @@ static float eval_linear_cost(std::span<hittable const* const> obs) {
 // Thinking about some way to do things layer by layer on the BVH, so that we
 // do more work per cache miss.
 
+// NOTE: Could split nodes into the info needed before the check and info
+// needed for recursive traversal.
+struct node {
+    aabb box;
+    int left;
+    int right;
+    int axis;
+    float split_point;
+};
 // NOTE: currently assuming that partitions are always symmetric, meaning
 // that we can always compute the child spans from a parent span.
+template <is_hittable T>
 struct tree final : public collection {
-    // NOTE: Could split nodes into the info needed before the check and info
-    // needed for recursive traversal.
-    struct node {
-        aabb box;
-        int left;
-        int right;
-        int axis;
-        float split_point;
-    };
-
     tree() = default;
 
     int root_node;
     std::vector<node> inorder_nodes;
-    std::span<hittable const* const> objects;
+    std::span<T const> objects;
 
     tree(int root_node, std::vector<node> inorder_nodes,
-         std::span<hittable const* const> objects)
+         std::span<T const> objects)
         : root_node(root_node),
           inorder_nodes(std::move(inorder_nodes)),
           objects(objects) {}
@@ -155,9 +156,9 @@ struct tree final : public collection {
 
     static void hit_tree(ray const& r, hit_status& status, hit_record& rec,
                          node const* nodes, int root,
-                         std::span<hittable const* const> objects) {
+                         std::span<T const> objects) {
         if (root == -1) {
-            return hittable_view::propagate(r, status, rec, objects);
+            return explicit_geometry::propagate<T>(objects, r, status, rec);
         } else {
             auto const& node = nodes[root];
 
@@ -173,7 +174,6 @@ struct tree final : public collection {
             // NOTE: With this, now we don't always visit left first, but the
             // best memory order is still in-order sorting.
 
-            auto const& ax = node.box.axis(node.axis);
             auto space_mid = node.split_point;
 
             int first_child = node.left;
@@ -199,20 +199,22 @@ struct tree final : public collection {
 };
 
 // Returns the index for the parent, or -1 if not splitting
-[[nodiscard]] static int split_tree(std::span<hittable const*> objects,
-                                    std::vector<tree::node>& inorder_nodes,
+template <is_hittable T>
+[[nodiscard]] static int split_tree(std::span<T> objects,
+                                    std::vector<node>& inorder_nodes,
                                     int depth = 0) {
     // Not required
     if (objects.size() == 1) return -1;
 
     int best_axis = -1;
-    auto linear_cost = eval_linear_cost(objects);
+    auto linear_cost = eval_linear_cost(std::span<T const>{objects});
     float best_cost = linear_cost;
 
     // NOTE: this relies on bvh::partition being idempotent!
     for (int axis = 0; axis < 3; ++axis) {
         auto mid = bvh::partition(objects, axis);
-        auto partition_cost = eval_partition_cost(mid, objects, axis, depth);
+        auto partition_cost =
+            eval_partition_cost(mid, std::span<T const>{objects}, axis, depth);
         // We only care about removing >70% of the cost
         if (best_cost / partition_cost > 1.5) {
             best_cost = partition_cost;
@@ -232,11 +234,11 @@ struct tree final : public collection {
 
     // NOTE: duplicate work from eval_partition_cost
     for (auto const& ob : objects.subspan(0, mid)) {
-        left_part = interval(left_part, ob->bounding_box().axis(best_axis));
+        left_part = interval(left_part, ob.bounding_box().axis(best_axis));
     }
 
     for (auto const& ob : objects) {
-        whole_bb = aabb(whole_bb, ob->bounding_box());
+        whole_bb = aabb(whole_bb, ob.bounding_box());
     }
 
     auto left = split_tree(objects.subspan(0, mid), inorder_nodes, depth + 1);
@@ -247,25 +249,26 @@ struct tree final : public collection {
     auto right = split_tree(objects.subspan(mid), inorder_nodes, depth + 1);
 
     new (&inorder_nodes[parent])
-        tree::node{whole_bb, left, right, best_axis, left_part.max};
+        node{whole_bb, left, right, best_axis, left_part.max};
 
     return int(parent);
 }
 
+template <is_hittable T>
 [[nodiscard]] static collection const* split_random(
-    std::span<hittable const*> objects,
-    poly_storage<collection>& coll_storage) {
+    std::span<T> objects, poly_storage<collection>& coll_storage) {
     assert(objects.size() >= 2 && "There's no need to split this!");
 
-    std::vector<tree::node> inorder_nodes;
+    std::vector<node> inorder_nodes;
 
     auto root = split_tree(objects, inorder_nodes);
 
     collection const* coll;
     if (root == -1) {
-        coll = coll_storage.make<hittable_view>(objects);
+        coll = coll_storage.make<explicit_view<T>>(objects);
     } else {
-        coll = coll_storage.make<tree>(root, std::move(inorder_nodes), objects);
+        coll = coll_storage.make<tree<T>>(root, std::move(inorder_nodes),
+                                          std::span<T const>{objects});
     }
     return coll;
 }

@@ -1,5 +1,4 @@
-#ifndef HITTABLE_LIST_H
-#define HITTABLE_LIST_H
+#pragma once
 //==============================================================================================
 // Originally written in 2016 by Peter Shirley <ptrshrl@gmail.com>
 //
@@ -30,34 +29,23 @@
 // NOTE: Maybe hittable list should be just a builder and not a final view.
 // This way we may cache the AABB in it as a way to get the layering part for
 // BVH easily, but get just the span for the final thing.
-struct hittable_list final : public collection {
-   public:
-    aabb bbox;
-    std::vector<hittable const*> objects;
+// TODO: think of a better name for hittable_list and this.
+template <is_hittable T>
+struct list final {
+    std::vector<T> values;
 
-    hittable_list() = default;
-    explicit hittable_list(hittable const* obj) { add(obj); }
-
-    void clear() { objects.clear(); }
-
-    void add(hittable const* ob) {
-        // NOTE: maybe we don't need incremental calculation and can have a
-        // final pass for caching it, or another hittable thing that caches the
-        // AABB and inlines your thing.
-        bbox = aabb(bbox, ob->bounding_box());
-        objects.push_back(ob);
+    template <typename... Args>
+    void add(Args&&... args) {
+        values.emplace_back(std::forward<Args&&>(args)...);
     }
 
-    collection const* split(poly_storage<collection>& coll_storage) {
-        return bvh::split_random(objects, coll_storage);
+    collection const* split(poly_storage<collection>& storage) {
+        return bvh::split_random<T>(values, storage);
     }
 
-    [[nodiscard]] aabb aggregate_box() const& override { return bbox; }
-
-    void propagate(ray const& r, hit_status& status,
-                   hit_record& rec) const& override {
-        return hittable_view::propagate(r, status, rec, objects);
+    collection const* finish(poly_storage<collection>& storage) const& {
+        return storage.make<explicit_view<T>>(values);
     }
 };
 
-#endif
+using poly_list = list<poly_hittable>;

@@ -18,7 +18,7 @@
 #include <ctime>
 
 #include "camera.h"
-#include "collection/hittable_list.h"
+#include "collection/poly_list.h"
 #include "geometry/box.h"
 #include "geometry/constant_medium.h"
 #include "geometry/quad.h"
@@ -32,7 +32,7 @@
 static bool enable_progress = true;
 
 static void random_spheres() {
-    hittable_list world;
+    poly_list world;
 
     typed_storage<texture> tex_storage;
     poly_storage<hittable> hit_storage;
@@ -124,7 +124,7 @@ static void random_spheres() {
 }
 
 static void two_spheres() {
-    hittable_list world;
+    poly_list world;
 
     poly_storage<hittable> hit_storage;
     typed_storage<texture> tex_storage;
@@ -153,7 +153,10 @@ static void two_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_collection(&world), enable_progress);
+    poly_storage<collection> coll_storage;
+
+    cam.render(hittable_collection(world.finish(coll_storage)),
+               enable_progress);
 }
 
 static void earth() {
@@ -187,7 +190,7 @@ static void earth() {
 }
 
 static void two_perlin_spheres() {
-    hittable_list world;
+    poly_list world;
 
     poly_storage<hittable> hit_storage;
 
@@ -214,11 +217,14 @@ static void two_perlin_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_collection(&world), enable_progress);
+    poly_storage<collection> coll_storage;
+
+    cam.render(hittable_collection(world.finish(coll_storage)),
+               enable_progress);
 }
 
 static void quads() {
-    hittable_list world;
+    poly_list world;
 
     // Materials
     auto left_red = texture::solid(color(1.0, 0.2, 0.2));
@@ -258,11 +264,14 @@ static void quads() {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_collection(&world), enable_progress);
+    poly_storage<collection> coll_storage;
+
+    cam.render(hittable_collection(world.finish(coll_storage)),
+               enable_progress);
 }
 
 static void simple_light() {
-    hittable_list world;
+    poly_list world;
 
     poly_storage<hittable> hit_storage;
 
@@ -297,11 +306,14 @@ static void simple_light() {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_collection(&world), enable_progress);
+    poly_storage<collection> coll_storage;
+
+    cam.render(hittable_collection(world.finish(coll_storage)),
+               enable_progress);
 }
 
 static void cornell_box() {
-    hittable_list world;
+    poly_list world;
 
     auto red = texture::solid(.65, .05, .05);
     auto white = texture::solid(.73, .73, .73);
@@ -363,11 +375,12 @@ static void cornell_box() {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_collection(&world), enable_progress);
+    cam.render(hittable_collection(world.finish(coll_storage)),
+               enable_progress);
 }
 
 static void cornell_smoke() {
-    hittable_list world;
+    poly_list world;
     typed_storage<texture> tex_storage;
 
     auto red = texture::solid(.65, .05, .05);
@@ -434,7 +447,8 @@ static void cornell_smoke() {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_collection(&world), enable_progress);
+    cam.render(hittable_collection(world.finish(coll_storage)),
+               enable_progress);
 }
 
 static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
@@ -444,7 +458,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     auto noise = std::make_unique<perlin>();
 
-    hittable_list boxes1;
+    list<box> boxes1;
     auto ground_col = texture::solid(0.48, 0.83, 0.53);
     auto ground = material::lambertian();
 
@@ -462,12 +476,12 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto y1 = random_float(1, 101);
             auto z1 = z0 + w;
 
-            boxes1.add(hit_storage.make<box>(
-                point3(x0, y0, z0), point3(x1, y1, z1), ground, &ground_col));
+            boxes1.add(point3(x0, y0, z0), point3(x1, y1, z1), ground,
+                       &ground_col);
         }
     }
 
-    hittable_list world;
+    poly_list world;
 
     world.add(
         hit_storage.make<hittable_collection>(boxes1.split(coll_storage)));
@@ -515,12 +529,11 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     world.add(hit_storage.make<sphere>(point3(220, 280, 300), 80,
                                        material::lambertian(), &pertext));
 
-    hittable_list boxes2;
+    list<sphere> boxes2;
     auto white = texture::solid(.73, .73, .73);
     int ns = 1000;
     for (int j = 0; j < ns; j++) {
-        boxes2.add(hit_storage.make<sphere>(point3::random(0, 165), 10,
-                                            material::lambertian(), &white));
+        boxes2.add(point3::random(0, 165), 10, material::lambertian(), &white);
     }
 
     world.add(hit_storage.make<transformed_geometry>(
@@ -556,7 +569,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_collection(&world), enable_progress);
+    cam.render(hittable_collection(world.finish(coll_storage)),
+               enable_progress);
 }
 
 int main(int argc, char const *argv[]) {
