@@ -53,9 +53,21 @@ struct aabb {
     }
 
     [[nodiscard]] interval const& axis(int n) const {
-        if (n == 1) return y;
-        if (n == 2) return z;
-        return x;
+        interval const* intv;
+        switch (n) {
+            case 0:
+                intv = &x;
+                break;
+            case 1:
+                intv = &y;
+                break;
+            case 2:
+                intv = &z;
+                break;
+            default:
+                __builtin_unreachable();
+        }
+        return *intv;
     }
 
     [[nodiscard]] bool hit(ray const& r, interval ray_t) const {
@@ -85,5 +97,5 @@ inline aabb operator+(vec3 const& offset, aabb const& bbox) {
     return bbox + offset;
 }
 
-static const aabb empty_bb =
+static aabb const empty_bb =
     aabb(interval::empty, interval::empty, interval::empty);

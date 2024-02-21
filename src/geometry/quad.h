@@ -64,11 +64,14 @@ struct quad final : public hittable {
         auto alpha = dot(w, cross(planar_hitpt_vector, v));
         auto beta = dot(w, cross(u, planar_hitpt_vector));
 
-        if (!is_interior(alpha, beta, rec)) return false;
+        if ((alpha < 0) || (1 < alpha) || (beta < 0) || (1 < beta))
+            return false;
 
         // Ray hits the 2D shape; set the rest of the hit record and return
         // true.
         ray_t.max = t;
+        rec.u = alpha;
+        rec.v = beta;
         rec.p = intersection;
         rec.mat = mat;
         rec.tex = tex;
@@ -76,17 +79,4 @@ struct quad final : public hittable {
 
         return true;
     }
-
-    static bool is_interior(float a, float b, hit_record& rec) {
-        // Given the hit point in plane coordinates, return false if it is
-        // outside the primitive, otherwise set the hit record UV coordinates
-        // and return true.
-
-        if ((a < 0) || (1 < a) || (b < 0) || (1 < b)) return false;
-
-        rec.u = a;
-        rec.v = b;
-        return true;
-    }
 };
-
