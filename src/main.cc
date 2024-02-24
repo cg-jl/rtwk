@@ -18,7 +18,7 @@
 #include <ctime>
 
 #include "camera.h"
-#include "collection/poly_list.h"
+#include "collection/list.h"
 #include "geometry/box.h"
 #include "geometry/constant_medium.h"
 #include "geometry/quad.h"
@@ -155,7 +155,7 @@ static void two_spheres() {
 
     poly_storage<collection> coll_storage;
 
-    cam.render(hittable_collection(world.finish(coll_storage)),
+    cam.render(hittable_collection(coll_storage.move(world.finish())),
                enable_progress);
 }
 
@@ -164,8 +164,7 @@ static void earth() {
 
     auto earth_texture = texture::image("earthmap.jpg");
     auto earth_surface = material::lambertian();
-    auto globe = hit_storage.make<sphere>(point3(0, 0, 0), 2, earth_surface,
-                                          &earth_texture);
+    auto globe = sphere(point3(0, 0, 0), 2, earth_surface, &earth_texture);
 
     camera cam;
 
@@ -182,11 +181,9 @@ static void earth() {
 
     cam.defocus_angle = 0;
 
-    poly_storage<collection> collections;
+    auto sphere_view = view<sphere>(std::span{&globe, 1});
 
-    cam.render(hittable_collection(
-                   collections.make<hittable_view>(std::span{&globe, 1})),
-               enable_progress);
+    cam.render(hittable_collection(&sphere_view), enable_progress);
 }
 
 static void two_perlin_spheres() {
@@ -217,10 +214,9 @@ static void two_perlin_spheres() {
 
     cam.defocus_angle = 0;
 
-    poly_storage<collection> coll_storage;
+    auto world_view = world.finish();
 
-    cam.render(hittable_collection(world.finish(coll_storage)),
-               enable_progress);
+    cam.render(hittable_collection(&world_view), enable_progress);
 }
 
 static void quads() {
@@ -264,10 +260,8 @@ static void quads() {
 
     cam.defocus_angle = 0;
 
-    poly_storage<collection> coll_storage;
-
-    cam.render(hittable_collection(world.finish(coll_storage)),
-               enable_progress);
+    auto world_view = world.finish();
+    cam.render(hittable_collection(&world_view), enable_progress);
 }
 
 static void simple_light() {
@@ -306,10 +300,9 @@ static void simple_light() {
 
     cam.defocus_angle = 0;
 
-    poly_storage<collection> coll_storage;
+    auto world_view = world.finish();
 
-    cam.render(hittable_collection(world.finish(coll_storage)),
-               enable_progress);
+    cam.render(hittable_collection(&world_view), enable_progress);
 }
 
 static void cornell_box() {
@@ -375,8 +368,9 @@ static void cornell_box() {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_collection(world.finish(coll_storage)),
-               enable_progress);
+    auto world_view = world.finish();
+
+    cam.render(hittable_collection(&world_view), enable_progress);
 }
 
 static void cornell_smoke() {
@@ -447,8 +441,9 @@ static void cornell_smoke() {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_collection(world.finish(coll_storage)),
-               enable_progress);
+    auto view = world.finish();
+
+    cam.render(hittable_collection(&view), enable_progress);
 }
 
 static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
@@ -569,8 +564,9 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_collection(world.finish(coll_storage)),
-               enable_progress);
+    auto view = world.finish();
+
+    cam.render(hittable_collection(&view), enable_progress);
 }
 
 int main(int argc, char const *argv[]) {

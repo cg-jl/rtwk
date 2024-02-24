@@ -20,9 +20,9 @@
 
 #include "aabb.h"
 #include "hittable.h"
-#include "hittable_view.h"
 #include "interval.h"
 #include "rtweekend.h"
+#include "view.h"
 
 // NOTE: For layers, check if sorting the nodes via hit distance is better.
 // The theory is that if I sort the nodes by hit distance, then I can exit the
@@ -123,10 +123,10 @@ static float eval_linear_cost(std::span<T const> obs) {
 // needed for recursive traversal.
 struct node {
     aabb box;
-    int left;
-    int right;
-    int axis;
-    float split_point;
+    int left{};
+    int right{};
+    int axis{};
+    float split_point{};
 };
 // NOTE: currently assuming that partitions are always symmetric, meaning
 // that we can always compute the child spans from a parent span.
@@ -134,7 +134,7 @@ template <is_hittable T>
 struct tree final : public collection {
     tree() = default;
 
-    int root_node;
+    int root_node{};
     std::vector<node> inorder_nodes;
     std::span<T const> objects;
 
@@ -158,7 +158,7 @@ struct tree final : public collection {
                          node const* nodes, int root,
                          std::span<T const> objects) {
         if (root == -1) {
-            return explicit_geometry::propagate<T>(objects, r, status, rec);
+            return view<T>::propagate(r, status, rec, objects);
         } else {
             auto const& node = nodes[root];
 
@@ -265,7 +265,7 @@ template <is_hittable T>
 
     collection const* coll;
     if (root == -1) {
-        coll = coll_storage.make<explicit_view<T>>(objects);
+        coll = coll_storage.make<view<T>>(objects);
     } else {
         coll = coll_storage.make<tree<T>>(root, std::move(inorder_nodes),
                                           std::span<T const>{objects});

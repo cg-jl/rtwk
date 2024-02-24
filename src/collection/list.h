@@ -18,8 +18,8 @@
 #include "aabb.h"
 #include "bvh.h"
 #include "hittable.h"
-#include "hittable_view.h"
 #include "rtweekend.h"
+#include "view.h"
 
 // NOTE: could unify all pointers in just one storage.
 // Each 'list' would have temporary ownership over the storage, so multiple
@@ -43,9 +43,7 @@ struct list final {
         return bvh::split_random<T>(values, storage);
     }
 
-    collection const* finish(poly_storage<collection>& storage) const& {
-        return storage.make<explicit_view<T>>(values);
-    }
+    view<T> finish() const& { return view<T>(values); }
 };
 
 using poly_list = list<poly_hittable>;

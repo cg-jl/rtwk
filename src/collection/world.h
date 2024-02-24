@@ -19,8 +19,8 @@
 #include "aabb.h"
 #include "bvh.h"
 #include "hittable.h"
-#include "hittable_view.h"
 #include "rtweekend.h"
+#include "view.h"
 
 // NOTE: could unify all pointers in just one storage.
 // Each 'list' would have temporary ownership over the storage, so multiple

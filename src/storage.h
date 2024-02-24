@@ -38,6 +38,12 @@ struct poly_storage {
         return ptr;
     }
 
+    template <typename U>
+        requires std::is_base_of_v<T, U>
+    T* move(U obj) {
+        return make<U>(std::move(obj));
+    }
+
     template <typename U, typename... Args>
         requires std::is_base_of_v<T, U>
     T* make(Args&&... args) & {
