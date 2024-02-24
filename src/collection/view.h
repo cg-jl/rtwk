@@ -10,8 +10,7 @@ template <is_hittable T>
 struct view final : public collection {
     std::span<T const> objects;
 
-    constexpr explicit view(std::span<T const> objects)
-        : objects(objects) {}
+    constexpr explicit view(std::span<T const> objects) : objects(objects) {}
 
     [[nodiscard]] aabb aggregate_box() const& override {
         aabb box = empty_bb;
@@ -19,6 +18,19 @@ struct view final : public collection {
             box = aabb(box, h.bounding_box());
         }
         return box;
+    }
+
+    [[nodiscard]] constexpr explicit operator std::span<T const>() const noexcept {
+        return objects;
+    }
+
+    [[nodiscard]] constexpr size_t size() const noexcept {
+        return objects.size();
+    }
+
+    constexpr view<T> subspan(
+        size_t start, size_t size = std::dynamic_extent) const noexcept {
+        return view(objects.subspan(start, size));
     }
 
     static void propagate(ray const& r, hit_status& status, hit_record& rec,

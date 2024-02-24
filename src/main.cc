@@ -18,6 +18,7 @@
 #include <ctime>
 
 #include "camera.h"
+#include "collection/bvh.h"
 #include "collection/list.h"
 #include "geometry/box.h"
 #include "geometry/constant_medium.h"
@@ -102,7 +103,7 @@ static void random_spheres() {
 
     poly_storage<collection> coll_storage;
 
-    auto const *scene = world.split(coll_storage);
+    auto const *scene = bvh::split_or_view(world, coll_storage);
 
     camera cam;
 
@@ -478,8 +479,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     poly_list world;
 
-    world.add(
-        hit_storage.make<hittable_collection>(boxes1.split(coll_storage)));
+    world.add(hit_storage.make<hittable_collection>(
+        bvh::split_or_view(boxes1, coll_storage)));
 
     auto light = material::diffuse_light();
     auto light_color = texture::solid(7, 7, 7);
@@ -538,7 +539,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         // NOTE: Maybe it's interesting to shift to a `transformed_collection`,
         // so we can have only one set of transforms per collection. Maybe force
         // it, like I said in `collection.h`.
-        hit_storage.make<hittable_collection>(boxes2.split(coll_storage))));
+        hit_storage.make<hittable_collection>(
+            bvh::split_or_view(boxes2, coll_storage))));
 
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);

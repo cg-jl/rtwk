@@ -21,6 +21,7 @@
 #include "aabb.h"
 #include "hittable.h"
 #include "interval.h"
+#include "list.h"
 #include "rtweekend.h"
 #include "view.h"
 
@@ -136,10 +137,9 @@ struct tree final : public collection {
 
     int root_node{};
     std::vector<node> inorder_nodes;
-    std::span<T const> objects;
+    view<T> objects;
 
-    tree(int root_node, std::vector<node> inorder_nodes,
-         std::span<T const> objects)
+    tree(int root_node, std::vector<node> inorder_nodes, view<T> objects)
         : root_node(root_node),
           inorder_nodes(std::move(inorder_nodes)),
           objects(objects) {}
@@ -150,19 +150,22 @@ struct tree final : public collection {
 
     void propagate(ray const& r, hit_status& status,
                    hit_record& rec) const& override {
-        return hit_tree(r, status, rec, inorder_nodes.data(), root_node,
-                        objects);
+        hit_tree(r, status, rec, inorder_nodes.data(), root_node, objects);
     }
 
-    static void hit_tree(ray const& r, hit_status& status, hit_record& rec,
-                         node const* nodes, int root,
-                         std::span<T const> objects) {
+    static bool hit_tree(ray const& r, hit_status& status, hit_record& rec,
+                         node const* nodes, int root, view<T> const& objects) {
         if (root == -1) {
-            return view<T>::propagate(r, status, rec, objects);
+            bool had_anything = status.hit_anything;
+            status.hit_anything = false;
+            objects.propagate(r, status, rec);
+            auto hit_anything_inside = status.hit_anything;
+            status.hit_anything |= had_anything;
+            return hit_anything_inside;
         } else {
             auto const& node = nodes[root];
 
-            if (!node.box.hit(r, status.ray_t)) return;
+            if (!node.box.hit(r, status.ray_t)) return false;
 
             // NOTE: space is partitioned along an axis, so we can know where
             // the ray may hit first. We also may know if the ray hits along
@@ -190,23 +193,23 @@ struct tree final : public collection {
                 std::swap(first_span, second_span);
             }
 
-            hit_tree(r, status, rec, nodes, first_child, first_span);
-            if (status.hit_anything) return;
+            auto hit_first =
+                hit_tree(r, status, rec, nodes, first_child, first_span);
+
+            if (hit_first) return true;
 
             return hit_tree(r, status, rec, nodes, second_child, second_span);
         }
     }
 };
 
-// Returns the index for the parent, or -1 if not splitting
+// Returns the best axis to split, or none if no split can outperform the cost
+// of going one by one.
 template <is_hittable T>
-[[nodiscard]] static int split_tree(std::span<T> objects,
-                                    std::vector<node>& inorder_nodes,
-                                    int depth = 0) {
-    // Not required
-    if (objects.size() == 1) return -1;
-
-    int best_axis = -1;
+[[nodiscard]] static std::optional<int> find_best_split(std::span<T> objects,
+                                                        int depth) {
+    if (objects.size() == 1) return {};
+    std::optional<int> best_axis{};
     auto linear_cost = eval_linear_cost(std::span<T const>{objects});
     float best_cost = linear_cost;
 
@@ -222,8 +225,14 @@ template <is_hittable T>
         }
     }
 
-    if (best_axis == -1) return -1;
+    return best_axis;
+}
 
+// Returns the index for the parent
+template <is_hittable T>
+[[nodiscard]] static int split_tree(std::span<T> objects,
+                                    std::vector<node>& inorder_nodes,
+                                    int best_axis, int depth = 0) {
     auto mid = bvh::partition(objects, best_axis);
 
     assert(mid == objects.size() / 2 &&
@@ -232,8 +241,10 @@ template <is_hittable T>
     interval left_part = interval::empty;
     aabb whole_bb = empty_bb;
 
+    auto left_obs = objects.subspan(0, mid);
+    auto right_obs = objects.subspan(mid);
     // NOTE: duplicate work from eval_partition_cost
-    for (auto const& ob : objects.subspan(0, mid)) {
+    for (auto const& ob : left_obs) {
         left_part = interval(left_part, ob.bounding_box().axis(best_axis));
     }
 
@@ -241,12 +252,21 @@ template <is_hittable T>
         whole_bb = aabb(whole_bb, ob.bounding_box());
     }
 
-    auto left = split_tree(objects.subspan(0, mid), inorder_nodes, depth + 1);
+    auto left_best = find_best_split(left_obs, depth + 1);
+    auto right_best = find_best_split(right_obs, depth + 1);
+
+    int left = -1;
+    if (left_best) {
+        left = split_tree(left_obs, inorder_nodes, *left_best, depth + 1);
+    }
 
     auto parent = inorder_nodes.size();
     inorder_nodes.emplace_back();
 
-    auto right = split_tree(objects.subspan(mid), inorder_nodes, depth + 1);
+    int right = -1;
+    if (right_best) {
+        right = split_tree(right_obs, inorder_nodes, *right_best, depth + 1);
+    }
 
     new (&inorder_nodes[parent])
         node{whole_bb, left, right, best_axis, left_part.max};
@@ -255,21 +275,24 @@ template <is_hittable T>
 }
 
 template <is_hittable T>
-[[nodiscard]] static collection const* split_random(
-    std::span<T> objects, poly_storage<collection>& coll_storage) {
+[[nodiscard]] static bvh::tree<T> split(list<T>& objects, int initial_split) {
+    std::vector<node> inorder_nodes;
+    auto root = split_tree(objects.span(), inorder_nodes, initial_split);
+
+    return tree<T>(root, std::move(inorder_nodes), objects.finish());
+}
+
+template <is_hittable T>
+[[nodiscard]] static collection const* split_or_view(
+    list<T>& objects, poly_storage<collection>& coll_storage) {
     assert(objects.size() >= 2 && "There's no need to split this!");
 
     std::vector<node> inorder_nodes;
 
-    auto root = split_tree(objects, inorder_nodes);
+    auto initial_split = find_best_split(objects.span(), 0);
 
-    collection const* coll;
-    if (root == -1) {
-        coll = coll_storage.make<view<T>>(objects);
-    } else {
-        coll = coll_storage.make<tree<T>>(root, std::move(inorder_nodes),
-                                          std::span<T const>{objects});
-    }
-    return coll;
+    if (!initial_split) return coll_storage.move<view<T>>(objects.finish());
+
+    return coll_storage.move(split(objects, *initial_split));
 }
 }  // namespace bvh

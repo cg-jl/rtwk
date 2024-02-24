@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "aabb.h"
-#include "bvh.h"
 #include "hittable.h"
 #include "rtweekend.h"
 #include "view.h"
@@ -34,13 +33,15 @@ template <is_hittable T>
 struct list final {
     std::vector<T> values;
 
+    [[nodiscard]] constexpr std::span<T> span() noexcept { return values; }
+
+    [[nodiscard]] constexpr std::span<T const> span() const noexcept {
+        return values;
+    }
+
     template <typename... Args>
     void add(Args&&... args) {
         values.emplace_back(std::forward<Args&&>(args)...);
-    }
-
-    collection const* split(poly_storage<collection>& storage) {
-        return bvh::split_random<T>(values, storage);
     }
 
     view<T> finish() const& { return view<T>(values); }
