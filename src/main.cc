@@ -583,7 +583,7 @@ int main(int argc, char const *argv[]) {
         }
     }
 
-    switch (0) {
+    switch (9) {
         case 1:
             random_spheres();
             break;
@@ -609,7 +609,9 @@ int main(int argc, char const *argv[]) {
             cornell_smoke();
             break;
         case 9:
-            final_scene(800, 10000, 40);
+            // NOTE: 4875 spp gives the same quality as 10k for 800x800, so why
+            // bother adding more?
+            final_scene(800, 4875, 40);
             break;
         default:
             /* final_scene(400, 250, 4); */
