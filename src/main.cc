@@ -121,7 +121,7 @@ static void random_spheres() {
     cam.defocus_angle = 0.02;
     cam.focus_dist = 10.0;
 
-    cam.render(hittable_collection(scene), enable_progress);
+    cam.render(*scene, enable_progress);
 }
 
 static void two_spheres() {
@@ -154,10 +154,7 @@ static void two_spheres() {
 
     cam.defocus_angle = 0;
 
-    poly_storage<collection> coll_storage;
-
-    cam.render(hittable_collection(coll_storage.move(world.finish())),
-               enable_progress);
+    cam.render(world.finish(), enable_progress);
 }
 
 static void earth() {
@@ -184,7 +181,7 @@ static void earth() {
 
     auto sphere_view = view<sphere>(std::span{&globe, 1});
 
-    cam.render(hittable_collection(&sphere_view), enable_progress);
+    cam.render(sphere_view, enable_progress);
 }
 
 static void two_perlin_spheres() {
@@ -215,9 +212,7 @@ static void two_perlin_spheres() {
 
     cam.defocus_angle = 0;
 
-    auto world_view = world.finish();
-
-    cam.render(hittable_collection(&world_view), enable_progress);
+    cam.render(world.finish(), enable_progress);
 }
 
 static void quads() {
@@ -261,8 +256,7 @@ static void quads() {
 
     cam.defocus_angle = 0;
 
-    auto world_view = world.finish();
-    cam.render(hittable_collection(&world_view), enable_progress);
+    cam.render(world.finish(), enable_progress);
 }
 
 static void simple_light() {
@@ -301,9 +295,7 @@ static void simple_light() {
 
     cam.defocus_angle = 0;
 
-    auto world_view = world.finish();
-
-    cam.render(hittable_collection(&world_view), enable_progress);
+    cam.render(world.finish(), enable_progress);
 }
 
 static void cornell_box() {
@@ -369,9 +361,7 @@ static void cornell_box() {
 
     cam.defocus_angle = 0;
 
-    auto world_view = world.finish();
-
-    cam.render(hittable_collection(&world_view), enable_progress);
+    cam.render(world.finish(), enable_progress);
 }
 
 static void cornell_smoke() {
@@ -442,9 +432,7 @@ static void cornell_smoke() {
 
     cam.defocus_angle = 0;
 
-    auto view = world.finish();
-
-    cam.render(hittable_collection(&view), enable_progress);
+    cam.render(world.finish(), enable_progress);
 }
 
 static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
@@ -479,8 +467,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     poly_list world;
 
-    world.add(hit_storage.make<hittable_collection>(
-        bvh::split_or_view(boxes1, coll_storage)));
+    world.add(hit_storage.make<hittable_collection<bvh::tree<box>>>(
+        bvh::must_split(boxes1)));
 
     auto light = material::diffuse_light();
     auto light_color = texture::solid(7, 7, 7);
@@ -532,16 +520,13 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         boxes2.add(point3::random(0, 165), 10, material::lambertian(), &white);
     }
 
-    world.add(hit_storage.make<hittable_collection>(
-        coll_storage.make<transformed_collection>(
+    world.add(hit_storage.make<
+              hittable_collection<transformed_collection<bvh::tree<sphere>>>>(
+        transformed_collection<bvh::tree<sphere>>(
             std::vector<transform>{transform::translate(vec3(-100, 270, 395)),
                                    transform::rotate_y(15)},
 
-            // NOTE: Maybe it's interesting to shift to a
-            // `transformed_collection`, so we can have only one set of
-            // transforms per collection. Maybe force it, like I said in
-            // `collection.h`.
-            bvh::split_or_view(boxes2, coll_storage))));
+            bvh::must_split(boxes2))));
 
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);
@@ -567,9 +552,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     cam.defocus_angle = 0;
 
-    auto view = world.finish();
-
-    cam.render(hittable_collection(&view), enable_progress);
+    cam.render(world.finish(), enable_progress);
 }
 
 int main(int argc, char const *argv[]) {

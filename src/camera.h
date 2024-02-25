@@ -45,7 +45,7 @@ struct camera {
     float focus_dist =
         10;  // Distance from camera look-from point to plane of perfect focus
 
-    void render(hittable_collection const& world, bool enable_progress) {
+    void render(collection const& world, bool enable_progress) {
         initialize();
 
         auto px_count = image_width * image_height;
@@ -309,14 +309,16 @@ struct camera {
 
     // Simulates a ray until either it hits too many times, hits a light, or
     // hits the skybox.
-    static void simulate_ray(ray r, hittable_collection const& world,
+    static void simulate_ray(ray r, collection const& world,
                              vecview<light_info>& lights) {
         while (!lights.is_full()) {
             hit_record rec;
 
             interval ray_t{0.001, 10e10f};
 
-            if (!world.hit(r, ray_t, rec)) break;
+            collection::hit_status status{ray_t};
+            world.propagate(r, status, rec);
+            if (!status.hit_anything) break;
 
             apply_reverse_transforms(rec.xforms, rec.p, r.time, rec.normal);
             lights.emplace_back(rec.tex, rec.p, rec.u, rec.v);

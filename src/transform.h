@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include <utility>
 
 #include "aabb.h"
@@ -220,19 +221,20 @@ inline void transform::apply_to_bbox(aabb& box) const& {
             __builtin_unreachable();
     }
 }
+
+template <typename T>
 struct transformed_collection final : public collection {
     // TODO: make these not owned
     std::vector<transform> transf;
-    collection const* coll;
+    T coll;
 
-    transformed_collection(std::vector<transform> transf,
-                           collection const* coll)
-        : transf(std::move(transf)), coll(coll) {}
-    transformed_collection(transform tf, collection const* coll)
-        : transformed_collection(std::vector{std::move(tf)}, coll) {}
+    transformed_collection(std::vector<transform> transf, T coll)
+        : transf(std::move(transf)), coll(std::move(coll)) {}
+    transformed_collection(transform tf, T coll)
+        : transformed_collection(std::vector{std::move(tf)}, std::move(coll)) {}
 
     [[nodiscard]] aabb aggregate_box() const& override {
-        aabb box = coll->aggregate_box();
+        aabb box = coll.aggregate_box();
         for (auto const& tf : transf) {
             tf.apply_to_bbox(box);
         }
@@ -249,7 +251,7 @@ struct transformed_collection final : public collection {
 
         auto hit_before = status.hit_anything;
         status.hit_anything = false;
-        coll->propagate(r_copy, status, rec);
+        coll.propagate(r_copy, status, rec);
 
         if (status.hit_anything) {
             rec.xforms = transf;

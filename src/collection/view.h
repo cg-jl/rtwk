@@ -20,7 +20,8 @@ struct view final : public collection {
         return box;
     }
 
-    [[nodiscard]] constexpr explicit operator std::span<T const>() const noexcept {
+    [[nodiscard]] constexpr explicit operator std::span<T const>()
+        const noexcept {
         return objects;
     }
 

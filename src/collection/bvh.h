@@ -283,6 +283,13 @@ template <is_hittable T>
 }
 
 template <is_hittable T>
+[[nodiscard]] static bvh::tree<T> must_split(list<T>& objects) {
+    auto initial_split = find_best_split(objects.span(), 0);
+    assert(bool(initial_split) && "Should be able to split this");
+    return split(objects, *initial_split);
+}
+
+template <is_hittable T>
 [[nodiscard]] static collection const* split_or_view(
     list<T>& objects, poly_storage<collection>& coll_storage) {
     assert(objects.size() >= 2 && "There's no need to split this!");
