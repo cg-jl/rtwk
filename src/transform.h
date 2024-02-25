@@ -220,3 +220,41 @@ inline void transform::apply_to_bbox(aabb& box) const& {
             __builtin_unreachable();
     }
 }
+struct transformed_collection final : public collection {
+    // TODO: make these not owned
+    std::vector<transform> transf;
+    collection const* coll;
+
+    transformed_collection(std::vector<transform> transf,
+                           collection const* coll)
+        : transf(std::move(transf)), coll(coll) {}
+    transformed_collection(transform tf, collection const* coll)
+        : transformed_collection(std::vector{std::move(tf)}, coll) {}
+
+    [[nodiscard]] aabb aggregate_box() const& override {
+        aabb box = coll->aggregate_box();
+        for (auto const& tf : transf) {
+            tf.apply_to_bbox(box);
+        }
+        return box;
+    }
+
+    void propagate(ray const& r, hit_status& status,
+                   hit_record& rec) const& override {
+        ray r_copy = r;
+
+        for (auto const& tf : transf) {
+            tf.apply(r_copy, r.time);
+        }
+
+        auto hit_before = status.hit_anything;
+        status.hit_anything = false;
+        coll->propagate(r_copy, status, rec);
+
+        if (status.hit_anything) {
+            rec.xforms = transf;
+        }
+
+        status.hit_anything |= hit_before;
+    }
+};

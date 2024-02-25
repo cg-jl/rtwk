@@ -532,14 +532,15 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         boxes2.add(point3::random(0, 165), 10, material::lambertian(), &white);
     }
 
-    world.add(hit_storage.make<transformed_geometry>(
-        std::vector<transform>{transform::translate(vec3(-100, 270, 395)),
-                               transform::rotate_y(15)},
+    world.add(hit_storage.make<hittable_collection>(
+        coll_storage.make<transformed_collection>(
+            std::vector<transform>{transform::translate(vec3(-100, 270, 395)),
+                                   transform::rotate_y(15)},
 
-        // NOTE: Maybe it's interesting to shift to a `transformed_collection`,
-        // so we can have only one set of transforms per collection. Maybe force
-        // it, like I said in `collection.h`.
-        hit_storage.make<hittable_collection>(
+            // NOTE: Maybe it's interesting to shift to a
+            // `transformed_collection`, so we can have only one set of
+            // transforms per collection. Maybe force it, like I said in
+            // `collection.h`.
             bvh::split_or_view(boxes2, coll_storage))));
 
     struct timespec end;
