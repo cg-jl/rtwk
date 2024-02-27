@@ -121,7 +121,7 @@ static float eval_linear_cost(std::span<T const> obs) {
 // do more work per cache miss.
 
 // NOTE: Could split nodes into the info needed before the check and info
-// needed for recursive traversal.
+// needed for recursive traversal, but that showed no improvement.
 struct node {
     aabb box;
     int left{};
@@ -160,7 +160,7 @@ struct tree final : public collection {
         } else {
             auto const& node = nodes[root];
 
-            if (!node.box.hit(r, status.ray_t)) return ;
+            if (!node.box.hit(r, status.ray_t)) return;
 
             // NOTE: space is partitioned along an axis, so we can know where
             // the ray may hit first. We also may know if the ray hits along
@@ -173,6 +173,7 @@ struct tree final : public collection {
             // best memory order is still in-order sorting.
 
             auto space_mid = node.split_point;
+            auto axis = node.axis;
 
             int first_child = node.left;
             int second_child = node.right;
@@ -180,21 +181,23 @@ struct tree final : public collection {
             auto first_span = objects.subspan(0, objects.size() / 2);
             auto second_span = objects.subspan(objects.size() / 2);
 
-            // If the origin is on the right part and it goes into the left
-            // side, then we want to check right first
+            auto ray_origins_in_right = r.origin[axis] > space_mid;
 
-            if (r.origin[node.axis] > space_mid && r.direction[node.axis] < 0) {
+            auto dist_to_split_plane = std::fabs(r.origin[axis] - space_mid);
+
+            // If the origin is on the right part  then we want to check right
+            // first
+
+            if (ray_origins_in_right) {
                 std::swap(first_child, second_child);
                 std::swap(first_span, second_span);
             }
 
-            bool had_anything = status.hit_anything;
-            status.hit_anything = false;
             hit_tree(r, status, rec, nodes, first_child, first_span);
-            auto hit_first = status.hit_anything;
-            status.hit_anything |= had_anything;
 
-            if (hit_first) return;
+            // The first side hit something that is closer to the ray origin
+            // that anything on the second side will ever be!
+            if (dist_to_split_plane >= status.ray_t.max) return;
 
             return hit_tree(r, status, rec, nodes, second_child, second_span);
         }
