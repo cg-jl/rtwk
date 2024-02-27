@@ -14,7 +14,7 @@ struct view final : public collection {
 
     [[nodiscard]] aabb aggregate_box() const& override {
         aabb box = empty_bb;
-        for (auto const h : objects) {
+        for (auto const& h : objects) {
             box = aabb(box, h.bounding_box());
         }
         return box;

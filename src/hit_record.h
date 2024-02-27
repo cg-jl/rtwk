@@ -1,10 +1,12 @@
 #pragma once
 
+#include <span>
+
 #include "material.h"
-#include "texture.h"
 #include "vec3.h"
 
 struct transform;
+struct texture;
 
 struct hit_record {
    public:

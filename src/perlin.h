@@ -12,7 +12,9 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <array>
 #include <cmath>
+#include <span>
 
 #include "rtweekend.h"
 #include "vec3.h"
@@ -70,7 +72,7 @@ struct perlin {
     std::array<int, point_count> perm_z{};
 
     static void perlin_generate_perm(std::span<int> p) {
-        for (int i = 0; i < point_count; i++) p[i] = i;
+        for (int i = 0; i < p.size(); i++) p[i] = i;
 
         permute(p);
     }
