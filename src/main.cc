@@ -567,7 +567,7 @@ int main(int argc, char const *argv[]) {
         }
     }
 
-    switch (9) {
+    switch (0) {
         case 1:
             random_spheres();
             break;

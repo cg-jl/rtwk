@@ -153,19 +153,14 @@ struct tree final : public collection {
         hit_tree(r, status, rec, inorder_nodes.data(), root_node, objects);
     }
 
-    static bool hit_tree(ray const& r, hit_status& status, hit_record& rec,
+    static void hit_tree(ray const& r, hit_status& status, hit_record& rec,
                          node const* nodes, int root, view<T> const& objects) {
         if (root == -1) {
-            bool had_anything = status.hit_anything;
-            status.hit_anything = false;
-            objects.propagate(r, status, rec);
-            auto hit_anything_inside = status.hit_anything;
-            status.hit_anything |= had_anything;
-            return hit_anything_inside;
+            return objects.propagate(r, status, rec);
         } else {
             auto const& node = nodes[root];
 
-            if (!node.box.hit(r, status.ray_t)) return false;
+            if (!node.box.hit(r, status.ray_t)) return ;
 
             // NOTE: space is partitioned along an axis, so we can know where
             // the ray may hit first. We also may know if the ray hits along
@@ -193,10 +188,13 @@ struct tree final : public collection {
                 std::swap(first_span, second_span);
             }
 
-            auto hit_first =
-                hit_tree(r, status, rec, nodes, first_child, first_span);
+            bool had_anything = status.hit_anything;
+            status.hit_anything = false;
+            hit_tree(r, status, rec, nodes, first_child, first_span);
+            auto hit_first = status.hit_anything;
+            status.hit_anything |= had_anything;
 
-            if (hit_first) return true;
+            if (hit_first) return;
 
             return hit_tree(r, status, rec, nodes, second_child, second_span);
         }
