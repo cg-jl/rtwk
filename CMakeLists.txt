@@ -44,9 +44,9 @@ else ()
             -fno-trapping-math
             -fno-signed-zeros
             -fno-rounding-math
-            #-freciprocal-math
-            #-fassociative-math
-            #-ffinite-math-only
+            -freciprocal-math
+            -fassociative-math
+            -ffinite-math-only
             -fallow-store-data-races
             #-ffast-math
 
