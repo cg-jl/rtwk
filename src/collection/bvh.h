@@ -293,7 +293,7 @@ template <is_hittable T>
 template <is_hittable T>
 [[nodiscard]] static collection const* split_or_view(
     list<T>& objects, poly_storage<collection>& coll_storage) {
-    assert(objects.size() >= 2 && "There's no need to split this!");
+    assert(objects.values.size() >= 2 && "There's no need to split this!");
 
     std::vector<node> inorder_nodes;
 

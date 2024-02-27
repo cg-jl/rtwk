@@ -26,9 +26,13 @@ struct perlin {
             v = unit_vector(vec3::random(-1, 1));
         }
 
-        perlin_generate_perm(perm_x);
-        perlin_generate_perm(perm_y);
-        perlin_generate_perm(perm_z);
+        for (int i = 0; i < perm_x.size(); i++) perm_x[i] = i;
+        for (int i = 0; i < perm_y.size(); i++) perm_y[i] = i;
+        for (int i = 0; i < perm_z.size(); i++) perm_z[i] = i;
+
+        permute(perm_x);
+        permute(perm_y);
+        permute(perm_z);
     }
 
     [[nodiscard]] float noise(point3 const& p) const {
@@ -47,10 +51,28 @@ struct perlin {
                                            perm_y[(j + dj) % point_count] ^
                                            perm_z[(k + dk) % point_count]];
 
-        return perlin_interp(c, u, v, w);
+        auto uu = u * u * (3 - 2 * u);
+        auto vv = v * v * (3 - 2 * v);
+        auto ww = w * w * (3 - 2 * w);
+        auto accum = 0.0f;
+
+        for (int i = 0; i < 2; i++)
+            for (int j = 0; j < 2; j++)
+                for (int k = 0; k < 2; k++) {
+                    // NOTE: These are positive only when their i/j/k is 0,
+                    // since u, v, w are fractional parts (< 1).
+                    vec3 weightV(u - float(i), v - float(j), w - float(k));
+                    accum += (float(i) * uu + float(1 - i) * (1 - uu)) *
+                             (float(j) * vv + float(1 - j) * (1 - vv)) *
+                             (float(k) * ww + float(1 - k) * (1 - ww)) *
+                             dot(c[i][j][k], weightV);
+                }
+
+        return accum;
     }
 
-    [[nodiscard]] float turb(point3 const& p, int depth = 7) const {
+    [[nodiscard]] float turb(point3 const& p) const {
+        constexpr int depth = 2;
         auto accum = 0.0f;
         auto temp_p = p;
         auto weight = 1.0f;
@@ -71,39 +93,12 @@ struct perlin {
     std::array<int, point_count> perm_y{};
     std::array<int, point_count> perm_z{};
 
-    static void perlin_generate_perm(std::span<int> p) {
-        for (int i = 0; i < p.size(); i++) p[i] = i;
-
-        permute(p);
-    }
-
     static void permute(std::span<int> p) {
         for (int i = int(p.size()); i > 0;) {
             --i;
             int target = random_int(0, i);
-            int tmp = p[i];
-            p[i] = p[target];
-            p[target] = tmp;
+            std::swap(p[i], p[target]);
         }
-    }
-
-    static float perlin_interp(vec3 c[2][2][2], float u, float v, float w) {
-        auto uu = u * u * (3 - 2 * u);
-        auto vv = v * v * (3 - 2 * v);
-        auto ww = w * w * (3 - 2 * w);
-        auto accum = 0.0f;
-
-        for (int i = 0; i < 2; i++)
-            for (int j = 0; j < 2; j++)
-                for (int k = 0; k < 2; k++) {
-                    vec3 weight_v(u - float(i), v - float(j), w - float(k));
-                    accum += (float(i) * uu + float(1 - i) * (1 - uu)) *
-                             (float(j) * vv + float(1 - j) * (1 - vv)) *
-                             (float(k) * ww + float(1 - k) * (1 - ww)) *
-                             dot(c[i][j][k], weight_v);
-                }
-
-        return accum;
     }
 };
 
