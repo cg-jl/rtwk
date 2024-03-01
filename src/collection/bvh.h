@@ -291,16 +291,15 @@ template <is_hittable T>
 }
 
 template <is_hittable T>
-[[nodiscard]] static collection const* split_or_view(
-    list<T>& objects, poly_storage<collection>& coll_storage) {
+[[nodiscard]] static collection const* split_or_view(list<T>& objects) {
     assert(objects.values.size() >= 2 && "There's no need to split this!");
 
     std::vector<node> inorder_nodes;
 
     auto initial_split = find_best_split(objects.span(), 0);
 
-    if (!initial_split) return coll_storage.move<view<T>>(objects.finish());
+    if (!initial_split) return leak(objects.finish());
 
-    return coll_storage.move(split(objects, *initial_split));
+    return leak(split(objects, *initial_split));
 }
 }  // namespace bvh

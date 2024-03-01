@@ -35,17 +35,12 @@ static bool enable_progress = true;
 static void random_spheres() {
     poly_list world;
 
-    typed_storage<texture> tex_storage;
-    poly_storage<hittable> hit_storage;
+    auto checker =
+        texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
+                         leak(texture::solid(color(.9, .9, .9))));
 
-    auto checker = texture::checker(
-        0.32, tex_storage.make(texture::solid(color(.2, .3, .1))),
-        tex_storage.make(texture::solid(color(.9, .9, .9))));
-
-    world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
-                                       material::lambertian(), &checker));
-
-    poly_storage<material> mat_storage;
+    world.add(leak(
+        sphere(point3(0, -1000, 0), 1000, material::lambertian(), &checker)));
 
     auto dielectric = material::dielectric(1.5);
 
@@ -63,47 +58,39 @@ static void random_spheres() {
                     auto sphere_texture = texture::solid(albedo);
                     auto displacement = vec3(0, random_float(0, .5), 0);
 
-                    world.add(hit_storage.make<transformed_geometry>(
+                    world.add(leak(transformed_geometry(
                         transform::move(displacement),
-                        hit_storage.make<sphere>(point3(center), 0.2,
-                                                 sphere_material,
-                                                 &sphere_texture)));
+                        leak(sphere(point3(center), 0.2, sphere_material,
+                                    &sphere_texture)))));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = color::random(0.5, 1);
                     auto fuzz = random_float(0, 0.5);
                     auto sphere_material = material::metal(fuzz);
-                    world.add(hit_storage.make<sphere>(
-                        center, 0.2, sphere_material,
-                        tex_storage.make(texture::solid(albedo))));
+                    world.add(leak(sphere(center, 0.2, sphere_material,
+                                          leak(texture::solid(albedo)))));
                 } else {
                     // glass
-                    world.add(hit_storage.make<sphere>(
-                        center, 0.2, dielectric,
-                        tex_storage.make(texture::solid(1, 1, 1))));
+                    world.add(leak(sphere(center, 0.2, dielectric,
+                                          leak(texture::solid(1, 1, 1)))));
                 }
             }
         }
     }
 
     auto material1 = material::dielectric(1.5);
-    world.add(
-        hit_storage.make<sphere>(point3(0, 1, 0), 1.0, material1,
-                                 tex_storage.make(texture::solid(1, 1, 1))));
+    world.add(leak(sphere(point3(0, 1, 0), 1.0, material1,
+                          leak(texture::solid(1, 1, 1)))));
 
     auto material2 = material::lambertian();
-    world.add(
-        hit_storage.make<sphere>(point3(-4, 1, 0), 1.0, material2,
-                                 tex_storage.make(texture::solid(.4, .2, .1))));
+    world.add(leak(sphere(point3(-4, 1, 0), 1.0, material2,
+                          leak(texture::solid(.4, .2, .1)))));
 
     auto material3 = material::metal(0.0);
-    world.add(hit_storage.make<sphere>(
-        point3(4, 1, 0), 1.0, material3,
-        tex_storage.make(texture::solid(0.7, .6, .5))));
+    world.add(leak(sphere(point3(4, 1, 0), 1.0, material3,
+                          leak(texture::solid(0.7, .6, .5)))));
 
-    poly_storage<collection> coll_storage;
-
-    auto const *scene = bvh::split_or_view(world, coll_storage);
+    auto const *scene = bvh::split_or_view(world);
 
     camera cam;
 
@@ -127,17 +114,13 @@ static void random_spheres() {
 static void two_spheres() {
     poly_list world;
 
-    poly_storage<hittable> hit_storage;
-    typed_storage<texture> tex_storage;
+    auto checker = texture::checker(0.8, leak(texture::solid(.2, .3, .1)),
+                                    leak(texture::solid(.9, .9, .9)));
 
-    auto checker =
-        texture::checker(0.8, tex_storage.make(texture::solid(.2, .3, .1)),
-                         tex_storage.make(texture::solid(.9, .9, .9)));
-
-    world.add(hit_storage.make<sphere>(point3(0, -10, 0), 10,
-                                       material::lambertian(), &checker));
-    world.add(hit_storage.make<sphere>(point3(0, 10, 0), 10,
-                                       material::lambertian(), &checker));
+    world.add(
+        leak(sphere(point3(0, -10, 0), 10, material::lambertian(), &checker)));
+    world.add(
+        leak(sphere(point3(0, 10, 0), 10, material::lambertian(), &checker)));
 
     camera cam;
 
@@ -158,8 +141,6 @@ static void two_spheres() {
 }
 
 static void earth() {
-    poly_storage<hittable> hit_storage;
-
     auto earth_texture = texture::image("earthmap.jpg");
     auto earth_surface = material::lambertian();
     auto globe = sphere(point3(0, 0, 0), 2, earth_surface, &earth_texture);
@@ -187,15 +168,13 @@ static void earth() {
 static void two_perlin_spheres() {
     poly_list world;
 
-    poly_storage<hittable> hit_storage;
-
     auto noise = std::make_unique<perlin>();
 
     auto pertext = texture::noise(4, noise.get());
-    world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
-                                       material::lambertian(), &pertext));
-    world.add(hit_storage.make<sphere>(point3(0, 2, 0), 2,
-                                       material::lambertian(), &pertext));
+    world.add(leak(
+        sphere(point3(0, -1000, 0), 1000, material::lambertian(), &pertext)));
+    world.add(
+        leak(sphere(point3(0, 2, 0), 2, material::lambertian(), &pertext)));
 
     camera cam;
 
@@ -227,19 +206,17 @@ static void quads() {
 
     auto all_mat = material::lambertian();
 
-    poly_storage<hittable> hit_storage;
-
     // Quads
-    world.add(hit_storage.make<quad>(point3(-3, -2, 5), vec3(0, 0, -4),
-                                     vec3(0, 4, 0), all_mat, &left_red));
-    world.add(hit_storage.make<quad>(point3(-2, -2, 0), vec3(4, 0, 0),
-                                     vec3(0, 4, 0), all_mat, &back_green));
-    world.add(hit_storage.make<quad>(point3(3, -2, 1), vec3(0, 0, 4),
-                                     vec3(0, 4, 0), all_mat, &right_blue));
-    world.add(hit_storage.make<quad>(point3(-2, 3, 1), vec3(4, 0, 0),
-                                     vec3(0, 0, 4), all_mat, &upper_orange));
-    world.add(hit_storage.make<quad>(point3(-2, -3, 5), vec3(4, 0, 0),
-                                     vec3(0, 0, -4), all_mat, &lower_teal));
+    world.add(leak(quad(point3(-3, -2, 5), vec3(0, 0, -4), vec3(0, 4, 0),
+                        all_mat, &left_red)));
+    world.add(leak(quad(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0),
+                        all_mat, &back_green)));
+    world.add(leak(quad(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0), all_mat,
+                        &right_blue)));
+    world.add(leak(quad(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4), all_mat,
+                        &upper_orange)));
+    world.add(leak(quad(point3(-2, -3, 5), vec3(4, 0, 0), vec3(0, 0, -4),
+                        all_mat, &lower_teal)));
 
     camera cam;
 
@@ -262,23 +239,19 @@ static void quads() {
 static void simple_light() {
     poly_list world;
 
-    poly_storage<hittable> hit_storage;
-
     auto noise = std::make_unique<perlin>();
 
     auto pertext = texture::noise(4, noise.get());
-    world.add(hit_storage.make<sphere>(point3(0, -1000, 0), 1000,
-                                       material::lambertian(), &pertext));
-    world.add(hit_storage.make<sphere>(point3(0, 2, 0), 2,
-                                       material::lambertian(), &pertext));
+    world.add(leak(
+        sphere(point3(0, -1000, 0), 1000, material::lambertian(), &pertext)));
+    world.add(
+        leak(sphere(point3(0, 2, 0), 2, material::lambertian(), &pertext)));
 
     auto difflight = material::diffuse_light();
     auto difflight_color = texture::solid(4, 4, 4);
-    world.add(hit_storage.make<sphere>(point3(0, 7, 0), 2, difflight,
-                                       &difflight_color));
-    world.add(hit_storage.make<quad>(point3(3, 1, -2), vec3(2, 0, 0),
-                                     vec3(0, 2, 0), difflight,
-                                     &difflight_color));
+    world.add(leak(sphere(point3(0, 7, 0), 2, difflight, &difflight_color)));
+    world.add(leak(quad(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0),
+                        difflight, &difflight_color)));
 
     camera cam;
 
@@ -307,44 +280,35 @@ static void cornell_box() {
     auto light = material::diffuse_light();
     auto light_color = texture::solid(15, 15, 15);
 
-    poly_storage<hittable> hit_storage;
+    world.add(leak(quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555),
+                        material::lambertian(), &green)));
+    world.add(leak(quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555),
+                        material::lambertian(), &red)));
+    world.add(leak(quad(point3(343, 554, 332), vec3(-130, 0, 0),
+                        vec3(0, 0, -105), light, &light_color)));
+    world.add(leak(quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555),
+                        material::lambertian(), &white)));
+    world.add(leak(quad(point3(555, 555, 555), vec3(-555, 0, 0),
+                        vec3(0, 0, -555), material::lambertian(), &white)));
+    world.add(leak(quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0),
+                        material::lambertian(), &white)));
 
-    world.add(hit_storage.make<quad>(point3(555, 0, 0), vec3(0, 555, 0),
-                                     vec3(0, 0, 555), material::lambertian(),
-                                     &green));
-    world.add(hit_storage.make<quad>(point3(0, 0, 0), vec3(0, 555, 0),
-                                     vec3(0, 0, 555), material::lambertian(),
-                                     &red));
-    world.add(hit_storage.make<quad>(point3(343, 554, 332), vec3(-130, 0, 0),
-                                     vec3(0, 0, -105), light, &light_color));
-    world.add(hit_storage.make<quad>(point3(0, 0, 0), vec3(555, 0, 0),
-                                     vec3(0, 0, 555), material::lambertian(),
-                                     &white));
-    world.add(hit_storage.make<quad>(point3(555, 555, 555), vec3(-555, 0, 0),
-                                     vec3(0, 0, -555), material::lambertian(),
-                                     &white));
-    world.add(hit_storage.make<quad>(point3(0, 0, 555), vec3(555, 0, 0),
-                                     vec3(0, 555, 0), material::lambertian(),
-                                     &white));
+    auto box1 = leak(box(point3(0, 0, 0), point3(165, 330, 165),
+                         material::lambertian(), &white));
 
-    poly_storage<collection> coll_storage;
-
-    auto box1 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 330, 165),
-                                      material::lambertian(), &white);
-
-    world.add(hit_storage.make<transformed_geometry>(
+    world.add(leak(transformed_geometry(
         std::vector<transform>{transform::translate(vec3(265, 0, 295)),
                                transform::rotate_y(15)},
 
-        box1));
+        box1)));
 
-    auto box2 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 165, 165),
-                                      material::lambertian(), &white);
+    auto box2 = leak(box(point3(0, 0, 0), point3(165, 165, 165),
+                         material::lambertian(), &white));
 
-    world.add(hit_storage.make<transformed_geometry>(
+    world.add(leak(transformed_geometry(
         std::vector<transform>{transform::translate(vec3(130, 0, 65)),
                                transform::rotate_y(-18)},
-        box2));
+        box2)));
 
     camera cam;
 
@@ -366,56 +330,44 @@ static void cornell_box() {
 
 static void cornell_smoke() {
     poly_list world;
-    typed_storage<texture> tex_storage;
 
     auto red = texture::solid(.65, .05, .05);
     auto white = texture::solid(.73, .73, .73);
     auto green = texture::solid(.12, .45, .15);
     auto light = texture::solid(7, 7, 7);
 
-    poly_storage<hittable> hit_storage;
+    world.add(leak(quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555),
+                        material::lambertian(), &green)));
+    world.add(leak(quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555),
+                        material::lambertian(), &red)));
+    world.add(leak(quad(point3(113, 554, 127), vec3(330, 0, 0), vec3(0, 0, 305),
+                        material::diffuse_light(), &light)));
+    world.add(leak(quad(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555),
+                        material::lambertian(), &white)));
+    world.add(leak(quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555),
+                        material::lambertian(), &white)));
+    world.add(leak(quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0),
+                        material::lambertian(), &white)));
 
-    world.add(hit_storage.make<quad>(point3(555, 0, 0), vec3(0, 555, 0),
-                                     vec3(0, 0, 555), material::lambertian(),
-                                     &green));
-    world.add(hit_storage.make<quad>(point3(0, 0, 0), vec3(0, 555, 0),
-                                     vec3(0, 0, 555), material::lambertian(),
-                                     &red));
-    world.add(hit_storage.make<quad>(point3(113, 554, 127), vec3(330, 0, 0),
-                                     vec3(0, 0, 305), material::diffuse_light(),
-                                     &light));
-    world.add(hit_storage.make<quad>(point3(0, 555, 0), vec3(555, 0, 0),
-                                     vec3(0, 0, 555), material::lambertian(),
-                                     &white));
-    world.add(hit_storage.make<quad>(point3(0, 0, 0), vec3(555, 0, 0),
-                                     vec3(0, 0, 555), material::lambertian(),
-                                     &white));
-    world.add(hit_storage.make<quad>(point3(0, 0, 555), vec3(555, 0, 0),
-                                     vec3(0, 555, 0), material::lambertian(),
-                                     &white));
-    poly_storage<collection> coll_storage;
+    hittable const *box1 = leak(box(point3(0, 0, 0), point3(165, 330, 165),
+                                    material::lambertian(), &white));
 
-    auto box1 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 330, 165),
-                                      material::lambertian(), &white);
-
-    box1 = hit_storage.make<transformed_geometry>(
+    box1 = leak(transformed_geometry(
 
         std::vector<transform>{transform::translate(vec3(265, 0, 295)),
                                transform::rotate_y(15)},
-        box1);
+        box1));
 
-    auto box2 = hit_storage.make<box>(point3(0, 0, 0), point3(165, 165, 165),
-                                      material::lambertian(), &white);
+    hittable const *box2 = leak(box(point3(0, 0, 0), point3(165, 165, 165),
+                                    material::lambertian(), &white));
 
-    box2 = hit_storage.make<transformed_geometry>(
+    box2 = leak(transformed_geometry(
         std::vector<transform>{transform::translate(vec3(130, 0, 65)),
                                transform::rotate_y(-18)},
-        box2);
+        box2));
 
-    world.add(hit_storage.make<constant_medium>(
-        box1, 0.01, tex_storage.make(texture::solid(0, 0, 0))));
-    world.add(hit_storage.make<constant_medium>(
-        box2, 0.01, tex_storage.make(texture::solid(1, 1, 1))));
+    world.add(leak(constant_medium(box1, 0.01, leak(texture::solid(0, 0, 0)))));
+    world.add(leak(constant_medium(box2, 0.01, leak(texture::solid(1, 1, 1)))));
 
     camera cam;
 
@@ -446,9 +398,6 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto ground_col = texture::solid(0.48, 0.83, 0.53);
     auto ground = material::lambertian();
 
-    poly_storage<hittable> hit_storage;
-    poly_storage<collection> coll_storage;
-
     int boxes_per_side = 20;
     for (int i = 0; i < boxes_per_side; i++) {
         for (int j = 0; j < boxes_per_side; j++) {
@@ -467,51 +416,49 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     poly_list world;
 
-    world.add(hit_storage.make<hittable_collection<bvh::tree<box>>>(
-        bvh::must_split(boxes1)));
+    world.add(
+        leak(hittable_collection<bvh::tree<box>>(bvh::must_split(boxes1))));
 
     auto light = material::diffuse_light();
     auto light_color = texture::solid(7, 7, 7);
 
-    world.add(hit_storage.make<quad>(point3(123, 554, 147), vec3(300, 0, 0),
-                                     vec3(0, 0, 265), light, &light_color));
+    world.add(leak(quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265),
+                        light, &light_color)));
 
     auto center = point3(400, 400, 200);
     auto sphere_material = material::lambertian();
     auto sphere_color = texture::solid(0.7, 0.3, 0.1);
-    world.add(hit_storage.make<transformed_geometry>(
+    world.add(leak(transformed_geometry(
         transform::move(vec3(30, 0, 0)),
-        hit_storage.make<sphere>(center, 50, sphere_material, &sphere_color)));
-
-    typed_storage<texture> tex_storage;
+        leak(sphere(center, 50, sphere_material, &sphere_color)))));
 
     auto dielectric = material::dielectric(1.5);
 
     // NOTE: Lookuout for duplication of materials/colors!
 
-    world.add(
-        hit_storage.make<sphere>(point3(260, 150, 45), 50, dielectric,
-                                 tex_storage.make(texture::solid(1, 1, 1))));
-    world.add(hit_storage.make<sphere>(
-        point3(0, 150, 145), 50, material::metal(1.0),
-        tex_storage.make(texture::solid(0.8, 0.8, 0.9))));
+    world.add(leak(sphere(point3(260, 150, 45), 50, dielectric,
+                          leak(texture::solid(1, 1, 1)))));
+    world.add(leak(sphere(point3(0, 150, 145), 50, material::metal(1.0),
+                          leak(texture::solid(0.8, 0.8, 0.9)))));
 
     auto full_white = texture::solid(1);
-    auto boundary = hit_storage.make<sphere>(point3(360, 150, 145), 70,
-                                             dielectric, &full_white);
+    auto boundary =
+        leak(sphere(point3(360, 150, 145), 70, dielectric, &full_white));
+    // NOTE: This addition is necessary so that the medium is contained within
+    // the boundary.
+    // So these two are one (constant_medium) inside another (dielectric).
     world.add(boundary);
-    world.add(hit_storage.make<constant_medium>(
-        boundary, 0.2, tex_storage.make(texture::solid(0.2, 0.4, 0.9))));
-    boundary = hit_storage.make<sphere>(point3(0, 0, 0), 5000, dielectric,
-                                        &full_white);
-    world.add(hit_storage.make<constant_medium>(boundary, .0001, &full_white));
+    world.add(leak(
+        constant_medium(boundary, 0.2, leak(texture::solid(0.2, 0.4, 0.9)))));
+    boundary = leak(sphere(point3(0, 0, 0), 5000, dielectric, &full_white));
+    world.add(leak(constant_medium(boundary, .0001, &full_white)));
 
     auto emat = texture::image("earthmap.jpg");
-    world.add(hit_storage.make<sphere>(point3(400, 200, 400), 100,
-                                       material::lambertian(), &emat));
+    world.add(leak(
+        sphere(point3(400, 200, 400), 100, material::lambertian(), &emat)));
     auto pertext = texture::noise(0.1, noise.get());
-    world.add(hit_storage.make<sphere>(point3(220, 280, 300), 80,
-                                       material::lambertian(), &pertext));
+    world.add(leak(
+        sphere(point3(220, 280, 300), 80, material::lambertian(), &pertext)));
 
     list<sphere> boxes2;
     auto white = texture::solid(.73, .73, .73);
@@ -520,13 +467,12 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         boxes2.add(point3::random(0, 165), 10, material::lambertian(), &white);
     }
 
-    world.add(hit_storage.make<
-              hittable_collection<transformed_collection<bvh::tree<sphere>>>>(
-        transformed_collection<bvh::tree<sphere>>(
+    world.add(
+        leak(hittable_collection(transformed_collection<bvh::tree<sphere>>(
             std::vector<transform>{transform::translate(vec3(-100, 270, 395)),
                                    transform::rotate_y(15)},
 
-            bvh::must_split(boxes2))));
+            bvh::must_split(boxes2)))));
 
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);
