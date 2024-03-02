@@ -53,8 +53,18 @@ struct constant_medium final : public hittable {
         if (first_hit < 0) first_hit = 0;
 
         auto distance_inside_boundary = second_hit - first_hit;
+        // using a flat wave model of EM waves:
+        // E(f) = E_0(f) exp(-alpha(f) * d) exp(-j beta(f) * d)
+        // f is frequency
+        // beta = 'dephase' factor (rad / m)
+        // -alpha = 1 / neg_inv_density = 'dampen' factor (np / m)
+        // - choose a dampen factor (0-1)
+        // - get the distance by multiplying by -1 / alpha = d
+        // NOTE: we're assuming it has a constant dephase factor at any
+        // frequency (color) which isn't exactly accurate :P
         auto hit_distance = neg_inv_density * logf(random_float());
 
+        // ray "escapes" ? Shouldn't it be dampened or sth?
         if (hit_distance > distance_inside_boundary) return false;
 
         ray_t.max = first_hit + hit_distance;
