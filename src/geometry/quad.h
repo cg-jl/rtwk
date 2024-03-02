@@ -11,35 +11,24 @@
 
 #include <utility>
 
-#include "collection/list.h"  // for box(). NOTE: maybe this should be in main.cc, or some other builder module
-#include "hittable.h"
-#include "material.h"
-#include "rtweekend.h"
 #include "vec3.h"
 
 // NOTE: this one occupies 1 whole cacheline as of now.
 
-struct quad final : public hittable {
+struct quad final {
    public:
     //  u, v are accessed first, to calculate n
     vec3 u, v;
     // Q is accessed second, after a test
     point3 Q;
 
-    //  mat is accessed last, after all tests
-    material mat;
-    texture const* tex;
-
     quad() = default;
 
-    [[nodiscard]] aabb bounding_box() const& override {
-        return aabb(Q, Q + u + v).pad();
-    }
+    [[nodiscard]] aabb boundingBox() const& { return aabb(Q, Q + u + v).pad(); }
 
-    quad(point3 Q, vec3 u, vec3 v, material m, texture const* tex)
-        : Q(Q), u(u), v(v), mat(std::move(m)), tex(tex) {}
+    quad(point3 Q, vec3 u, vec3 v) : Q(Q), u(u), v(v) {}
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
+    bool hit(ray const& r, hit_record::geometry& rec, interval& ray_t) const {
         auto n = cross(u, v);
         auto inv_sqrtn = 1 / n.length();
         auto normal = n * inv_sqrtn;
@@ -55,14 +44,11 @@ struct quad final : public hittable {
         auto t = (D - dot(normal, r.origin)) / denom;
         if (!ray_t.contains(t)) return false;
 
-        auto w = normal * inv_sqrtn;
-
         // Determine the hit point lies within the planar shape using its plane
         // coordinates.
         auto intersection = r.at(t);
-        vec3 planar_hitpt_vector = intersection - Q;
-        auto alpha = dot(w, cross(planar_hitpt_vector, v));
-        auto beta = dot(w, cross(u, planar_hitpt_vector));
+        float alpha, beta;
+        calcUVs(normal, inv_sqrtn, intersection, alpha, beta);
 
         if ((alpha < 0) || (1 < alpha) || (beta < 0) || (1 < beta))
             return false;
@@ -70,13 +56,28 @@ struct quad final : public hittable {
         // Ray hits the 2D shape; set the rest of the hit record and return
         // true.
         ray_t.max = t;
-        rec.u = alpha;
-        rec.v = beta;
-        rec.geom.p = intersection;
-        rec.mat = mat;
-        rec.tex = tex;
-        rec.geom.normal = normal;
+        rec.p = intersection;
+        rec.normal = normal;
 
         return true;
     }
+
+    void calcUVs(vec3 normal, float inv_sqrtn, point3 hitp, float& u,
+                 float& v) const noexcept {
+        auto w = normal * inv_sqrtn;
+        auto planar_hitpt_vector = hitp - Q;
+
+        u = dot(w, cross(planar_hitpt_vector, this->v));
+        v = dot(w, cross(this->u, planar_hitpt_vector));
+    }
+
+    static std::span<transform const> getTransforms() { return {}; }
+
+    void getUVs(hit_record::geometry const& res, float& u, float& v) const {
+        auto n = cross(this->u, this->v);
+        auto inv_sqrtn = 1 / n.length();
+        calcUVs(res.normal, inv_sqrtn, res.p, u, v);
+    }
 };
+
+static_assert(is_geometry<quad>);

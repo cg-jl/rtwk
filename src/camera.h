@@ -316,11 +316,15 @@ struct camera {
 
             interval ray_t{0.001, 10e10f};
 
+            // TODO: maybe it's better to have a bounce() method that redirects
+            // the ray, since texture is the only thing that is completely
+            // separate from geometry (except for hit point).
             collection::hit_status status{ray_t};
             world.propagate(r, status, rec);
             if (!status.hit_anything) break;
 
-            apply_reverse_transforms(rec.xforms, rec.geom.p, r.time, rec.geom.normal);
+            apply_reverse_transforms(rec.xforms, rec.geom.p, r.time,
+                                     rec.geom.normal);
             lights.emplace_back(rec.tex, rec.geom.p, rec.u, rec.v);
 
             if (rec.mat.tag == material::kind::diffuse_light) return;

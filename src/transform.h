@@ -77,11 +77,11 @@ static inline void apply_reverse_transforms(std::span<transform const> xforms,
     }
 }
 
-// TODO: integrate transforms into hittable geometry, and return transform when
+// TODO: integrate transforms into geometry_wrapper, and return transform when
 // we get a hit. This will allow us to apply the reverse transform only once per
 // hit check.
-template <is_hittable T>
-struct transformed_geometry final : public hittable {
+template <is_geometry T>
+struct transformed_geometry final {
     // TODO: make these not owned
     std::vector<transform> transf;
     T object;
@@ -91,25 +91,31 @@ struct transformed_geometry final : public hittable {
     transformed_geometry(transform tf, T object)
         : transformed_geometry(std::vector{std::move(tf)}, std::move(object)) {}
 
-    [[nodiscard]] aabb bounding_box() const& override {
-        aabb box = object.bounding_box();
+    [[nodiscard]] aabb boundingBox() const& {
+        aabb box = object.boundingBox();
         for (auto const& tf : transf) {
             tf.apply_to_bbox(box);
         }
         return box;
     }
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
+    [[nodiscard]] std::span<transform const> getTransforms() const noexcept {
+        return transf;
+    }
+
+    void getUVs(hit_record::geometry const& rec, float& u,
+                float& v) const noexcept {
+        object.getUVs(rec, u, v);
+    }
+
+    bool hit(ray const& r, hit_record::geometry& rec, interval& ray_t) const {
         ray r_copy = r;
 
         for (auto const& tf : transf) {
             tf.apply(r_copy, r.time);
         }
 
-        if (!object.hit(r_copy, ray_t, rec)) return false;
-
-        rec.xforms = transf;
-        return true;
+        return object.hit(r_copy, rec, ray_t);
     }
 };
 inline void transform::apply(ray& r, float time) const& {

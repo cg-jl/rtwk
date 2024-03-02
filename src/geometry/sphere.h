@@ -1,5 +1,4 @@
-#ifndef SPHERE_H
-#define SPHERE_H
+#pragma once
 //==============================================================================================
 // Originally written in 2016 by Peter Shirley <ptrshrl@gmail.com>
 //
@@ -29,26 +28,23 @@
 // time-dpendent.
 // NOTE: This instancing could be done before each 'sample', as in *really*
 // taking a shot of the full scene and averaging it?
-struct sphere final : public hittable {
+struct sphere final {
    public:
     point3 center;
     // NOTE: padding is being applied here.
     // Of 4 bytes, for some reason.
     float radius;
 
-    texture const* tex;
-    material mat;
-
-    [[nodiscard]] aabb bounding_box() const& override {
+    [[nodiscard]] aabb boundingBox() const& {
         auto rvec = vec3(radius, radius, radius);
         return {center + rvec, center - rvec};
     }
 
     // Stationary Sphere
-    sphere(point3 center, float radius, material mat, texture const* tex)
-        : center(center), radius(radius), mat(std::move(mat)), tex(tex) {}
+    sphere(point3 center, float radius) : center(center), radius(radius) {}
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
+    bool hit(ray const& r, hit_record::geometry& rec,
+             interval& ray_t) const noexcept {
         vec3 oc = r.origin - center;
         auto a = r.direction.length_squared();
         auto half_b = dot(oc, r.direction);
@@ -66,17 +62,16 @@ struct sphere final : public hittable {
         }
 
         ray_t.max = root;
-        rec.geom.p = r.at(ray_t.max);
-        vec3 outward_normal = (rec.geom.p - center) / radius;
-        rec.geom.normal = outward_normal;
-        get_sphere_uv(outward_normal, rec.u, rec.v);
-        rec.mat = mat;
-        rec.tex = tex;
+        rec.p = r.at(ray_t.max);
+        vec3 outward_normal = (rec.p - center) / radius;
+        rec.normal = outward_normal;
 
         return true;
     }
 
-    static void get_sphere_uv(point3 const& p, float& u, float& v) {
+    static std::span<transform const> getTransforms() { return {}; }
+
+    static void getUVs(hit_record::geometry const& res, float& u, float& v) {
         // p: a given point on the sphere of radius one, centered at the origin.
         // u: returned value [0,1] of angle around the Y axis from X=-1.
         // v: returned value [0,1] of angle from Y=-1 to Y=+1.
@@ -84,12 +79,12 @@ struct sphere final : public hittable {
         //     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
         //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
 
-        auto theta = std::acos(-p.y());
-        auto phi = std::atan2(-p.z(), p.x()) + pi;
+        auto theta = std::acos(-res.normal.y());
+        auto phi = std::atan2(-res.normal.z(), res.normal.x()) + pi;
 
         u = phi / (2 * pi);
         v = theta / pi;
     }
 };
 
-#endif
+static_assert(is_geometry<sphere>);

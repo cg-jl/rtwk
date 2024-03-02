@@ -39,8 +39,8 @@ static void random_spheres() {
         texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
                          leak(texture::solid(color(.9, .9, .9))));
 
-    world.add(leak(
-        sphere(point3(0, -1000, 0), 1000, material::lambertian(), &checker)));
+    world.add(leak(geometry_wrapper(sphere(point3(0, -1000, 0), 1000),
+                                    material::lambertian(), &checker)));
 
     auto dielectric = material::dielectric(1.5);
 
@@ -58,37 +58,39 @@ static void random_spheres() {
                     auto sphere_texture = texture::solid(albedo);
                     auto displacement = vec3(0, random_float(0, .5), 0);
 
-                    world.add(leak(transformed_geometry(
-                        transform::move(displacement),
-                        sphere(point3(center), 0.2, sphere_material,
-                               &sphere_texture))));
+                    world.add(leak(geometry_wrapper(
+                        transformed_geometry(transform::move(displacement),
+                                             sphere(point3(center), 0.2)),
+                        sphere_material, &sphere_texture)));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = color::random(0.5, 1);
                     auto fuzz = random_float(0, 0.5);
                     auto sphere_material = material::metal(fuzz);
-                    world.add(leak(sphere(center, 0.2, sphere_material,
-                                          leak(texture::solid(albedo)))));
+                    world.add(leak(
+                        geometry_wrapper(sphere(center, 0.2), sphere_material,
+                                         leak(texture::solid(albedo)))));
                 } else {
                     // glass
-                    world.add(leak(sphere(center, 0.2, dielectric,
-                                          leak(texture::solid(1, 1, 1)))));
+                    world.add(
+                        leak(geometry_wrapper(sphere(center, 0.2), dielectric,
+                                              leak(texture::solid(1, 1, 1)))));
                 }
             }
         }
     }
 
     auto material1 = material::dielectric(1.5);
-    world.add(leak(sphere(point3(0, 1, 0), 1.0, material1,
-                          leak(texture::solid(1, 1, 1)))));
+    world.add(leak(geometry_wrapper(sphere(point3(0, 1, 0), 1.0), material1,
+                                    leak(texture::solid(1, 1, 1)))));
 
     auto material2 = material::lambertian();
-    world.add(leak(sphere(point3(-4, 1, 0), 1.0, material2,
-                          leak(texture::solid(.4, .2, .1)))));
+    world.add(leak(geometry_wrapper(sphere(point3(-4, 1, 0), 1.0), material2,
+                                    leak(texture::solid(.4, .2, .1)))));
 
     auto material3 = material::metal(0.0);
-    world.add(leak(sphere(point3(4, 1, 0), 1.0, material3,
-                          leak(texture::solid(0.7, .6, .5)))));
+    world.add(leak(geometry_wrapper(sphere(point3(4, 1, 0), 1.0), material3,
+                                    leak(texture::solid(0.7, .6, .5)))));
 
     auto const *scene = bvh::split_or_view(world);
 
@@ -117,10 +119,10 @@ static void two_spheres() {
     auto checker = texture::checker(0.8, leak(texture::solid(.2, .3, .1)),
                                     leak(texture::solid(.9, .9, .9)));
 
-    world.add(
-        leak(sphere(point3(0, -10, 0), 10, material::lambertian(), &checker)));
-    world.add(
-        leak(sphere(point3(0, 10, 0), 10, material::lambertian(), &checker)));
+    world.add(leak(geometry_wrapper(sphere(point3(0, -10, 0), 10),
+                                    material::lambertian(), &checker)));
+    world.add(leak(geometry_wrapper(sphere(point3(0, 10, 0), 10),
+                                    material::lambertian(), &checker)));
 
     camera cam;
 
@@ -144,13 +146,13 @@ static void earth() {
     auto earth_texture = texture::image("earthmap.jpg");
     auto earth_surface = material::lambertian();
 
-    list<sphere> world;
+    list<geometry_wrapper<sphere>> world;
 
     // globe
-    world.add(point3(0, 0, 0), 2, earth_surface, &earth_texture);
+    world.add(sphere(point3(0, 0, 0), 2), earth_surface, &earth_texture);
 
     // light
-    world.add(point3(0, 0, 0), -100, material::diffuse_light(),
+    world.add(sphere(point3(0, 0, 0), -100), material::diffuse_light(),
               leak(texture::solid(.8, .5, .1)));
 
     camera cam;
@@ -177,10 +179,10 @@ static void two_perlin_spheres() {
     auto noise = std::make_unique<perlin>();
 
     auto pertext = texture::noise(4, noise.get());
-    world.add(leak(
-        sphere(point3(0, -1000, 0), 1000, material::lambertian(), &pertext)));
-    world.add(
-        leak(sphere(point3(0, 2, 0), 2, material::lambertian(), &pertext)));
+    world.add(leak(geometry_wrapper(sphere(point3(0, -1000, 0), 1000),
+                                    material::lambertian(), &pertext)));
+    world.add(leak(geometry_wrapper(sphere(point3(0, 2, 0), 2),
+                                    material::lambertian(), &pertext)));
 
     camera cam;
 
@@ -213,16 +215,21 @@ static void quads() {
     auto all_mat = material::lambertian();
 
     // Quads
-    world.add(leak(quad(point3(-3, -2, 5), vec3(0, 0, -4), vec3(0, 4, 0),
-                        all_mat, &left_red)));
-    world.add(leak(quad(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0),
-                        all_mat, &back_green)));
-    world.add(leak(quad(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0), all_mat,
-                        &right_blue)));
-    world.add(leak(quad(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4), all_mat,
-                        &upper_orange)));
-    world.add(leak(quad(point3(-2, -3, 5), vec3(4, 0, 0), vec3(0, 0, -4),
-                        all_mat, &lower_teal)));
+    world.add(leak(
+        geometry_wrapper(quad(point3(-3, -2, 5), vec3(0, 0, -4), vec3(0, 4, 0)),
+                         all_mat, &left_red)));
+    world.add(leak(
+        geometry_wrapper(quad(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0)),
+                         all_mat, &back_green)));
+    world.add(leak(
+        geometry_wrapper(quad(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0)),
+                         all_mat, &right_blue)));
+    world.add(leak(
+        geometry_wrapper(quad(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4)),
+                         all_mat, &upper_orange)));
+    world.add(leak(
+        geometry_wrapper(quad(point3(-2, -3, 5), vec3(4, 0, 0), vec3(0, 0, -4)),
+                         all_mat, &lower_teal)));
 
     camera cam;
 
@@ -248,16 +255,18 @@ static void simple_light() {
     auto noise = std::make_unique<perlin>();
 
     auto pertext = texture::noise(4, noise.get());
-    world.add(leak(
-        sphere(point3(0, -1000, 0), 1000, material::lambertian(), &pertext)));
-    world.add(
-        leak(sphere(point3(0, 2, 0), 2, material::lambertian(), &pertext)));
+    world.add(leak(geometry_wrapper(sphere(point3(0, -1000, 0), 1000),
+                                    material::lambertian(), &pertext)));
+    world.add(leak(geometry_wrapper(sphere(point3(0, 2, 0), 2),
+                                    material::lambertian(), &pertext)));
 
     auto difflight = material::diffuse_light();
     auto difflight_color = texture::solid(4, 4, 4);
-    world.add(leak(sphere(point3(0, 7, 0), 2, difflight, &difflight_color)));
-    world.add(leak(quad(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0),
-                        difflight, &difflight_color)));
+    world.add(leak(geometry_wrapper(sphere(point3(0, 7, 0), 2), difflight,
+                                    &difflight_color)));
+    world.add(leak(
+        geometry_wrapper(quad(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0)),
+                         difflight, &difflight_color)));
 
     camera cam;
 
@@ -286,31 +295,39 @@ static void cornell_box() {
     auto light = material::diffuse_light();
     auto light_color = texture::solid(15, 15, 15);
 
-    world.add(leak(quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555),
-                        material::lambertian(), &green)));
-    world.add(leak(quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555),
-                        material::lambertian(), &red)));
-    world.add(leak(quad(point3(343, 554, 332), vec3(-130, 0, 0),
-                        vec3(0, 0, -105), light, &light_color)));
-    world.add(leak(quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555),
-                        material::lambertian(), &white)));
-    world.add(leak(quad(point3(555, 555, 555), vec3(-555, 0, 0),
-                        vec3(0, 0, -555), material::lambertian(), &white)));
-    world.add(leak(quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0),
-                        material::lambertian(), &white)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
+        material::lambertian(), &green)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
+        material::lambertian(), &red)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105)), light,
+        &light_color)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
+        material::lambertian(), &white)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(555, 555, 555), vec3(-555, 0, 0), vec3(0, 0, -555)),
+        material::lambertian(), &white)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)),
+        material::lambertian(), &white)));
 
-    world.add(leak(transformed_geometry(
-        std::vector<transform>{transform::translate(vec3(265, 0, 295)),
-                               transform::rotate_y(15)},
+    world.add(leak(geometry_wrapper(
+        transformed_geometry(
+            std::vector<transform>{transform::translate(vec3(265, 0, 295)),
+                                   transform::rotate_y(15)},
 
-        box(point3(0, 0, 0), point3(165, 330, 165), material::lambertian(),
-            &white))));
+            box(point3(0, 0, 0), point3(165, 330, 165))),
+        material::lambertian(), &white)));
 
-    world.add(leak(transformed_geometry(
-        std::vector<transform>{transform::translate(vec3(130, 0, 65)),
-                               transform::rotate_y(-18)},
-        box(point3(0, 0, 0), point3(165, 165, 165), material::lambertian(),
-            &white))));
+    world.add(leak(geometry_wrapper(
+        transformed_geometry(
+            std::vector<transform>{transform::translate(vec3(130, 0, 65)),
+                                   transform::rotate_y(-18)},
+            (box(point3(0, 0, 0), point3(165, 165, 165)))),
+        material::lambertian(), &white)));
 
     camera cam;
 
@@ -338,33 +355,37 @@ static void cornell_smoke() {
     auto green = texture::solid(.12, .45, .15);
     auto light = texture::solid(7, 7, 7);
 
-    world.add(leak(quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555),
-                        material::lambertian(), &green)));
-    world.add(leak(quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555),
-                        material::lambertian(), &red)));
-    world.add(leak(quad(point3(113, 554, 127), vec3(330, 0, 0), vec3(0, 0, 305),
-                        material::diffuse_light(), &light)));
-    world.add(leak(quad(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555),
-                        material::lambertian(), &white)));
-    world.add(leak(quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555),
-                        material::lambertian(), &white)));
-    world.add(leak(quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0),
-                        material::lambertian(), &white)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
+        material::lambertian(), &green)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
+        material::lambertian(), &red)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(113, 554, 127), vec3(330, 0, 0), vec3(0, 0, 305)),
+        material::diffuse_light(), &light)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
+        material::lambertian(), &white)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
+        material::lambertian(), &white)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)),
+        material::lambertian(), &white)));
 
     world.add(leak(constant_medium(
         transformed_geometry(
 
             std::vector<transform>{transform::translate(vec3(265, 0, 295)),
                                    transform::rotate_y(15)},
-            box(point3(0, 0, 0), point3(165, 330, 165), material::lambertian(),
-                &white)),
+            (box(point3(0, 0, 0), point3(165, 330, 165)))),
         0.01, leak(texture::solid(0, 0, 0)))));
     world.add(leak(constant_medium(
         transformed_geometry(
             std::vector<transform>{transform::translate(vec3(130, 0, 65)),
                                    transform::rotate_y(-18)},
-            box(point3(0, 0, 0), point3(165, 165, 165), material::lambertian(),
-                &white)),
+            (box(point3(0, 0, 0), point3(165, 165, 165)))),
         0.01, leak(texture::solid(1, 1, 1)))));
 
     camera cam;
@@ -392,7 +413,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     auto noise = std::make_unique<perlin>();
 
-    list<box> boxes1;
+    list<geometry_wrapper<box>> boxes1;
     auto ground_col = texture::solid(0.48, 0.83, 0.53);
     auto ground = material::lambertian();
 
@@ -407,70 +428,73 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto y1 = random_float(1, 101);
             auto z1 = z0 + w;
 
-            boxes1.add(point3(x0, y0, z0), point3(x1, y1, z1), ground,
+            boxes1.add(box(point3(x0, y0, z0), point3(x1, y1, z1)), ground,
                        &ground_col);
         }
     }
 
     poly_list world;
 
-    world.add(
-        leak(hittable_collection<bvh::tree<box>>(bvh::must_split(boxes1))));
+    world.add(leak(hittable_collection(bvh::must_split(boxes1))));
 
     auto light = material::diffuse_light();
     auto light_color = texture::solid(7, 7, 7);
 
-    world.add(leak(quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265),
-                        light, &light_color)));
+    world.add(leak(geometry_wrapper(
+        quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265)), light,
+        &light_color)));
 
     auto center = point3(400, 400, 200);
     auto sphere_material = material::lambertian();
     auto sphere_color = texture::solid(0.7, 0.3, 0.1);
-    world.add(leak(transformed_geometry(
-        transform::move(vec3(30, 0, 0)),
-        sphere(center, 50, sphere_material, &sphere_color))));
+    world.add(leak(
+        geometry_wrapper(transformed_geometry(transform::move(vec3(30, 0, 0)),
+                                              (sphere(center, 50))),
+                         sphere_material, &sphere_color)));
 
     auto dielectric = material::dielectric(1.5);
 
     // NOTE: Lookuout for duplication of materials/colors!
 
-    world.add(leak(sphere(point3(260, 150, 45), 50, dielectric,
-                          leak(texture::solid(1, 1, 1)))));
-    world.add(leak(sphere(point3(0, 150, 145), 50, material::metal(1.0),
-                          leak(texture::solid(0.8, 0.8, 0.9)))));
+    world.add(
+        leak(geometry_wrapper(sphere(point3(260, 150, 45), 50), dielectric,
+                              leak(texture::solid(1, 1, 1)))));
+    world.add(leak(geometry_wrapper(sphere(point3(0, 150, 145), 50),
+                                    material::metal(1.0),
+                                    leak(texture::solid(0.8, 0.8, 0.9)))));
 
     auto full_white = texture::solid(1);
-    auto boundary = sphere(point3(360, 150, 145), 70, dielectric, &full_white);
+    sphere boundary_geom(point3(360, 150, 145), 70);
+    auto boundary = geometry_wrapper(boundary_geom, dielectric, &full_white);
     // NOTE: This addition is necessary so that the medium is contained within
     // the boundary.
     // So these two are one (constant_medium) inside another (dielectric).
     world.add(&boundary);
+    world.add(leak(constant_medium(boundary_geom, 0.2,
+                                   leak(texture::solid(0.2, 0.4, 0.9)))));
     world.add(leak(
-        constant_medium(boundary, 0.2, leak(texture::solid(0.2, 0.4, 0.9)))));
-    world.add(leak(
-        constant_medium(sphere(point3(0, 0, 0), 5000, dielectric, &full_white),
-                        .0001, &full_white)));
+        constant_medium(sphere(point3(0, 0, 0), 5000), .0001, &full_white)));
 
-    auto emat = texture::image("earthmap.jpg");
-    world.add(leak(
-        sphere(point3(400, 200, 400), 100, material::lambertian(), &emat)));
+    auto emat = leak(texture::image("earthmap.jpg"));
+    world.add(leak(geometry_wrapper(sphere(point3(400, 200, 400), 100),
+                                    material::lambertian(), emat)));
     auto pertext = texture::noise(0.1, noise.get());
-    world.add(leak(
-        sphere(point3(220, 280, 300), 80, material::lambertian(), &pertext)));
+    world.add(leak(geometry_wrapper(sphere(point3(220, 280, 300), 80),
+                                    material::lambertian(), &pertext)));
 
-    list<sphere> boxes2;
+    list<geometry_wrapper<sphere>> boxes2;
     auto white = texture::solid(.73, .73, .73);
     int ns = 1000;
     for (int j = 0; j < ns; j++) {
-        boxes2.add(point3::random(0, 165), 10, material::lambertian(), &white);
+        boxes2.add(sphere(point3::random(0, 165), 10), material::lambertian(),
+                   &white);
     }
 
-    world.add(
-        leak(hittable_collection(transformed_collection<bvh::tree<sphere>>(
-            std::vector<transform>{transform::translate(vec3(-100, 270, 395)),
-                                   transform::rotate_y(15)},
+    world.add(leak(hittable_collection(transformed_collection(
+        std::vector<transform>{transform::translate(vec3(-100, 270, 395)),
+                               transform::rotate_y(15)},
 
-            bvh::must_split(boxes2)))));
+        bvh::must_split(boxes2)))));
 
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);

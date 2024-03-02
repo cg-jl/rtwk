@@ -22,7 +22,7 @@
 // To do this, we'll do a second hit to the same geometry once we know it's a
 // hit. We'll pass the ray through the object if the second hit doesn't check
 // out.
-template <is_hittable T>
+template <is_geometry T>
 struct constant_medium final : public hittable {
    public:
     T boundary;
@@ -33,18 +33,18 @@ struct constant_medium final : public hittable {
         : boundary(std::move(b)), neg_inv_density(-1 / d), tex(tex) {}
 
     [[nodiscard]] aabb bounding_box() const& override {
-        return boundary.bounding_box();
+        return boundary.boundingBox();
     }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
-        hit_record rec1, rec2;
+        hit_record::geometry discarded_rec;
 
         interval hit1(interval::universe);
-        if (!boundary.hit(r, hit1, rec1)) return false;
+        if (!boundary.hit(r, discarded_rec, hit1)) return false;
         auto first_hit = hit1.max;
 
         interval hit2(first_hit + 0.0001f, infinity);
-        if (!boundary.hit(r, hit2, rec2)) return false;
+        if (!boundary.hit(r, discarded_rec, hit2)) return false;
         auto second_hit = hit2.max;
 
         if (first_hit < ray_t.min) first_hit = ray_t.min;

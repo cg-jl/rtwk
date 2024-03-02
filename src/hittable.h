@@ -34,6 +34,7 @@
 #include <utility>
 
 #include "aabb.h"
+#include "geometry.h"
 #include "hit_record.h"
 #include "rtweekend.h"
 #include "texture.h"
@@ -82,5 +83,29 @@ struct poly_hittable final : public hittable {
     }
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
         return ptr->hit(r, ray_t, rec);
+    }
+};
+
+template <is_geometry T>
+struct geometry_wrapper final : public hittable {
+    T geom;
+    material mat;
+    texture const* tex;
+
+    geometry_wrapper(T geom, material mat, texture* tex)
+        : geom(std::move(geom)), mat(std::move(mat)), tex(tex) {}
+
+    [[nodiscard]] aabb bounding_box() const& final {
+        return geom.boundingBox();
+    }
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const final {
+        auto did_hit = geom.hit(r, rec.geom, ray_t);
+        if (did_hit) {
+            geom.getUVs(rec.geom, rec.u, rec.v);
+            rec.xforms = geom.getTransforms();
+            rec.mat = mat;
+            rec.tex = tex;
+        }
+        return did_hit;
     }
 };
