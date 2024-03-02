@@ -320,18 +320,18 @@ struct camera {
             world.propagate(r, status, rec);
             if (!status.hit_anything) break;
 
-            apply_reverse_transforms(rec.xforms, rec.p, r.time, rec.normal);
-            lights.emplace_back(rec.tex, rec.p, rec.u, rec.v);
+            apply_reverse_transforms(rec.xforms, rec.geom.p, r.time, rec.geom.normal);
+            lights.emplace_back(rec.tex, rec.geom.p, rec.u, rec.v);
 
             if (rec.mat.tag == material::kind::diffuse_light) return;
 
-            auto face = ::face(r.direction, rec.normal);
+            auto face = ::face(r.direction, rec.geom.normal);
 
             vec3 scattered;
 
             rec.mat.scatter(r.direction, face, scattered);
 
-            r = ray(rec.p, scattered, r.time);
+            r = ray(rec.geom.p, scattered, r.time);
         }
         static texture const black_texture = texture::solid(0);
         // The ray didn't converge to a light source, so no light is to be

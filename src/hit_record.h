@@ -9,9 +9,13 @@ struct transform;
 struct texture;
 
 struct hit_record {
+    struct geometry {
+        point3 p;
+        vec3 normal;
+    };
+
    public:
-    point3 p;
-    vec3 normal;
+    geometry geom;
     float u{};
     float v{};
     material mat{};

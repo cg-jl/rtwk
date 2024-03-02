@@ -66,9 +66,9 @@ struct sphere final : public hittable {
         }
 
         ray_t.max = root;
-        rec.p = r.at(ray_t.max);
-        vec3 outward_normal = (rec.p - center) / radius;
-        rec.normal = outward_normal;
+        rec.geom.p = r.at(ray_t.max);
+        vec3 outward_normal = (rec.geom.p - center) / radius;
+        rec.geom.normal = outward_normal;
         get_sphere_uv(outward_normal, rec.u, rec.v);
         rec.mat = mat;
         rec.tex = tex;

@@ -61,7 +61,7 @@ struct constant_medium final : public hittable {
         if (hit_distance > distance_inside_boundary) return false;
 
         ray_t.max = first_hit + hit_distance / ray_length;
-        rec.p = r.at(ray_t.max);
+        rec.geom.p = r.at(ray_t.max);
 
         rec.mat = material::isotropic();
         rec.tex = tex;

@@ -72,10 +72,10 @@ struct quad final : public hittable {
         ray_t.max = t;
         rec.u = alpha;
         rec.v = beta;
-        rec.p = intersection;
+        rec.geom.p = intersection;
         rec.mat = mat;
         rec.tex = tex;
-        rec.normal = normal;
+        rec.geom.normal = normal;
 
         return true;
     }

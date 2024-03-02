@@ -51,9 +51,9 @@ struct box : public hittable {
         ray_t.max = t;
         rec.u = alpha;
         rec.v = beta;
-        rec.p = intersection;
-        rec.normal = vec3(0);
-        rec.normal[ax_i] = normal_dir;
+        rec.geom.p = intersection;
+        rec.geom.normal = vec3(0);
+        rec.geom.normal[ax_i] = normal_dir;
         return true;
     }
 
