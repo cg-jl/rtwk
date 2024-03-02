@@ -60,8 +60,8 @@ static void random_spheres() {
 
                     world.add(leak(transformed_geometry(
                         transform::move(displacement),
-                        leak(sphere(point3(center), 0.2, sphere_material,
-                                    &sphere_texture)))));
+                        sphere(point3(center), 0.2, sphere_material,
+                               &sphere_texture))));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = color::random(0.5, 1);
@@ -293,22 +293,18 @@ static void cornell_box() {
     world.add(leak(quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0),
                         material::lambertian(), &white)));
 
-    auto box1 = leak(box(point3(0, 0, 0), point3(165, 330, 165),
-                         material::lambertian(), &white));
-
     world.add(leak(transformed_geometry(
         std::vector<transform>{transform::translate(vec3(265, 0, 295)),
                                transform::rotate_y(15)},
 
-        box1)));
-
-    auto box2 = leak(box(point3(0, 0, 0), point3(165, 165, 165),
-                         material::lambertian(), &white));
+        box(point3(0, 0, 0), point3(165, 330, 165), material::lambertian(),
+            &white))));
 
     world.add(leak(transformed_geometry(
         std::vector<transform>{transform::translate(vec3(130, 0, 65)),
                                transform::rotate_y(-18)},
-        box2)));
+        box(point3(0, 0, 0), point3(165, 165, 165), material::lambertian(),
+            &white))));
 
     camera cam;
 
@@ -349,24 +345,20 @@ static void cornell_smoke() {
     world.add(leak(quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0),
                         material::lambertian(), &white)));
 
-    hittable const *box1 = leak(box(point3(0, 0, 0), point3(165, 330, 165),
-                                    material::lambertian(), &white));
-
-    hittable const *box2 = leak(box(point3(0, 0, 0), point3(165, 165, 165),
-                                    material::lambertian(), &white));
-
     world.add(leak(constant_medium(
         transformed_geometry(
 
             std::vector<transform>{transform::translate(vec3(265, 0, 295)),
                                    transform::rotate_y(15)},
-            box1),
+            box(point3(0, 0, 0), point3(165, 330, 165), material::lambertian(),
+                &white)),
         0.01, leak(texture::solid(0, 0, 0)))));
     world.add(leak(constant_medium(
         transformed_geometry(
             std::vector<transform>{transform::translate(vec3(130, 0, 65)),
                                    transform::rotate_y(-18)},
-            box2),
+            box(point3(0, 0, 0), point3(165, 165, 165), material::lambertian(),
+                &white)),
         0.01, leak(texture::solid(1, 1, 1)))));
 
     camera cam;
@@ -430,7 +422,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto sphere_color = texture::solid(0.7, 0.3, 0.1);
     world.add(leak(transformed_geometry(
         transform::move(vec3(30, 0, 0)),
-        leak(sphere(center, 50, sphere_material, &sphere_color)))));
+        sphere(center, 50, sphere_material, &sphere_color))));
 
     auto dielectric = material::dielectric(1.5);
 

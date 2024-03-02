@@ -80,18 +80,19 @@ static inline void apply_reverse_transforms(std::span<transform const> xforms,
 // TODO: integrate transforms into hittable geometry, and return transform when
 // we get a hit. This will allow us to apply the reverse transform only once per
 // hit check.
+template <is_hittable T>
 struct transformed_geometry final : public hittable {
     // TODO: make these not owned
     std::vector<transform> transf;
-    hittable const* object;
+    T object;
 
-    transformed_geometry(std::vector<transform> transf, hittable const* object)
-        : transf(std::move(transf)), object(object) {}
-    transformed_geometry(transform tf, hittable const* object)
-        : transformed_geometry(std::vector{std::move(tf)}, object) {}
+    transformed_geometry(std::vector<transform> transf, T object)
+        : transf(std::move(transf)), object(std::move(object)) {}
+    transformed_geometry(transform tf, T object)
+        : transformed_geometry(std::vector{std::move(tf)}, std::move(object)) {}
 
     [[nodiscard]] aabb bounding_box() const& override {
-        aabb box = object->bounding_box();
+        aabb box = object.bounding_box();
         for (auto const& tf : transf) {
             tf.apply_to_bbox(box);
         }
@@ -105,7 +106,7 @@ struct transformed_geometry final : public hittable {
             tf.apply(r_copy, r.time);
         }
 
-        if (!object->hit(r_copy, ray_t, rec)) return false;
+        if (!object.hit(r_copy, ray_t, rec)) return false;
 
         rec.xforms = transf;
         return true;
