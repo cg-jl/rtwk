@@ -143,7 +143,15 @@ static void two_spheres() {
 static void earth() {
     auto earth_texture = texture::image("earthmap.jpg");
     auto earth_surface = material::lambertian();
-    auto globe = sphere(point3(0, 0, 0), 2, earth_surface, &earth_texture);
+
+    list<sphere> world;
+
+    // globe
+    world.add(point3(0, 0, 0), 2, earth_surface, &earth_texture);
+
+    // light
+    world.add(point3(0, 0, 0), -100, material::diffuse_light(),
+              leak(texture::solid(.8, .5, .1)));
 
     camera cam;
 
@@ -160,9 +168,7 @@ static void earth() {
 
     cam.defocus_angle = 0;
 
-    auto sphere_view = view<sphere>(std::span{&globe, 1});
-
-    cam.render(sphere_view, enable_progress);
+    cam.render(world.finish(), enable_progress);
 }
 
 static void two_perlin_spheres() {
