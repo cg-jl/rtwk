@@ -43,24 +43,21 @@ struct constant_medium final : public hittable {
         if (!boundary.hit(r, discarded_rec, hit1)) return false;
         auto first_hit = hit1.max;
 
-        interval hit2(first_hit + 0.0001f, infinity);
+        // hit into the other side
+        interval hit2(first_hit + 0.001f, infinity);
         if (!boundary.hit(r, discarded_rec, hit2)) return false;
-        auto second_hit = hit2.max;
-
-        if (first_hit < ray_t.min) first_hit = ray_t.min;
-        if (second_hit > ray_t.max) second_hit = ray_t.max;
+        auto second_hit = std::min(hit2.max, ray_t.max);
 
         if (first_hit >= second_hit) return false;
 
         if (first_hit < 0) first_hit = 0;
 
-        auto ray_length = r.direction.length();
-        auto distance_inside_boundary = (second_hit - first_hit) * ray_length;
+        auto distance_inside_boundary = second_hit - first_hit;
         auto hit_distance = neg_inv_density * logf(random_float());
 
         if (hit_distance > distance_inside_boundary) return false;
 
-        ray_t.max = first_hit + hit_distance / ray_length;
+        ray_t.max = first_hit + hit_distance;
         rec.geom.p = r.at(ray_t.max);
 
         rec.mat = material::isotropic();
