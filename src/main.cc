@@ -352,22 +352,22 @@ static void cornell_smoke() {
     hittable const *box1 = leak(box(point3(0, 0, 0), point3(165, 330, 165),
                                     material::lambertian(), &white));
 
-    box1 = leak(transformed_geometry(
-
-        std::vector<transform>{transform::translate(vec3(265, 0, 295)),
-                               transform::rotate_y(15)},
-        box1));
-
     hittable const *box2 = leak(box(point3(0, 0, 0), point3(165, 165, 165),
                                     material::lambertian(), &white));
 
-    box2 = leak(transformed_geometry(
-        std::vector<transform>{transform::translate(vec3(130, 0, 65)),
-                               transform::rotate_y(-18)},
-        box2));
+    world.add(leak(constant_medium(
+        transformed_geometry(
 
-    world.add(leak(constant_medium(box1, 0.01, leak(texture::solid(0, 0, 0)))));
-    world.add(leak(constant_medium(box2, 0.01, leak(texture::solid(1, 1, 1)))));
+            std::vector<transform>{transform::translate(vec3(265, 0, 295)),
+                                   transform::rotate_y(15)},
+            box1),
+        0.01, leak(texture::solid(0, 0, 0)))));
+    world.add(leak(constant_medium(
+        transformed_geometry(
+            std::vector<transform>{transform::translate(vec3(130, 0, 65)),
+                                   transform::rotate_y(-18)},
+            box2),
+        0.01, leak(texture::solid(1, 1, 1)))));
 
     camera cam;
 
@@ -442,16 +442,16 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
                           leak(texture::solid(0.8, 0.8, 0.9)))));
 
     auto full_white = texture::solid(1);
-    auto boundary =
-        leak(sphere(point3(360, 150, 145), 70, dielectric, &full_white));
+    auto boundary = sphere(point3(360, 150, 145), 70, dielectric, &full_white);
     // NOTE: This addition is necessary so that the medium is contained within
     // the boundary.
     // So these two are one (constant_medium) inside another (dielectric).
-    world.add(boundary);
+    world.add(&boundary);
     world.add(leak(
         constant_medium(boundary, 0.2, leak(texture::solid(0.2, 0.4, 0.9)))));
-    boundary = leak(sphere(point3(0, 0, 0), 5000, dielectric, &full_white));
-    world.add(leak(constant_medium(boundary, .0001, &full_white)));
+    world.add(leak(
+        constant_medium(sphere(point3(0, 0, 0), 5000, dielectric, &full_white),
+                        .0001, &full_white)));
 
     auto emat = texture::image("earthmap.jpg");
     world.add(leak(
