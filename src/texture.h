@@ -20,46 +20,37 @@
 #include "storage.h"
 
 // NOTE: Before moving checker_texture into a tree, I should first make
-// 'texture' enum based, so that samplers don't have to deal with extra layers
-// of indirection. The maximum size for each texture is 1 cacheline.The sampling
-// loop could then move to sampling per texture and not per pixel, filtering
-// through e.g texture kinds instead of just the pointers.
+// 'texture' enum based, so that point_samplers don't have to deal with extra
+// layers of indirection. The maximum size for each texture is 1 cacheline.The
+// sampling loop could then move to sampling per texture and not per pixel,
+// filtering through e.g texture kinds instead of just the pointers.
 
-// NOTE: there is a tree structure in checker_texture.
 // Sizes:
-//  - solid_color: 32
-//  - checker_texture: 48 (tree structure -> indirection + compute)
-//  - noise: 48 (indirection through perlin)
-//  - image: 40
+//  - solid_color: 24
+//  - checker_texture: 28
+//  - noise: 16 (indirection through perlin)
+//  - image: 16
 
 struct texture;
 
-namespace detail::texture {
-static inline color value(struct texture const*, float u, float v,
-                          point3 const& p) noexcept;
-}
-
 struct checker_texture {
    public:
-    constexpr checker_texture(float _scale, texture const* _even,
-                              texture const* _odd)
-        : inv_scale(1.0f / _scale), even(_even), odd(_odd) {}
+    constexpr checker_texture(float scale, color even, color odd)
+        : inv_scale(1.0f / scale), even(even), odd(odd) {}
 
-    [[nodiscard]] color value(float u, float v, point3 const& p) const {
+    [[nodiscard]] color value(point3 const& p) const {
         auto xInteger = static_cast<int>(std::floor(inv_scale * p.x()));
         auto yInteger = static_cast<int>(std::floor(inv_scale * p.y()));
         auto zInteger = static_cast<int>(std::floor(inv_scale * p.z()));
 
         bool isEven = (xInteger + yInteger + zInteger) % 2 == 0;
 
-        return isEven ? detail::texture::value(even, u, v, p)
-                      : detail::texture::value(odd, u, v, p);
+        return isEven ? even : odd;
     }
 
    private:
     float inv_scale;
-    texture const* even;
-    texture const* odd;
+    color even, odd;
 };
 
 // NOTE: ideally there should be only one perlin device.
@@ -130,7 +121,7 @@ color texture::value(float u, float v, point3 const& p) const noexcept {
         case kind::solid:
             return as.solid;
         case kind::checker:
-            return as.checker.value(u, v, p);
+            return as.checker.value(p);
         case kind::noise:
             return as.noise.value(u, v, p);
         case kind::image:
@@ -139,10 +130,3 @@ color texture::value(float u, float v, point3 const& p) const noexcept {
             __builtin_unreachable();
     }
 }
-
-namespace detail::texture {
-static inline color value(struct texture const* tex, float u, float v,
-                          point3 const& p) noexcept {
-    return tex->value(u, v, p);
-}
-}  // namespace detail::texture

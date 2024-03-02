@@ -35,9 +35,7 @@ static bool enable_progress = true;
 static void random_spheres() {
     poly_list world;
 
-    auto checker =
-        texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
-                         leak(texture::solid(color(.9, .9, .9))));
+    auto checker = texture::checker(0.32, color(.2, .3, .1), color(.9, .9, .9));
 
     world.add(leak(geometry_wrapper(sphere(point3(0, -1000, 0), 1000),
                                     material::lambertian(), &checker)));
@@ -116,8 +114,7 @@ static void random_spheres() {
 static void two_spheres() {
     poly_list world;
 
-    auto checker = texture::checker(0.8, leak(texture::solid(.2, .3, .1)),
-                                    leak(texture::solid(.9, .9, .9)));
+    auto checker = texture::checker(0.8, color(.2, .3, .1), color(.9, .9, .9));
 
     world.add(leak(geometry_wrapper(sphere(point3(0, -10, 0), 10),
                                     material::lambertian(), &checker)));
@@ -380,13 +377,13 @@ static void cornell_smoke() {
             std::vector<transform>{transform::translate(vec3(265, 0, 295)),
                                    transform::rotate_y(15)},
             (box(point3(0, 0, 0), point3(165, 330, 165)))),
-        0.01, leak(texture::solid(0, 0, 0)))));
+        0.01, color(0, 0, 0))));
     world.add(leak(constant_medium(
         transformed_geometry(
             std::vector<transform>{transform::translate(vec3(130, 0, 65)),
                                    transform::rotate_y(-18)},
             (box(point3(0, 0, 0), point3(165, 165, 165)))),
-        0.01, leak(texture::solid(1, 1, 1)))));
+        0.01, color(1, 1, 1))));
 
     camera cam;
 
@@ -470,10 +467,9 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     // the boundary.
     // So these two are one (constant_medium) inside another (dielectric).
     world.add(&boundary);
-    world.add(leak(constant_medium(boundary_geom, 0.2,
-                                   leak(texture::solid(0.2, 0.4, 0.9)))));
-    world.add(leak(
-        constant_medium(sphere(point3(0, 0, 0), 5000), .0001, &full_white)));
+    world.add(leak(constant_medium(boundary_geom, 0.2, color(0.2, 0.4, 0.9))));
+    world.add(
+        leak(constant_medium(sphere(point3(0, 0, 0), 5000), .0001, color(1))));
 
     auto emat = leak(texture::image("earthmap.jpg"));
     world.add(leak(geometry_wrapper(sphere(point3(400, 200, 400), 100),

@@ -29,8 +29,10 @@ struct constant_medium final : public hittable {
     float neg_inv_density;
     texture const* tex;
 
-    constant_medium(T b, float d, texture const* tex)
-        : boundary(std::move(b)), neg_inv_density(-1 / d), tex(tex) {}
+    constant_medium(T b, float d, color col)
+        : boundary(std::move(b)),
+          neg_inv_density(-1 / d),
+          tex(leak(texture::solid(col))) {}
 
     [[nodiscard]] aabb bounding_box() const& override {
         return boundary.boundingBox();
@@ -62,9 +64,13 @@ struct constant_medium final : public hittable {
         // - get the distance by multiplying by -1 / alpha = d
         // NOTE: we're assuming it has a constant dephase factor at any
         // frequency (color) which isn't exactly accurate :P
+        // But, since we're path tracing in reverse, we don't know the 'set' of
+        // frequencies that will pass through
         auto hit_distance = neg_inv_density * logf(random_float());
 
-        // ray "escapes" ? Shouldn't it be dampened or sth?
+        // ray came from outside the material and passed through.
+        // Assuming it's a non-magnetic bad conductor ~ β = 1/c * j2πf√ϵr√(1 -
+        // jtanδ) γ² = -ω²/c^2 * ϵᵣ(1 - jtanδ) = α^2 - β^2 + 2jαβ
         if (hit_distance > distance_inside_boundary) return false;
 
         ray_t.max = first_hit + hit_distance;
