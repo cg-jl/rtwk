@@ -15,6 +15,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <memory>
 #include <span>
 
 #include "collection.h"
@@ -26,13 +27,15 @@
 #include "progress.h"
 #include "ray.h"
 #include "rtweekend.h"
+#include "texture.h"
 #include "transform.h"
+#include "vec3.h"
 
 struct camera {
    public:
     float aspect_ratio = 1.0;         // Ratio of image width over height
     uint32_t image_width = 100;       // Rendered image width in pixel count
-    uint32_t samples_per_pixel = 10;  // Count of random samples for each pixel
+    uint16_t samples_per_pixel = 10;  // Count of random samples for each pixel
     uint32_t max_depth = 10;  // Maximum number of ray bounces into scene
     color background;         // Scene background color
 
@@ -73,18 +76,28 @@ struct camera {
 
 #endif
 
+        auto perlin_noise = leak(perlin());
+
         // NOTE: 30% of the time (5 seconds) is spent just on a couple of
         // threads. Consider sharing work, e.g lighting?
 
 #pragma omp parallel num_threads(12)
         {
+            auto max_rays = size_t(max_depth) * size_t(samples_per_pixel);
             // We do one per thread.
-            auto light_info_uniq = std::make_unique<light_info[]>(
-                size_t(max_depth) * size_t(samples_per_pixel));
-            auto sampled_colors = std::make_unique<color[]>(
-                size_t(max_depth) * size_t(samples_per_pixel));
+            auto checker_requests =
+                std::make_unique<checker_request[]>(max_rays);
+            auto image_requests = std::make_unique<image_request[]>(max_rays);
+            auto noise_requests = std::make_unique<noise_request[]>(max_rays);
+            auto sampled_colors = std::make_unique<color[]>(max_rays);
 
-            auto ray_counts = std::make_unique<uint32_t[]>(samples_per_pixel);
+            auto checker_counts =
+                std::make_unique<uint16_t[]>(samples_per_pixel);
+            auto solid_counts = std::make_unique<uint16_t[]>(samples_per_pixel);
+            auto image_counts = std::make_unique<uint16_t[]>(samples_per_pixel);
+            auto noise_counts = std::make_unique<uint16_t[]>(samples_per_pixel);
+
+            auto ray_colors = std::make_unique<color[]>(samples_per_pixel);
 
 #pragma omp for firstprivate(fcol_ptr, image_height, image_width)
             for (uint32_t j = 0; j < image_height; ++j) {
@@ -96,46 +109,85 @@ struct camera {
 #endif
                 for (uint32_t i = 0; i < image_width; ++i) {
                     // geometry
-                    uint32_t total_ray_count = 0;
+                    uint32_t total_checker_requests = 0;
+                    uint32_t total_solids = 0;
+                    uint32_t total_images = 0;
+                    uint32_t total_noises = 0;
                     for (uint32_t sample = 0; sample < samples_per_pixel;
                          ++sample) {
-                        vecview light_infos(
-                            light_info_uniq.get() + total_ray_count, max_depth);
+                        tex_request_queue tex_reqs(
+                            checker_requests.get() + total_checker_requests,
+                            // NOTE: all solids get directly copied into the
+                            // shared samples array. They will get multiplied
+                            // the first.
+                            sampled_colors.get() + total_solids,
+                            image_requests.get() + total_images,
+                            noise_requests.get() + total_noises, max_depth);
 
                         ray r = get_ray(i, j);
 
-                        simulate_ray(r, world, light_infos);
-                        total_ray_count += light_infos.count;
-                        ray_counts[sample] = light_infos.count;
+                        simulate_ray(r, world, tex_reqs);
+                        total_checker_requests += tex_reqs.checker_count;
+                        total_solids += tex_reqs.solid_count;
+                        total_images += tex_reqs.image_count;
+                        total_noises += tex_reqs.noise_count;
+
+                        checker_counts[sample] = tex_reqs.checker_count;
+                        solid_counts[sample] = tex_reqs.solid_count;
+                        image_counts[sample] = tex_reqs.image_count;
+                        noise_counts[sample] = tex_reqs.noise_count;
                     }
 
-                    // sample all textures
-                    for (uint32_t ray = 0; ray < total_ray_count; ++ray) {
-                        auto const& info = light_info_uniq.get()[ray];
-                        sampled_colors[ray] =
-                            info.tex->value(info.u, info.v, info.p);
+                    multiply_init(sampled_colors.get(), solid_counts.get(),
+                                  samples_per_pixel, ray_colors.get());
+
+                    if (total_noises != 0) {
+                        // sample all noise functions
+                        for (uint32_t k = 0; k < total_noises; ++k) {
+                            auto const& info = noise_requests[k];
+                            // TODO: have perlin noise be a parameter to
+                            // noise.value()
+                            sampled_colors[k] =
+                                info.noise.value(info.p, perlin_noise);
+                        }
+                        multiply_samples(sampled_colors.get(),
+                                         noise_counts.get(), samples_per_pixel,
+                                         ray_colors.get());
                     }
 
-                    // multiply + add colors
-
-                    uint32_t used_light_count = 0;
-                    color pixel_color(0, 0, 0);
-                    for (uint32_t sample = 0; sample < samples_per_pixel;
-                         ++sample) {
-                        auto const num_samples = ray_counts[sample];
-
-                        auto const* colors =
-                            sampled_colors.get() + used_light_count;
-
-                        used_light_count += num_samples;
-
-                        color col(1, 1, 1);
-                        // Aggregate in multiplication
-                        for (uint32_t k = 0; k < num_samples; ++k) {
-                            col *= colors[k];
+                    if (total_images != 0) {
+                        // sample all images
+                        // NOTE: I could have some pointer based mappings and/or
+                        // sorting to speed this up....
+                        for (uint32_t k = 0; k < total_images; ++k) {
+                            auto const& info = image_requests[k];
+                            sampled_colors[k] =
+                                info.image->sample(info.u, info.v);
                         }
 
-                        pixel_color += col;
+                        multiply_samples(sampled_colors.get(),
+                                         image_counts.get(), samples_per_pixel,
+                                         ray_colors.get());
+                    }
+
+                    if (total_checker_requests != 0) {
+                        // sample all textures
+                        for (uint32_t req = 0; req < total_checker_requests;
+                             ++req) {
+                            auto const& info = checker_requests.get()[req];
+                            sampled_colors[req] = info.checker->value(info.p);
+                        }
+
+                        // multiply sampled textures
+                        multiply_samples(sampled_colors.get(),
+                                         checker_counts.get(),
+                                         samples_per_pixel, ray_colors.get());
+                    }
+
+                    // average samples
+                    color pixel_color(0, 0, 0);
+                    for (uint32_t k = 0; k < samples_per_pixel; ++k) {
+                        pixel_color += ray_colors[k];
                     }
 
                     fcol_ptr[j * image_width + i] =
@@ -297,11 +349,118 @@ struct camera {
 
     // NOTE: would be nice to make this available to 'hittable' so it
     // initializes the correct value.
-    struct light_info {
+    struct tex_request {
         texture const* tex{};
         point3 p;
         float u{}, v{};
     };
+
+    // NOTE: Should have some way of only keeping the sets that are active in
+    // the system...
+    struct image_request {
+        rtw_image const* image;
+        float u, v;
+    };
+
+    struct noise_request {
+        noise_texture noise;
+        point3 p;
+    };
+
+    struct checker_request {
+        checker_texture const* checker;
+        point3 p;
+    };
+
+    struct tex_request_queue {
+        checker_request* checkers;
+        color* solids;
+        image_request* images;
+        noise_request* noises;
+        // NOTE: Maybe these could be like a u16 to avoid going over the
+        // cacheline barrier? That would make the upper limit 60k spp, which is
+        // a lot of spp!
+        uint16_t remaining;
+        uint16_t checker_count;
+        uint16_t solid_count;
+        uint16_t image_count;
+        uint16_t noise_count;
+
+        constexpr tex_request_queue(checker_request* reqs, color* solids,
+                                    image_request* images,
+                                    noise_request* noises, uint16_t cap)
+            : checkers(reqs),
+              solids(solids),
+              images(images),
+              noises(noises),
+              remaining(cap),
+              checker_count(0),
+              solid_count(0),
+              image_count(0),
+              noise_count(0) {}
+
+        constexpr bool is_full() const noexcept { return remaining == 0; }
+
+        void set_black() noexcept {
+            checker_count = 0;
+            image_count = 0;
+            noise_count = 0;
+            solid_count = 1;
+            solids[0] = color(0);
+        }
+
+        void add(texture const* tex, point3 const& p, float u,
+                 float v) noexcept {
+            --remaining;
+            switch (tex->tag) {
+                case texture::kind::solid:
+                    solids[solid_count++] = tex->as.solid;
+                    break;
+                case texture::kind::checker:
+                    new (&checkers[checker_count++])
+                        checker_request{&tex->as.checker, p};
+                    break;
+                case texture::kind::noise:
+                    new (&noises[noise_count++])
+                        noise_request{tex->as.noise, p};
+                    break;
+                case texture::kind::image:
+                    new (&images[image_count++])
+                        image_request{&tex->as.image, u, v};
+                    break;
+            }
+        }
+    };
+
+    // Assumes `dst` is uninitialized so uses `src` as the source.
+    static void multiply_init(color const* src,
+                              uint16_t const* counts_per_sample,
+                              uint16_t total_samples, color* dst) {
+        for (uint16_t k = 0; k < total_samples; ++k) {
+            auto num_samples = counts_per_sample[k];
+            if (num_samples == 0) continue;
+            auto col = *src++;
+
+            while (--num_samples) col *= *src++;
+
+            dst[k] = col;
+        }
+    }
+
+    // Assumes `dst` is initialized and uses it as the source.
+    static void multiply_samples(color const* src,
+                                 uint16_t const* counts_per_sample,
+                                 uint16_t total_samples, color* dst) {
+        for (uint16_t k = 0; k < total_samples; ++k) {
+            auto num_samples = counts_per_sample[k];
+            if (num_samples == 0) continue;
+            auto col = dst[k];
+
+            while (num_samples--) col *= *src++;
+
+            dst[k] = col;
+        }
+    }
 
     // NOTE: Could have the background as another light source.
     // NOTE: Maybe it's interesting to tell the renderer that it's going to get
@@ -310,8 +469,8 @@ struct camera {
     // Simulates a ray until either it hits too many times, hits a light, or
     // hits the skybox.
     static void simulate_ray(ray r, collection const& world,
-                             vecview<light_info>& lights) {
-        while (!lights.is_full()) {
+                             tex_request_queue& texes) {
+        while (!texes.is_full()) {
             hit_record rec;
 
             interval ray_t{0.001, 10e10f};
@@ -325,7 +484,7 @@ struct camera {
 
             apply_reverse_transforms(rec.xforms, rec.geom.p, r.time,
                                      rec.geom.normal);
-            lights.emplace_back(rec.tex, rec.geom.p, rec.u, rec.v);
+            texes.add(rec.tex, rec.geom.p, rec.u, rec.v);
 
             if (rec.mat.tag == material::kind::diffuse_light) return;
 
@@ -337,10 +496,8 @@ struct camera {
 
             r = ray(rec.geom.p, scattered, r.time);
         }
-        static texture const black_texture = texture::solid(0);
         // The ray didn't converge to a light source, so no light is to be
         // returned
-        lights.clear();
-        lights.emplace_back(&black_texture, point3(0), 0, 0);
+        texes.set_black();
     }
 };

@@ -53,20 +53,17 @@ struct checker_texture {
     color even, odd;
 };
 
-// NOTE: ideally there should be only one perlin device.
-// We don't lose anything for moving it out of here because it's readonly.
 struct noise_texture {
    public:
-    explicit noise_texture(float sc, perlin const* dev)
-        : scale(sc), noise(dev) {}
+    constexpr noise_texture() = default;
+    explicit noise_texture(float sc) : scale(sc) {}
 
-    [[nodiscard]] color value(float u, float v, point3 const& p) const {
+    [[nodiscard]] color value(point3 const& p, perlin const* noise) const {
         auto s = scale * p;
         return color(1, 1, 1) * 0.5 * (1 + sin(s.z() + 10 * noise->turb(s)));
     }
 
    private:
-    perlin const* noise;
     float scale{};
 };
 
@@ -111,22 +108,6 @@ struct texture {
         return tex;
     }
 
-    [[nodiscard]] color value(float u, float v, point3 const& p) const noexcept;
-
    private:
     constexpr texture() = default;
 };
-color texture::value(float u, float v, point3 const& p) const noexcept {
-    switch (tag) {
-        case kind::solid:
-            return as.solid;
-        case kind::checker:
-            return as.checker.value(p);
-        case kind::noise:
-            return as.noise.value(u, v, p);
-        case kind::image:
-            return as.image.sample(u, v);
-        default:
-            __builtin_unreachable();
-    }
-}

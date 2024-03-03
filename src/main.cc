@@ -173,9 +173,8 @@ static void earth() {
 static void two_perlin_spheres() {
     poly_list world;
 
-    auto noise = std::make_unique<perlin>();
 
-    auto pertext = texture::noise(4, noise.get());
+    auto pertext = texture::noise(4);
     world.add(leak(geometry_wrapper(sphere(point3(0, -1000, 0), 1000),
                                     material::lambertian(), &pertext)));
     world.add(leak(geometry_wrapper(sphere(point3(0, 2, 0), 2),
@@ -249,9 +248,8 @@ static void quads() {
 static void simple_light() {
     poly_list world;
 
-    auto noise = std::make_unique<perlin>();
 
-    auto pertext = texture::noise(4, noise.get());
+    auto pertext = texture::noise(4);
     world.add(leak(geometry_wrapper(sphere(point3(0, -1000, 0), 1000),
                                     material::lambertian(), &pertext)));
     world.add(leak(geometry_wrapper(sphere(point3(0, 2, 0), 2),
@@ -408,8 +406,6 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-    auto noise = std::make_unique<perlin>();
-
     list<geometry_wrapper<box>> boxes1;
     auto ground_col = texture::solid(0.48, 0.83, 0.53);
     auto ground = material::lambertian();
@@ -474,7 +470,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto emat = leak(texture::image("earthmap.jpg"));
     world.add(leak(geometry_wrapper(sphere(point3(400, 200, 400), 100),
                                     material::lambertian(), emat)));
-    auto pertext = texture::noise(0.1, noise.get());
+    auto pertext = texture::noise(0.1);
     world.add(leak(geometry_wrapper(sphere(point3(220, 280, 300), 80),
                                     material::lambertian(), &pertext)));
 
