@@ -91,9 +91,9 @@ template <is_geometry T>
 struct geometry_wrapper final {
     T geom;
     material mat;
-    texture const* tex;
+    texture tex;
 
-    geometry_wrapper(T geom, material mat, texture* tex)
+    geometry_wrapper(T geom, material mat, texture tex)
         : geom(std::move(geom)), mat(std::move(mat)), tex(tex) {}
 
     [[nodiscard]] aabb boundingBox() const& { return geom.boundingBox(); }

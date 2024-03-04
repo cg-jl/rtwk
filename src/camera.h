@@ -13,6 +13,7 @@
 
 #include <png.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -26,6 +27,7 @@
 #include "material.h"
 #include "progress.h"
 #include "ray.h"
+#include "rtw_stb_image.h"
 #include "rtweekend.h"
 #include "texture.h"
 #include "transform.h"
@@ -50,8 +52,8 @@ struct camera {
 
     // NOTE: may use dyn collection to avoid templating on collection?
     // Compile times don't seem too bad rn.
-    template<is_collection C>
-    void render(C const& world, bool enable_progress) {
+    template <is_collection C>
+    void render(C const& world, bool enable_progress, tex_view texes) {
         initialize();
 
         auto px_count = image_width * image_height;
@@ -126,20 +128,31 @@ struct camera {
                             // the first.
                             sampled_colors.get() + total_solids,
                             image_requests.get() + total_images,
-                            noise_requests.get() + total_noises, max_depth);
+                            noise_requests.get() + total_noises, max_depth,
+                            texes);
 
                         ray r = get_ray(i, j);
 
-                        simulate_ray(r, world, tex_reqs);
-                        total_checker_requests += tex_reqs.checker_count;
-                        total_solids += tex_reqs.solid_count;
-                        total_images += tex_reqs.image_count;
-                        total_noises += tex_reqs.noise_count;
+                        if (simulate_ray(r, world, tex_reqs)) {
+                            total_checker_requests += tex_reqs.checker_count;
+                            total_solids += tex_reqs.solid_count;
+                            total_images += tex_reqs.image_count;
+                            total_noises += tex_reqs.noise_count;
 
-                        checker_counts[sample] = tex_reqs.checker_count;
-                        solid_counts[sample] = tex_reqs.solid_count;
-                        image_counts[sample] = tex_reqs.image_count;
-                        noise_counts[sample] = tex_reqs.noise_count;
+                            checker_counts[sample] = tex_reqs.checker_count;
+                            solid_counts[sample] = tex_reqs.solid_count;
+                            image_counts[sample] = tex_reqs.image_count;
+                            noise_counts[sample] = tex_reqs.noise_count;
+                        } else {
+                            // cancelled!
+                            checker_counts[sample] = 0;
+                            image_counts[sample] = 0;
+                            noise_counts[sample] = 0;
+
+                            solid_counts[sample] = 1;
+                            sampled_colors[total_solids] = color(0);
+                            ++total_solids;
+                        }
                     }
 
                     multiply_init(sampled_colors.get(), solid_counts.get(),
@@ -159,13 +172,21 @@ struct camera {
                     }
 
                     if (total_images != 0) {
+                        std::sort(
+                            image_requests.get(),
+                            image_requests.get() + total_images,
+                            [](image_request const& a, image_request const& b) {
+                                return a.image_id < b.image_id ||
+                                       a.u * a.v < b.u * b.v;
+                            });
                         // sample all images
                         // NOTE: I could have some pointer based mappings and/or
                         // sorting to speed this up....
                         for (uint32_t k = 0; k < total_images; ++k) {
                             auto const& info = image_requests[k];
                             sampled_colors[k] =
-                                info.image->sample(info.u, info.v);
+                                texes.images[info.image_id].sample(info.u,
+                                                                   info.v);
                         }
 
                         multiply_samples(sampled_colors.get(),
@@ -350,18 +371,10 @@ struct camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
-    // NOTE: would be nice to make this available to 'hittable' so it
-    // initializes the correct value.
-    struct tex_request {
-        texture const* tex{};
-        point3 p;
-        float u{}, v{};
-    };
-
     // NOTE: Should have some way of only keeping the sets that are active in
     // the system...
     struct image_request {
-        rtw_image const* image;
+        uint32_t image_id;
         float u, v;
     };
 
@@ -388,10 +401,12 @@ struct camera {
         uint16_t solid_count;
         uint16_t image_count;
         uint16_t noise_count;
+        tex_view texes;
 
         constexpr tex_request_queue(checker_request* reqs, color* solids,
                                     image_request* images,
-                                    noise_request* noises, uint16_t cap)
+                                    noise_request* noises, uint16_t cap,
+                                    tex_view texes)
             : checkers(reqs),
               solids(solids),
               images(images),
@@ -400,36 +415,28 @@ struct camera {
               checker_count(0),
               solid_count(0),
               image_count(0),
-              noise_count(0) {}
+              noise_count(0),
+              texes(texes) {}
 
         constexpr bool is_full() const noexcept { return remaining == 0; }
 
-        void set_black() noexcept {
-            checker_count = 0;
-            image_count = 0;
-            noise_count = 0;
-            solid_count = 1;
-            solids[0] = color(0);
-        }
-
-        void add(texture const* tex, point3 const& p, float u,
+        void add(texture const tex, point3 const& p, float u,
                  float v) noexcept {
             --remaining;
-            switch (tex->tag) {
+            switch (tex.tag) {
                 case texture::kind::solid:
-                    solids[solid_count++] = tex->as.solid;
+                    solids[solid_count++] = texes.solids[tex.id];
                     break;
                 case texture::kind::checker:
                     new (&checkers[checker_count++])
-                        checker_request{&tex->as.checker, p};
+                        checker_request{&texes.checkers[tex.id], p};
                     break;
                 case texture::kind::noise:
                     new (&noises[noise_count++])
-                        noise_request{tex->as.noise, p};
+                        noise_request{texes.noises[tex.id], p};
                     break;
                 case texture::kind::image:
-                    new (&images[image_count++])
-                        image_request{&tex->as.image, u, v};
+                    new (&images[image_count++]) image_request{tex.id, u, v};
                     break;
             }
         }
@@ -486,8 +493,9 @@ struct camera {
 
     // Simulates a ray until either it hits too many times, hits a light, or
     // hits the skybox.
+    // Returns whether it hits a light or not
     template <is_collection C>
-    static void simulate_ray(ray r, C const& world, tex_request_queue& texes) {
+    static bool simulate_ray(ray r, C const& world, tex_request_queue& texes) {
         while (!texes.is_full()) {
             hit_record rec;
 
@@ -498,13 +506,13 @@ struct camera {
             // separate from geometry (except for hit point).
             hit_status status{ray_t};
             world.propagate(r, status, rec);
-            if (!status.hit_anything) break;
+            if (!status.hit_anything) return false;
 
             apply_reverse_transforms(rec.xforms, rec.geom.p, r.time,
                                      rec.geom.normal);
             texes.add(rec.tex, rec.geom.p, rec.u, rec.v);
 
-            if (rec.mat.tag == material::kind::diffuse_light) return;
+            if (rec.mat.tag == material::kind::diffuse_light) return true;
 
             auto face = ::face(r.direction, rec.geom.normal);
 
@@ -516,6 +524,6 @@ struct camera {
         }
         // The ray didn't converge to a light source, so no light is to be
         // returned
-        texes.set_black();
+        return false;
     }
 };

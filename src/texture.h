@@ -71,45 +71,63 @@ struct noise_texture {
 
 struct texture {
     enum class kind { solid, checker, noise, image } tag{};
+    uint32_t id;
+};
 
-    union data {
-        color solid{};
-        struct checker_texture checker;
-        struct noise_texture noise;
-        rtw_image image;
-        constexpr data() {}
-        ~data() {}
-    } as;
-
-    template <typename... Args>
-    static texture solid(Args&&... args) {
-        texture tex;
-        tex.tag = kind::solid;
-        new (&tex.as.solid) color(std::forward<Args&&>(args)...);
-        return tex;
-    }
-    template <typename... Args>
-    static texture checker(Args&&... args) {
-        texture tex;
-        tex.tag = kind::checker;
-        new (&tex.as.checker) checker_texture(std::forward<Args&&>(args)...);
-        return tex;
-    }
-    template <typename... Args>
-    static texture noise(Args&&... args) {
-        texture tex;
-        tex.tag = kind::noise;
-        new (&tex.as.noise) noise_texture(std::forward<Args&&>(args)...);
-        return tex;
-    }
-    template <typename... Args>
-    static texture image(Args&&... args) {
-        texture tex;
-        tex.tag = kind::image;
-        new (&tex.as.image) rtw_image(std::forward<Args&&>(args)...);
-        return tex;
-    }
+struct tex_view {
+    std::span<rtw_image const> images;
+    std::span<checker_texture const> checkers;
+    std::span<noise_texture const> noises;
+    std::span<color const> solids;
 
    private:
-    constexpr texture() = default;
+    constexpr tex_view() = default;
+    constexpr tex_view(std::span<rtw_image const> images,
+                       std::span<checker_texture const> checkers,
+                       std::span<noise_texture const> noises,
+                       std::span<color const> solids)
+        : images(images), checkers(checkers), noises(noises), solids(solids) {}
+
+    friend class tex_storage;
+};
+
+struct tex_storage {
+    id_storage<rtw_image> images;
+    id_storage<checker_texture> checkers;
+    id_storage<noise_texture> noises;
+    id_storage<color> solids;
+
+    template <typename... Args>
+    texture solid(Args&&... args) {
+        texture tex;
+        tex.id = solids.add(std::forward<Args>(args)...);
+        tex.tag = texture::kind::solid;
+        return tex;
+    }
+    template <typename... Args>
+    texture checker(Args&&... args) {
+        texture tex;
+        tex.id = checkers.add(std::forward<Args>(args)...);
+        tex.tag = texture::kind::checker;
+        return tex;
+    }
+    template <typename... Args>
+    texture noise(Args&&... args) {
+        texture tex;
+        tex.id = noises.add(std::forward<Args>(args)...);
+        tex.tag = texture::kind::noise;
+        return tex;
+    }
+    template <typename... Args>
+    texture image(Args&&... args) {
+        texture tex;
+        tex.id = images.add(std::forward<Args>(args)...);
+        tex.tag = texture::kind::image;
+        return tex;
+    }
+
+    constexpr tex_view view() const noexcept {
+        return tex_view(images.view(), checkers.view(), noises.view(),
+                        solids.view());
+    }
 };

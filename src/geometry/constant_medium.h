@@ -23,22 +23,20 @@
 // hit. We'll pass the ray through the object if the second hit doesn't check
 // out.
 template <is_geometry T>
-struct constant_medium final  {
+struct constant_medium final {
    public:
     T boundary;
     float neg_inv_density;
-    texture const* tex;
+    texture tex;
 
-    constant_medium(T b, float d, color col)
+    constant_medium(T b, float d, color col, tex_storage& texes)
         : boundary(std::move(b)),
           neg_inv_density(-1 / d),
-          tex(leak(texture::solid(col))) {}
+          tex(texes.solid(col)) {}
 
-    [[nodiscard]] aabb boundingBox() const&  {
-        return boundary.boundingBox();
-    }
+    [[nodiscard]] aabb boundingBox() const& { return boundary.boundingBox(); }
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const  {
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const {
         hit_record::geometry discarded_rec;
 
         interval hit1(interval::universe);

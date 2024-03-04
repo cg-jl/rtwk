@@ -3,10 +3,10 @@
 #include <span>
 
 #include "material.h"
+#include "texture.h"
 #include "vec3.h"
 
 struct transform;
-struct texture;
 
 struct hit_record {
     struct geometry {
@@ -20,6 +20,6 @@ struct hit_record {
     float v{};
     material mat{};
     // TODO: Inline texture struct into this?
-    texture const* tex{};
+    texture tex{};
     std::span<transform const> xforms{};
 };
