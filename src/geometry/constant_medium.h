@@ -23,7 +23,7 @@
 // hit. We'll pass the ray through the object if the second hit doesn't check
 // out.
 template <is_geometry T>
-struct constant_medium final : public hittable {
+struct constant_medium final  {
    public:
     T boundary;
     float neg_inv_density;
@@ -34,11 +34,11 @@ struct constant_medium final : public hittable {
           neg_inv_density(-1 / d),
           tex(leak(texture::solid(col))) {}
 
-    [[nodiscard]] aabb bounding_box() const& override {
+    [[nodiscard]] aabb boundingBox() const&  {
         return boundary.boundingBox();
     }
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const  {
         hit_record::geometry discarded_rec;
 
         interval hit1(interval::universe);

@@ -7,15 +7,15 @@
 #include "rtweekend.h"
 
 template <is_hittable T>
-struct view final : public collection {
+struct view final {
     std::span<T const> objects;
 
     constexpr explicit view(std::span<T const> objects) : objects(objects) {}
 
-    [[nodiscard]] aabb aggregate_box() const& override {
+    [[nodiscard]] aabb aggregate_box() const& {
         aabb box = empty_bb;
         for (auto const& h : objects) {
-            box = aabb(box, h.bounding_box());
+            box = aabb(box, h.boundingBox());
         }
         return box;
     }
@@ -41,10 +41,9 @@ struct view final : public collection {
         }
     }
 
-    void propagate(ray const& r, hit_status& status,
-                   hit_record& rec) const& override {
+    void propagate(ray const& r, hit_status& status, hit_record& rec) const& {
         return propagate(r, status, rec, objects);
     }
 };
 
-using poly_view = view<poly_hittable>;
+using poly_view = view<dyn_hittable>;

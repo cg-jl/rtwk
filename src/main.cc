@@ -90,7 +90,7 @@ static void random_spheres() {
     world.add(leak(geometry_wrapper(sphere(point3(4, 1, 0), 1.0), material3,
                                     leak(texture::solid(0.7, .6, .5)))));
 
-    auto const *scene = bvh::split_or_view(world);
+    auto const scene = bvh::split_or_view(world);
 
     camera cam;
 
@@ -108,7 +108,7 @@ static void random_spheres() {
     cam.defocus_angle = 0.02;
     cam.focus_dist = 10.0;
 
-    cam.render(*scene, enable_progress);
+    cam.render(scene, enable_progress);
 }
 
 static void two_spheres() {
@@ -172,7 +172,6 @@ static void earth() {
 
 static void two_perlin_spheres() {
     poly_list world;
-
 
     auto pertext = texture::noise(4);
     world.add(leak(geometry_wrapper(sphere(point3(0, -1000, 0), 1000),
@@ -247,7 +246,6 @@ static void quads() {
 
 static void simple_light() {
     poly_list world;
-
 
     auto pertext = texture::noise(4);
     world.add(leak(geometry_wrapper(sphere(point3(0, -1000, 0), 1000),

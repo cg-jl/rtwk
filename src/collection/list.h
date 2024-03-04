@@ -47,4 +47,4 @@ struct list final {
     view<T> finish() const& { return view<T>(values); }
 };
 
-using poly_list = list<poly_hittable>;
+using poly_list = list<dyn_hittable>;

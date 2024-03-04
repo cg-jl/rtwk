@@ -48,7 +48,10 @@ struct camera {
     float focus_dist =
         10;  // Distance from camera look-from point to plane of perfect focus
 
-    void render(collection const& world, bool enable_progress) {
+    // NOTE: may use dyn collection to avoid templating on collection?
+    // Compile times don't seem too bad rn.
+    template<is_collection C>
+    void render(C const& world, bool enable_progress) {
         initialize();
 
         auto px_count = image_width * image_height;
@@ -483,8 +486,8 @@ struct camera {
 
     // Simulates a ray until either it hits too many times, hits a light, or
     // hits the skybox.
-    static void simulate_ray(ray r, collection const& world,
-                             tex_request_queue& texes) {
+    template <is_collection C>
+    static void simulate_ray(ray r, C const& world, tex_request_queue& texes) {
         while (!texes.is_full()) {
             hit_record rec;
 
@@ -493,7 +496,7 @@ struct camera {
             // TODO: maybe it's better to have a bounce() method that redirects
             // the ray, since texture is the only thing that is completely
             // separate from geometry (except for hit point).
-            collection::hit_status status{ray_t};
+            hit_status status{ray_t};
             world.propagate(r, status, rec);
             if (!status.hit_anything) break;
 

@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "aabb.h"
+#include "collection.h"
 #include "hit_record.h"
 #include "hittable.h"
 #include "ray.h"
@@ -230,7 +231,7 @@ inline void transform::apply_to_bbox(aabb& box) const& {
 }
 
 template <typename T>
-struct transformed_collection final : public collection {
+struct transformed_collection final {
     // TODO: make these not owned
     std::vector<transform> transf;
     T coll;
@@ -240,7 +241,7 @@ struct transformed_collection final : public collection {
     transformed_collection(transform tf, T coll)
         : transformed_collection(std::vector{std::move(tf)}, std::move(coll)) {}
 
-    [[nodiscard]] aabb aggregate_box() const& override {
+    [[nodiscard]] aabb aggregate_box() const& {
         aabb box = coll.aggregate_box();
         for (auto const& tf : transf) {
             tf.apply_to_bbox(box);
@@ -248,8 +249,7 @@ struct transformed_collection final : public collection {
         return box;
     }
 
-    void propagate(ray const& r, hit_status& status,
-                   hit_record& rec) const& override {
+    void propagate(ray const& r, hit_status& status, hit_record& rec) const& {
         ray r_copy = r;
 
         for (auto const& tf : transf) {

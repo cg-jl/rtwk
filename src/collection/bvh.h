@@ -36,20 +36,15 @@
 
 namespace bvh {
 
-static bool box_compare(hittable const* a, hittable const* b, int axis_index) {
-    return a->bounding_box().axis(axis_index).min <
-           b->bounding_box().axis(axis_index).min;
-}
-
 // NOTE: what about using mean squares algorithm to fit a plane between the
 // boxes?
 // We could fit one plane for minimums and one plane for maximums. Check the
 // distance of the plane to the closest box
 
-template <is_hittable T>
+template <has_bb T>
 static size_t partition(std::span<T> obs, int axis) {
     std::sort(obs.begin(), obs.end(), [axis](T const& a, T const& b) {
-        return box_compare(&a, &b, axis);
+        return a.boundingBox().axis(axis).min < b.boundingBox().axis(axis).min;
     });
 
     auto mid = obs.size() / 2;
@@ -72,7 +67,7 @@ static float cumulative_right_visit(int depth) {
     return visit_right_cost * float(depth * (depth + 1) / 2);
 }
 
-template <is_hittable T>
+template <has_bb T>
 static float eval_partition_cost(size_t split_index, std::span<T const> obs,
                                  int axis, int depth) {
     interval whole = interval::empty;
@@ -80,11 +75,11 @@ static float eval_partition_cost(size_t split_index, std::span<T const> obs,
     interval right = interval::empty;
 
     for (auto const& ob : obs.subspan(0, split_index)) {
-        left = interval(left, ob.bounding_box().axis(axis));
+        left = interval(left, ob.boundingBox().axis(axis));
     }
 
     for (auto const& ob : obs.subspan(split_index)) {
-        right = interval(right, ob.bounding_box().axis(axis));
+        right = interval(right, ob.boundingBox().axis(axis));
     }
 
     whole = interval(left, right);
@@ -104,7 +99,7 @@ static float eval_partition_cost(size_t split_index, std::span<T const> obs,
     return a_cost + b_cost;
 }
 
-template <is_hittable T>
+template <typename T>
 static float eval_linear_cost(std::span<T const> obs) {
     // NOTE: Since everything is going through shared pointers right now, I'll
     // add another penalty to the linear one, since it isn't fully cached like
@@ -132,7 +127,7 @@ struct node {
 // NOTE: currently assuming that partitions are always symmetric, meaning
 // that we can always compute the child spans from a parent span.
 template <is_hittable T>
-struct tree final : public collection {
+struct tree final {
     tree() = default;
 
     int root_node{};
@@ -144,12 +139,11 @@ struct tree final : public collection {
           inorder_nodes(std::move(inorder_nodes)),
           objects(objects) {}
 
-    [[nodiscard]] aabb aggregate_box() const& override {
+    [[nodiscard]] aabb aggregate_box() const& {
         return inorder_nodes[root_node].box;
     }
 
-    void propagate(ray const& r, hit_status& status,
-                   hit_record& rec) const& override {
+    void propagate(ray const& r, hit_status& status, hit_record& rec) const& {
         hit_tree(r, status, rec, inorder_nodes.data(), root_node, objects);
     }
 
@@ -246,11 +240,11 @@ template <is_hittable T>
     auto right_obs = objects.subspan(mid);
     // NOTE: duplicate work from eval_partition_cost
     for (auto const& ob : left_obs) {
-        left_part = interval(left_part, ob.bounding_box().axis(best_axis));
+        left_part = interval(left_part, ob.boundingBox().axis(best_axis));
     }
 
     for (auto const& ob : objects) {
-        whole_bb = aabb(whole_bb, ob.bounding_box());
+        whole_bb = aabb(whole_bb, ob.boundingBox());
     }
 
     auto left_best = find_best_split(left_obs, depth + 1);
@@ -291,15 +285,15 @@ template <is_hittable T>
 }
 
 template <is_hittable T>
-[[nodiscard]] static collection const* split_or_view(list<T>& objects) {
+[[nodiscard]] static dyn_collection split_or_view(list<T>& objects) {
     assert(objects.values.size() >= 2 && "There's no need to split this!");
 
     std::vector<node> inorder_nodes;
 
     auto initial_split = find_best_split(objects.span(), 0);
 
-    if (!initial_split) return leak(objects.finish());
+    if (!initial_split) return dyn_collection(leak(objects.finish()));
 
-    return leak(split(objects, *initial_split));
+    return dyn_collection(leak(split(objects, *initial_split)));
 }
 }  // namespace bvh

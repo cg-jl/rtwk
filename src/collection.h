@@ -19,30 +19,41 @@
 // Given that there is only BVH and hittable view (and hittable list while it's
 // not a builder), it would remove one layer of indirection.
 
+struct hit_status {
+    bool hit_anything;
+    interval ray_t;
+
+    explicit hit_status(interval initial_intv)
+        : hit_anything(false), ray_t(initial_intv) {}
+};
+
 // Abstraction over a collection. Will be used as I prototype different ways of
 // fitting the final geometries into a separate structure, so that I con move
 // material & texture information to other places.
-struct collection {
-    struct hit_status {
-        bool hit_anything;
-        interval ray_t;
-
-        explicit hit_status(interval initial_intv)
-            : hit_anything(false), ray_t(initial_intv) {}
-    };
-
-    // NOTE: Should I force having an object span or should I just let each
-    // collection handle it how they want?
-    virtual void propagate(ray const &r, hit_status &status,
-                           hit_record &rec) const & = 0;
-    // NOTE: I need a way to fiund the final box for layering.
-    // Ideally this should go after I start specifying more on layers.
-    [[nodiscard]] virtual aabb aggregate_box() const & = 0;
-};
 
 // TODO: move out from base class
 template <typename T>
-concept is_collection = std::is_base_of_v<collection, T>;
+concept is_collection =
+    requires(T const &coll, ray const &r, hit_status &status, hit_record &rec) {
+        { coll.propagate(r, status, rec) } -> std::same_as<void>;
+    } && requires(T const &coll) {
+        { coll.aggregate_box() } -> std::same_as<aabb>;
+    };
+
+namespace detail::collection::erased {
+template <is_collection T>
+static void propagate(void const *ptr, ray const &r, hit_status &status,
+                      hit_record &rec) {
+    T const &p = *reinterpret_cast<T const *>(ptr);
+    return p.propagate(r, status, rec);
+}
+
+template <is_collection T>
+static aabb aggregate_box(void const *ptr) {
+    T const &p = *reinterpret_cast<T const *>(ptr);
+    return p.aggregate_box();
+}
+}  // namespace detail::collection::erased
 
 // NOTE: Should I restrict sets of transforms to different collections?
 // Maybe it's not a good idea if I want to separate differently rotated objects
@@ -54,35 +65,40 @@ concept is_collection = std::is_base_of_v<collection, T>;
 // collections.
 // It serves as a way to layer collections
 template <is_collection T>
-struct hittable_collection final : public hittable {
+struct hittable_collection final {
     T wrapped;
 
     explicit constexpr hittable_collection(T wrapped)
         : wrapped(std::move(wrapped)) {}
 
-    [[nodiscard]] aabb bounding_box() const & override {
+    [[nodiscard]] aabb boundingBox() const & {
         return wrapped.aggregate_box();
     }
-    bool hit(ray const &r, interval &ray_t, hit_record &rec) const override {
-        collection::hit_status status{ray_t};
+    bool hit(ray const &r, interval &ray_t, hit_record &rec) const {
+        hit_status status{ray_t};
         wrapped.propagate(r, status, rec);
         return status.hit_anything;
     }
 };
 
 // TODO: these wrappers should be named 'pointer collection" or sth like that.
-struct poly_collection final : public collection {
-    collection const *poly;
+struct dyn_collection final {
+    void const *ptr;
+    void (*propagate_pfn)(void const *, ray const &, hit_status &,
+                          hit_record &);
+    aabb (*box_pfn)(void const *);
 
-    constexpr poly_collection(collection const *poly) : poly(poly) {}
-    [[nodiscard]] aabb aggregate_box() const & noexcept override {
-        return poly->aggregate_box();
-    }
+    template <is_collection T>
+    constexpr dyn_collection(T const *poly)
+        : ptr(poly),
+          propagate_pfn(detail::collection::erased::propagate<T>),
+          box_pfn(detail::collection::erased::aggregate_box<T>) {}
 
-    void propagate(ray const &r, hit_status &status,
-                   hit_record &rec) const & override {
-        return poly->propagate(r, status, rec);
+    [[nodiscard]] aabb aggregate_box() const & noexcept { return box_pfn(ptr); }
+
+    void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
+        return propagate_pfn(ptr, r, status, rec);
     }
 };
 
-using hittable_poly_collection = hittable_collection<poly_collection>;
+using hittable_poly_collection = hittable_collection<dyn_collection>;

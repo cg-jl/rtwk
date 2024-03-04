@@ -48,46 +48,47 @@
 // NOTE: hittable occupies 8 bytes and adds always a pointer indirection, just
 // to get a couple of functions. What about removing one of the indirections?
 
-struct hittable {
-    // NOTE: is it smart to force one cacheline per hittable?
-    // Now that we've reduced numbers to half the size, there is more space
-    // available.
-    // It would be nice, since then we could modify storage to inline the
-    // structs into cachelines.
-
-    virtual ~hittable() = default;
-    [[nodiscard]] virtual aabb bounding_box() const& = 0;
-
-    virtual bool hit(ray const& r, interval& ray_t, hit_record& rec) const = 0;
-
-    bool hit(ray const& r, hit_record& rec) const& {
-        auto bb = bounding_box();
-        auto absolute_max_dist = (point3(bb.x.max, bb.y.max, bb.z.max) -
-                                  point3(bb.x.min, bb.y.min, bb.z.min))
-                                     .length_squared();
-        interval t(0.001, absolute_max_dist);
-        return hit(r, t, rec);
-    }
-};
-
 template <typename T>
-concept is_hittable = std::is_base_of_v<hittable, T>;
+concept is_hittable =
+    requires(T const& ob, ray const& r, interval& ray_t, hit_record& rec) {
+        { ob.hit(r, ray_t, rec) } -> std::same_as<bool>;
+    } && has_bb<T>;
 
-struct poly_hittable final : public hittable {
-    hittable const* ptr;
+namespace erase::hittable {
+template <is_hittable H>
+static bool hit(void const* ptr, ray const& r, interval& ray_t,
+                hit_record& rec) {
+    H const& h = *reinterpret_cast<H const*>(ptr);
+    return h.hit(r, ray_t, rec);
+}
 
-    explicit constexpr poly_hittable(hittable const* ptr) : ptr(ptr) {}
+template <is_hittable H>
+static aabb boundingBox(void const* ptr) {
+    H const& h = *reinterpret_cast<H const*>(ptr);
+    return h.boundingBox();
+}
 
-    [[nodiscard]] aabb bounding_box() const& override {
-        return ptr->bounding_box();
-    }
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const override {
-        return ptr->hit(r, ray_t, rec);
+}  // namespace erase::hittable
+
+struct dyn_hittable final {
+    void const* ptr;
+    bool (*hit_pfn)(void const*, ray const&, interval&, hit_record&);
+    aabb (*box_pfn)(void const*);
+
+    template <is_hittable H>
+    explicit constexpr dyn_hittable(H const* ptr)
+        : ptr(ptr),
+          hit_pfn(erase::hittable::hit<H>),
+          box_pfn(erase::hittable::boundingBox<H>) {}
+
+    [[nodiscard]] aabb boundingBox() const& { return box_pfn(ptr); }
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const {
+        return hit_pfn(ptr, r, ray_t, rec);
     }
 };
 
 template <is_geometry T>
-struct geometry_wrapper final : public hittable {
+struct geometry_wrapper final {
     T geom;
     material mat;
     texture const* tex;
@@ -95,10 +96,8 @@ struct geometry_wrapper final : public hittable {
     geometry_wrapper(T geom, material mat, texture* tex)
         : geom(std::move(geom)), mat(std::move(mat)), tex(tex) {}
 
-    [[nodiscard]] aabb bounding_box() const& final {
-        return geom.boundingBox();
-    }
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const final {
+    [[nodiscard]] aabb boundingBox() const& { return geom.boundingBox(); }
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const {
         auto did_hit = geom.hit(r, rec.geom, ray_t);
         if (did_hit) {
             geom.getUVs(rec.geom, rec.u, rec.v);

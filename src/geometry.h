@@ -10,6 +10,11 @@
 struct transform;
 
 template <typename T>
+concept has_bb = requires(T const &t) {
+    { t.boundingBox() } -> std::same_as<aabb>;
+};
+
+template <typename T>
 concept is_geometry =
     requires(T const &g, hit_record::geometry const &p, float &u, float &v) {
         { g.getUVs(p, u, v) } -> std::same_as<void>;
@@ -20,5 +25,4 @@ concept is_geometry =
     } &&
     requires(T const &g) {
         { g.getTransforms() } -> std::same_as<std::span<transform const>>;
-        { g.boundingBox() } -> std::same_as<aabb>;
-    };
+    } && has_bb<T>;
