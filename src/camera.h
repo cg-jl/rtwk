@@ -89,6 +89,7 @@ struct camera {
                 std::make_unique<checker_request[]>(max_rays);
             auto image_requests = std::make_unique<image_request[]>(max_rays);
             auto noise_requests = std::make_unique<noise_request[]>(max_rays);
+            auto sampled_grays = std::make_unique<float[]>(max_rays);
             auto sampled_colors = std::make_unique<color[]>(max_rays);
 
             auto checker_counts =
@@ -147,12 +148,11 @@ struct camera {
                             auto const& info = noise_requests[k];
                             // TODO: have perlin noise be a parameter to
                             // noise.value()
-                            sampled_colors[k] =
+                            sampled_grays[k] =
                                 info.noise.value(info.p, perlin_noise);
                         }
-                        multiply_samples(sampled_colors.get(),
-                                         noise_counts.get(), samples_per_pixel,
-                                         ray_colors.get());
+                        multiply_grays(sampled_grays.get(), noise_counts.get(),
+                                       samples_per_pixel, ray_colors.get());
                     }
 
                     if (total_images != 0) {
@@ -444,6 +444,21 @@ struct camera {
             while (--num_samples) col *= *src++;
 
             dst[k] = col;
+        }
+    }
+
+    // Assumes `dst` is initialized and uses it as the source
+    static void multiply_grays(float const* src,
+                               uint16_t const* counts_per_sample,
+                               uint16_t total_samples, color* dst) {
+        for (uint16_t k = 0; k < total_samples; ++k) {
+            auto num_samples = counts_per_sample[k];
+            if (num_samples == 0) continue;
+
+            auto accum = *src++;
+            while (--num_samples) accum *= *src++;
+
+            dst[k] *= accum;
         }
     }
 

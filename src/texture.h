@@ -58,9 +58,11 @@ struct noise_texture {
     constexpr noise_texture() = default;
     explicit noise_texture(float sc) : scale(sc) {}
 
-    [[nodiscard]] color value(point3 const& p, perlin const* noise) const {
+    [[nodiscard]] float value(point3 const& p, perlin const* noise) const {
         auto s = scale * p;
-        return color(1, 1, 1) * 0.5 * (1 + sin(s.z() + 10 * noise->turb(s)));
+        auto wave = sin(s.z() + 10 * noise->turb(s));
+        auto grayscale = 0.5f * (1.f + wave);
+        return grayscale;
     }
 
    private:

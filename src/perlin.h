@@ -42,30 +42,25 @@ struct perlin {
         auto i = static_cast<int>(std::floor(p.x()));
         auto j = static_cast<int>(std::floor(p.y()));
         auto k = static_cast<int>(std::floor(p.z()));
-        vec3 c[2][2][2];
-
-        for (int di = 0; di < 2; di++)
-            for (int dj = 0; dj < 2; dj++)
-                for (int dk = 0; dk < 2; dk++)
-                    c[di][dj][dk] = ranvec[perm_x[(i + di) % point_count] ^
-                                           perm_y[(j + dj) % point_count] ^
-                                           perm_z[(k + dk) % point_count]];
-
         auto uu = u * u * (3 - 2 * u);
         auto vv = v * v * (3 - 2 * v);
         auto ww = w * w * (3 - 2 * w);
         auto accum = 0.0f;
 
-        for (int i = 0; i < 2; i++)
-            for (int j = 0; j < 2; j++)
-                for (int k = 0; k < 2; k++) {
+        for (int di = 0; di < 2; di++)
+            for (int dj = 0; dj < 2; dj++)
+                for (int dk = 0; dk < 2; dk++) {
+                    auto rv = ranvec[perm_x[(i + di) % point_count] ^
+                                     perm_y[(j + dj) % point_count] ^
+                                     perm_z[(k + dk) % point_count]];
+
                     // NOTE: These are positive only when their i/j/k is 0,
                     // since u, v, w are fractional parts (< 1).
-                    vec3 weightV(u - float(i), v - float(j), w - float(k));
-                    accum += (float(i) * uu + float(1 - i) * (1 - uu)) *
-                             (float(j) * vv + float(1 - j) * (1 - vv)) *
-                             (float(k) * ww + float(1 - k) * (1 - ww)) *
-                             dot(c[i][j][k], weightV);
+                    vec3 weightV(u - float(di), v - float(dj), w - float(dk));
+                    accum += (float(di) * uu + float(1 - di) * (1 - uu)) *
+                             (float(dj) * vv + float(1 - dj) * (1 - vv)) *
+                             (float(dk) * ww + float(1 - dk) * (1 - ww)) *
+                             dot(rv, weightV);
                 }
 
         return accum;
@@ -83,7 +78,7 @@ struct perlin {
             temp_p *= 2;
         }
 
-        return std::fabs(accum);
+        return accum;
     }
 
    private:
