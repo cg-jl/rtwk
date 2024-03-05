@@ -26,3 +26,10 @@ concept is_geometry =
     requires(T const &g) {
         { g.getTransforms() } -> std::same_as<std::span<transform const>>;
     } && has_bb<T>;
+
+template <typename T, typename Coll>
+concept is_geometry_collection = requires(Coll const &gc, ray const &r,
+                                          hit_record::geometry &res,
+                                          interval &ray_t) {
+    { gc.hit(r, res, ray_t) } -> std::same_as<T const *>;
+} && is_geometry<T>;

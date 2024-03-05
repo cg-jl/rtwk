@@ -30,8 +30,8 @@ struct view final {
     }
 
     constexpr view<T> subspan(
-        size_t start, size_t size = std::dynamic_extent) const noexcept {
-        return view(objects.subspan(start, size));
+        size_t start, size_t count = std::dynamic_extent) const noexcept {
+        return view(objects.subspan(start, count));
     }
 
     static void propagate(ray const& r, hit_status& status, hit_record& rec,

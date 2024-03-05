@@ -13,12 +13,18 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
 #include <optional>
 #include <span>
+#include <utility>
+#include <vector>
 
 #include "aabb.h"
+#include "fixedvec.h"
+#include "geometry/box.h"
 #include "hittable.h"
 #include "interval.h"
 #include "list.h"
@@ -124,83 +130,134 @@ struct node {
     int axis{};
     float split_point{};
 };
+
+struct range {
+    size_t start, end;
+
+    [[nodiscard]] constexpr size_t size() const noexcept { return end - start; }
+
+    [[nodiscard]] constexpr std::pair<range, range> split(
+        size_t first_of_right) const noexcept {
+        return {{start, start + first_of_right}, {start + first_of_right, end}};
+    }
+};
+
+// TODO: make it span over a range
+// TODO: can I figure out box index from layer?
+struct state {
+    range span;
+    int box_index;
+    float dist_to_split_plane;
+};
+
 // NOTE: currently assuming that partitions are always symmetric, meaning
 // that we can always compute the child spans from a parent span.
-template <is_hittable T>
 struct tree final {
     tree() = default;
 
-    int root_node{};
+    int root_node;
     std::vector<node> inorder_nodes;
-    view<T> objects;
 
-    tree(int root_node, std::vector<node> inorder_nodes, view<T> objects)
-        : root_node(root_node),
-          inorder_nodes(std::move(inorder_nodes)),
-          objects(objects) {}
+    tree(int root_node, std::vector<node> inorder_nodes)
+        : root_node(root_node), inorder_nodes(std::move(inorder_nodes)) {}
 
     [[nodiscard]] aabb aggregate_box() const& {
         return inorder_nodes[root_node].box;
     }
 
-    void propagate(ray const& r, hit_status& status, hit_record& rec) const& {
-        hit_tree(r, status, rec, inorder_nodes.data(), root_node, objects);
+    template <typename Inner>
+    void filter(range initial, ray const& r, interval& ray_t,
+                Inner func) const& {
+        // TODO: not make memory allocations that huge?
+        std::vector<state> second_sides;
+
+        second_sides.emplace_back(initial, root_node, ray_t.min);
+
+        while (true) {
+            auto v = filter_next(r, ray_t, second_sides, inorder_nodes.data());
+            if (!v.has_value()) break;
+            range span = v.value();
+            func(ray_t, span);
+        }
     }
 
-    static void hit_tree(ray const& r, hit_status& status, hit_record& rec,
-                         node const* nodes, int root, view<T> const& objects) {
-        if (root == -1) {
-            return objects.propagate(r, status, rec);
-        } else {
-            auto const& node = nodes[root];
+    // NOTE: The optional here is only to remove the ones that were
+    // discarded
+    static std::optional<range> filter_next(ray const& r, interval ray_t,
+                                            std::vector<state>& second_sides,
+                                            node const* nodes) {
+        while (!second_sides.empty()) {
+            state curr = second_sides.back();
+            second_sides.pop_back();
 
-            if (!node.box.hit(r, status.ray_t)) return;
+            // Go left while we can
+            while (curr.box_index != -1) {
+                node const& node = nodes[curr.box_index];
 
-            // NOTE: space is partitioned along an axis, so we can know where
-            // the ray may hit first. We also may know if the ray hits along
-            // only one place or both.
-            //
-            // Remember that left means towards negative and right means towards
-            // positive.
+                // We don't need to process the hit if the recorded distance
+                // can't be made better.
+                if (curr.dist_to_split_plane >= ray_t.max ||
+                    !node.box.hit(r, ray_t)) {
+                    goto pop_next;
+                }
 
-            // NOTE: With this, now we don't always visit left first, but the
-            // best memory order is still in-order sorting.
+                auto space_mid = node.split_point;
+                auto axis = node.axis;
 
-            auto space_mid = node.split_point;
-            auto axis = node.axis;
+                int first_child = node.left;
+                int second_child = node.right;
 
-            int first_child = node.left;
-            int second_child = node.right;
+                auto [first_span, second_span] =
+                    curr.span.split(curr.span.size() / 2);
 
-            auto first_span = objects.subspan(0, objects.size() / 2);
-            auto second_span = objects.subspan(objects.size() / 2);
+                auto ray_origins_in_right = r.origin[axis] > space_mid;
+                auto dist_to_split_plane =
+                    std::fabs(r.origin[axis] - space_mid);
 
-            auto ray_origins_in_right = r.origin[axis] > space_mid;
+                // If the origin is on the right part then we want to check
+                // right first
+                if (ray_origins_in_right) {
+                    std::swap(first_child, second_child);
+                    std::swap(first_span, second_span);
+                }
 
-            auto dist_to_split_plane = std::fabs(r.origin[axis] - space_mid);
+                // Push the other one
+                second_sides.emplace_back(second_span, second_child,
+                                          dist_to_split_plane);
 
-            // If the origin is on the right part  then we want to check right
-            // first
-
-            if (ray_origins_in_right) {
-                std::swap(first_child, second_child);
-                std::swap(first_span, second_span);
+                curr = {first_span, first_child, dist_to_split_plane};
             }
 
-            hit_tree(r, status, rec, nodes, first_child, first_span);
-
-            // The first side hit something that is closer to the ray origin
-            // that anything on the second side will ever be!
-            if (dist_to_split_plane >= status.ray_t.max) return;
-
-            return hit_tree(r, status, rec, nodes, second_child, second_span);
+            return curr.span;
+        pop_next:;
         }
+        return {};
+    }
+};
+
+template <is_hittable T>
+struct over_hittables final {
+    struct tree tree;
+    view<T> objects;
+
+    over_hittables(struct tree tree, view<T> objects)
+        : tree(std::move(tree)), objects(std::move(objects)) {}
+
+    [[nodiscard]] aabb aggregate_box() const& { return tree.aggregate_box(); }
+
+    void propagate(ray const& r, hit_status& status, hit_record& rec) const& {
+        tree.filter(range{0, objects.size()}, r, status.ray_t,
+                    [&r, &status, &rec, objects = this->objects](
+                        interval& _ray_t, range span) {
+                        objects.subspan(span.start, span.size())
+                            .propagate(r, status, rec);
+                    });
     }
 };
 
 // Returns the best axis to split, or none if no split can outperform the cost
 // of going one by one.
-template <is_hittable T>
+template <has_bb T>
 [[nodiscard]] static std::optional<int> find_best_split(std::span<T> objects,
                                                         int depth) {
     if (objects.size() == 1) return {};
@@ -223,8 +280,11 @@ template <is_hittable T>
     return best_axis;
 }
 
+// TODO: make splitting independent of span type (random + multiple access
+// iterator)
+
 // Returns the index for the parent
-template <is_hittable T>
+template <has_bb T>
 [[nodiscard]] static int split_tree(std::span<T> objects,
                                     std::vector<node>& inorder_nodes,
                                     int best_axis, int depth = 0) {
@@ -269,19 +329,32 @@ template <is_hittable T>
     return int(parent);
 }
 
-template <is_hittable T>
-[[nodiscard]] static bvh::tree<T> split(list<T>& objects, int initial_split) {
+template <has_bb T>
+[[nodiscard]] static bvh::tree make_splits(std::span<T> objects,
+                                           int initial_split) {
     std::vector<node> inorder_nodes;
-    auto root = split_tree(objects.span(), inorder_nodes, initial_split);
+    auto root = split_tree(objects, inorder_nodes, initial_split);
 
-    return tree<T>(root, std::move(inorder_nodes), objects.finish());
+    return tree(root, std::move(inorder_nodes));
+}
+
+template <has_bb T>
+[[nodiscard]] static bvh::tree must_make_splits(std::span<T> objects) {
+    auto initial_split = find_best_split(objects, 0);
+    assert(bool(initial_split) && "Should be able to split this");
+    return make_splits(objects, *initial_split);
 }
 
 template <is_hittable T>
-[[nodiscard]] static bvh::tree<T> must_split(list<T>& objects) {
-    auto initial_split = find_best_split(objects.span(), 0);
-    assert(bool(initial_split) && "Should be able to split this");
-    return split(objects, *initial_split);
+[[nodiscard]] static over_hittables<T> split(list<T>& objects,
+                                             int initial_split) {
+    return over_hittables<T>(make_splits(objects.span(), initial_split),
+                             objects.finish());
+}
+template <is_hittable T>
+[[nodiscard]] static over_hittables<T> must_split(list<T>& objects) {
+    return over_hittables<T>(must_make_splits(objects.span()),
+                             objects.finish());
 }
 
 template <is_hittable T>

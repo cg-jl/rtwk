@@ -34,6 +34,7 @@
 #include <utility>
 
 #include "aabb.h"
+#include "collection.h"
 #include "geometry.h"
 #include "hit_record.h"
 #include "rtweekend.h"

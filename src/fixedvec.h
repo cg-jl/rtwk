@@ -22,6 +22,12 @@ struct vecview {
 
     T* reserve() { return &values[count++]; }
 
+    T const& top() { return values[count - 1]; }
+
+    T pop() { return values[--count]; }
+
+    void drop_top() { --count; }
+
     template <typename... Args>
     void emplace_back(Args&&... args) {
         T* __restrict__ ptr = reserve();

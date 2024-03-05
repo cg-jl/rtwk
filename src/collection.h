@@ -71,9 +71,7 @@ struct hittable_collection final {
     explicit constexpr hittable_collection(T wrapped)
         : wrapped(std::move(wrapped)) {}
 
-    [[nodiscard]] aabb boundingBox() const & {
-        return wrapped.aggregate_box();
-    }
+    [[nodiscard]] aabb boundingBox() const & { return wrapped.aggregate_box(); }
     bool hit(ray const &r, interval &ray_t, hit_record &rec) const {
         hit_status status{ray_t};
         wrapped.propagate(r, status, rec);
@@ -99,6 +97,13 @@ struct dyn_collection final {
     void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
         return propagate_pfn(ptr, r, status, rec);
     }
+};
+
+// TODO: geometry-only collections?
+// NOTE: BVH is somewhat a filter, but it has memory.
+template <is_geometry T>
+struct single_tex_wrapper {
+    std::span<T const> objects;
 };
 
 using hittable_poly_collection = hittable_collection<dyn_collection>;
