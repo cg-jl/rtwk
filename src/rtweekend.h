@@ -26,7 +26,7 @@ using std::sqrt;
 
 // Constants
 
-static float constexpr infinity = std::numeric_limits<float>::infinity();
+static float constexpr infinity = 1e10f;
 static float constexpr pi = 3.1415926535897932385;
 
 // NOTE: default-initializing mersenne-twister seems to always set the same
@@ -36,7 +36,7 @@ static thread_local std::uniform_real_distribution<float> s_ds;
 
 // Utility Functions
 
-inline float degrees_to_radians(float degrees) { return degrees * pi / 180.0; }
+inline float degrees_to_radians(float degrees) { return degrees * pi / 180.0f; }
 
 // Returns a random floating point value in [0,1).
 inline float random_float() { return s_ds(s_mt); }

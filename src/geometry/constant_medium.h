@@ -27,12 +27,12 @@ struct constant_medium final {
    public:
     T boundary;
     float neg_inv_density;
-    texture tex;
+    uint32_t color_id;
 
     constant_medium(T b, float d, color col, tex_storage& texes)
         : boundary(std::move(b)),
           neg_inv_density(-1 / d),
-          tex(texes.solid(col)) {}
+          color_id(texes.solid(col).id) {}
 
     [[nodiscard]] aabb boundingBox() const& { return boundary.boundingBox(); }
 
@@ -41,7 +41,7 @@ struct constant_medium final {
 
         interval hit1(interval::universe);
         if (!boundary.hit(r, discarded_rec, hit1)) return false;
-        auto first_hit = hit1.max;
+        auto first_hit = std::max(hit1.max, ray_t.min);
 
         // hit into the other side
         interval hit2(first_hit + 0.001f, infinity);
@@ -49,8 +49,6 @@ struct constant_medium final {
         auto second_hit = std::min(hit2.max, ray_t.max);
 
         if (first_hit >= second_hit) return false;
-
-        if (first_hit < 0) first_hit = 0;
 
         auto distance_inside_boundary = second_hit - first_hit;
         // using a flat wave model of EM waves:
@@ -61,10 +59,12 @@ struct constant_medium final {
         // - choose a dampen factor (0-1)
         // - get the distance by multiplying by -1 / alpha = d
         // NOTE: we're assuming it has a constant dephase factor at any
+        //
+        // if (hit_distance > distance_inside_boundary) return false;
         // frequency (color) which isn't exactly accurate :P
         // But, since we're path tracing in reverse, we don't know the 'set' of
         // frequencies that will pass through
-        auto hit_distance = neg_inv_density * logf(random_float());
+        auto hit_distance = neg_inv_density * logf(random_float() + 0.01f);
 
         // ray came from outside the material and passed through.
         // Assuming it's a non-magnetic bad conductor ~ β = 1/c * j2πf√ϵr√(1 -
@@ -75,7 +75,7 @@ struct constant_medium final {
         rec.geom.p = r.at(ray_t.max);
 
         rec.mat = material::isotropic();
-        rec.tex = tex;
+        rec.tex = texture{texture::kind::solid, color_id};
 
         return true;
     }

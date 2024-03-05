@@ -41,11 +41,11 @@ struct interval {
         return x;
     }
 
-    static const interval empty, universe;
+    static interval const empty, universe;
 };
 
-inline const interval interval::empty = interval(+infinity, -infinity);
-inline const interval interval::universe = interval(-infinity, +infinity);
+inline interval const interval::empty = interval(+infinity, -infinity);
+inline interval const interval::universe = interval(-infinity, +infinity);
 
 inline interval operator+(interval const& ival, float displacement) {
     return {ival.min + displacement, ival.max + displacement};
