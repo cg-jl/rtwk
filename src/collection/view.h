@@ -12,7 +12,7 @@ struct view final {
 
     constexpr explicit view(std::span<T const> objects) : objects(objects) {}
 
-    [[nodiscard]] aabb aggregate_box() const& {
+    [[nodiscard]] aabb boundingBox() const& {
         aabb box = empty_bb;
         for (auto const& h : objects) {
             box = aabb(box, h.boundingBox());

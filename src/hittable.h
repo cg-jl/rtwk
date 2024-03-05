@@ -37,6 +37,7 @@
 #include "collection.h"
 #include "geometry.h"
 #include "hit_record.h"
+#include "interval.h"
 #include "rtweekend.h"
 #include "texture.h"
 

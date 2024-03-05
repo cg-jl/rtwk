@@ -24,6 +24,7 @@
 
 #include "aabb.h"
 #include "fixedvec.h"
+#include "geometry.h"
 #include "geometry/box.h"
 #include "hittable.h"
 #include "interval.h"
@@ -156,43 +157,34 @@ struct tree final {
     tree() = default;
 
     int root_node;
+    int max_depth;
     std::vector<node> inorder_nodes;
 
-    tree(int root_node, std::vector<node> inorder_nodes)
-        : root_node(root_node), inorder_nodes(std::move(inorder_nodes)) {}
+    tree(int root_node, std::vector<node> inorder_nodes, int max_depth)
+        : root_node(root_node),
+          max_depth(max_depth),
+          inorder_nodes(std::move(inorder_nodes)) {}
 
-    [[nodiscard]] aabb aggregate_box() const& {
+    [[nodiscard]] aabb boundingBox() const& {
         return inorder_nodes[root_node].box;
     }
 
     template <typename Inner>
     void filter(range initial, ray const& r, interval& ray_t,
                 Inner func) const& {
-        // TODO: not make memory allocations that huge?
         std::vector<state> second_sides;
+        // TODO: some pmr resource usage?
+        second_sides.reserve(2ull * max_depth);
 
         second_sides.emplace_back(initial, root_node, ray_t.min);
 
-        while (true) {
-            auto v = filter_next(r, ray_t, second_sides, inorder_nodes.data());
-            if (!v.has_value()) break;
-            range span = v.value();
-            func(ray_t, span);
-        }
-    }
-
-    // NOTE: The optional here is only to remove the ones that were
-    // discarded
-    static std::optional<range> filter_next(ray const& r, interval ray_t,
-                                            std::vector<state>& second_sides,
-                                            node const* nodes) {
         while (!second_sides.empty()) {
             state curr = second_sides.back();
             second_sides.pop_back();
 
             // Go left while we can
             while (curr.box_index != -1) {
-                node const& node = nodes[curr.box_index];
+                node const& node = inorder_nodes[curr.box_index];
 
                 // We don't need to process the hit if the recorded distance
                 // can't be made better.
@@ -228,10 +220,35 @@ struct tree final {
                 curr = {first_span, first_child, dist_to_split_plane};
             }
 
-            return curr.span;
+            func(ray_t, curr.span);
         pop_next:;
         }
-        return {};
+    }
+};
+
+// TODO: move these to geometry/hittable?
+template <is_geometry T>
+struct over_geometry final {
+    tree bvh;
+    geometry_view<T> view;
+    using Type = T;
+
+    over_geometry(tree bvh, std::span<T const> view)
+        : bvh(std::move(bvh)), view(view) {}
+
+    [[nodiscard]] aabb boundingBox() const& { return bvh.boundingBox(); }
+
+    T const* hit(ray const& r, hit_record::geometry& res,
+                 interval& ray_t) const& {
+        T const* best = nullptr;
+        bvh.filter(
+            range{0, view.size()}, r, ray_t,
+            [&r, &res, &best, &v = view](interval& ray_t, range span) {
+                T const* next =
+                    v.subspan(span.start, span.size()).hit(r, res, ray_t);
+                best = next ?: best;
+            });
+        return best;
     }
 };
 
@@ -243,7 +260,7 @@ struct over_hittables final {
     over_hittables(struct tree tree, view<T> objects)
         : tree(std::move(tree)), objects(std::move(objects)) {}
 
-    [[nodiscard]] aabb aggregate_box() const& { return tree.aggregate_box(); }
+    [[nodiscard]] aabb boundingBox() const& { return tree.boundingBox(); }
 
     void propagate(ray const& r, hit_status& status, hit_record& rec) const& {
         tree.filter(range{0, objects.size()}, r, status.ray_t,
@@ -285,9 +302,10 @@ template <has_bb T>
 
 // Returns the index for the parent
 template <has_bb T>
-[[nodiscard]] static int split_tree(std::span<T> objects,
+[[nodiscard]] static int split_tree(std::span<T> objects, int& max_depth,
                                     std::vector<node>& inorder_nodes,
                                     int best_axis, int depth = 0) {
+    max_depth = std::max(max_depth, depth);
     auto mid = bvh::partition(objects, best_axis);
 
     assert(mid == objects.size() / 2 &&
@@ -312,7 +330,8 @@ template <has_bb T>
 
     int left = -1;
     if (left_best) {
-        left = split_tree(left_obs, inorder_nodes, *left_best, depth + 1);
+        left = split_tree(left_obs, max_depth, inorder_nodes, *left_best,
+                          depth + 1);
     }
 
     auto parent = inorder_nodes.size();
@@ -320,7 +339,8 @@ template <has_bb T>
 
     int right = -1;
     if (right_best) {
-        right = split_tree(right_obs, inorder_nodes, *right_best, depth + 1);
+        right = split_tree(right_obs, max_depth, inorder_nodes, *right_best,
+                           depth + 1);
     }
 
     new (&inorder_nodes[parent])
@@ -330,31 +350,19 @@ template <has_bb T>
 }
 
 template <has_bb T>
-[[nodiscard]] static bvh::tree make_splits(std::span<T> objects,
-                                           int initial_split) {
+[[nodiscard]] static bvh::tree split(std::span<T> objects, int initial_split) {
     std::vector<node> inorder_nodes;
-    auto root = split_tree(objects, inorder_nodes, initial_split);
+    int max_depth = 0;
+    auto root = split_tree(objects, max_depth, inorder_nodes, initial_split);
 
-    return tree(root, std::move(inorder_nodes));
+    return tree(root, std::move(inorder_nodes), max_depth);
 }
 
 template <has_bb T>
-[[nodiscard]] static bvh::tree must_make_splits(std::span<T> objects) {
+[[nodiscard]] static bvh::tree must_split(std::span<T> objects) {
     auto initial_split = find_best_split(objects, 0);
     assert(bool(initial_split) && "Should be able to split this");
-    return make_splits(objects, *initial_split);
-}
-
-template <is_hittable T>
-[[nodiscard]] static over_hittables<T> split(list<T>& objects,
-                                             int initial_split) {
-    return over_hittables<T>(make_splits(objects.span(), initial_split),
-                             objects.finish());
-}
-template <is_hittable T>
-[[nodiscard]] static over_hittables<T> must_split(list<T>& objects) {
-    return over_hittables<T>(must_make_splits(objects.span()),
-                             objects.finish());
+    return split(objects, *initial_split);
 }
 
 template <is_hittable T>
@@ -367,6 +375,7 @@ template <is_hittable T>
 
     if (!initial_split) return dyn_collection(leak(objects.finish()));
 
-    return dyn_collection(leak(split(objects, *initial_split)));
+    return dyn_collection(leak(over_hittables(
+        split(objects.span(), *initial_split), objects.finish())));
 }
 }  // namespace bvh

@@ -241,8 +241,8 @@ struct transformed_collection final {
     transformed_collection(transform tf, T coll)
         : transformed_collection(std::vector{std::move(tf)}, std::move(coll)) {}
 
-    [[nodiscard]] aabb aggregate_box() const& {
-        aabb box = coll.aggregate_box();
+    [[nodiscard]] aabb boundingBox() const& {
+        aabb box = coll.boundingBox();
         for (auto const& tf : transf) {
             tf.apply_to_bbox(box);
         }

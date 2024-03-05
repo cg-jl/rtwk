@@ -5,19 +5,8 @@
 
 #include "hittable.h"
 
-// NOTE: On making hittable_collection explicit on collection:
-// It may force the compiler to produce multiple instantiations for each of the
-// unused functions. Compile times could skyrocket.
-
-// NOTE: Maybe it's wise to select the best one in layers when I have a layering
-// builder. Perhaps the important thing next is to 'refactor' poly_list into
-// a builder, and redirect all main.cc operations through it. We can already
-// swap the storage, and the next thing is to swap the building method (which
-// for geometry will be the storage, too!).
-
-// NOTE: Should I make it a tagged union?
-// Given that there is only BVH and hittable view (and hittable list while it's
-// not a builder), it would remove one layer of indirection.
+// Abstraction over a collection. It's used to pack multiple hittables,
+// for caching & type homogeneity benefits.
 
 struct hit_status {
     bool hit_anything;
@@ -27,18 +16,12 @@ struct hit_status {
         : hit_anything(false), ray_t(initial_intv) {}
 };
 
-// Abstraction over a collection. Will be used as I prototype different ways of
-// fitting the final geometries into a separate structure, so that I con move
-// material & texture information to other places.
-
 // TODO: move out from base class
 template <typename T>
 concept is_collection =
     requires(T const &coll, ray const &r, hit_status &status, hit_record &rec) {
         { coll.propagate(r, status, rec) } -> std::same_as<void>;
-    } && requires(T const &coll) {
-        { coll.aggregate_box() } -> std::same_as<aabb>;
-    };
+    } && has_bb<T>;
 
 namespace detail::collection::erased {
 template <is_collection T>
@@ -49,9 +32,9 @@ static void propagate(void const *ptr, ray const &r, hit_status &status,
 }
 
 template <is_collection T>
-static aabb aggregate_box(void const *ptr) {
+static aabb boundingBox(void const *ptr) {
     T const &p = *reinterpret_cast<T const *>(ptr);
-    return p.aggregate_box();
+    return p.boundingBox();
 }
 }  // namespace detail::collection::erased
 
@@ -71,7 +54,7 @@ struct hittable_collection final {
     explicit constexpr hittable_collection(T wrapped)
         : wrapped(std::move(wrapped)) {}
 
-    [[nodiscard]] aabb boundingBox() const & { return wrapped.aggregate_box(); }
+    [[nodiscard]] aabb boundingBox() const & { return wrapped.boundingBox(); }
     bool hit(ray const &r, interval &ray_t, hit_record &rec) const {
         hit_status status{ray_t};
         wrapped.propagate(r, status, rec);
@@ -90,20 +73,37 @@ struct dyn_collection final {
     constexpr dyn_collection(T const *poly)
         : ptr(poly),
           propagate_pfn(detail::collection::erased::propagate<T>),
-          box_pfn(detail::collection::erased::aggregate_box<T>) {}
+          box_pfn(detail::collection::erased::boundingBox<T>) {}
 
-    [[nodiscard]] aabb aggregate_box() const & noexcept { return box_pfn(ptr); }
+    [[nodiscard]] aabb boundingBox() const & noexcept { return box_pfn(ptr); }
 
     void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
         return propagate_pfn(ptr, r, status, rec);
     }
 };
 
-// TODO: geometry-only collections?
-// NOTE: BVH is somewhat a filter, but it has memory.
-template <is_geometry T>
-struct single_tex_wrapper {
-    std::span<T const> objects;
+template <is_geometry_collection Coll>
+struct geometry_collection_wrapper final {
+    Coll coll;
+    material mat;
+    texture tex;
+
+    geometry_collection_wrapper(Coll coll, material mat, texture tex)
+        : coll(std::move(coll)), mat(std::move(mat)), tex(tex) {}
+
+    [[nodiscard]] aabb boundingBox() const & { return coll.boundingBox(); }
+
+    void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
+        typename Coll::Type const *ptr = coll.hit(r, rec.geom, status.ray_t);
+        status.hit_anything |= ptr != nullptr;
+        if (ptr != nullptr) {
+            typename Coll::Type const &g = *ptr;
+            g.getUVs(rec.geom, rec.u, rec.v);
+            rec.xforms = g.getTransforms();
+            rec.tex = tex;
+            rec.mat = mat;
+        }
+    }
 };
 
 using hittable_poly_collection = hittable_collection<dyn_collection>;

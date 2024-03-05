@@ -414,7 +414,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-    list<geometry_wrapper<box>> boxes1;
+    std::vector<box> boxes1;
     auto ground_col = texes.solid(0.48, 0.83, 0.53);
     auto ground = material::lambertian();
 
@@ -429,14 +429,16 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto y1 = random_float(1, 101);
             auto z1 = z0 + w;
 
-            boxes1.add(box(point3(x0, y0, z0), point3(x1, y1, z1)), ground,
-                       ground_col);
+            boxes1.emplace_back(point3(x0, y0, z0), point3(x1, y1, z1));
         }
     }
 
     poly_list world;
 
-    world.add(leak(hittable_collection(bvh::must_split(boxes1))));
+    world.add(leak(hittable_collection(geometry_collection_wrapper(
+        bvh::over_geometry(bvh::must_split(std::span<box>(boxes1)),
+                           std::span<box const>(boxes1)),
+        ground, ground_col))));
 
     auto light = material::diffuse_light();
     auto light_color = texes.solid(7, 7, 7);
@@ -483,19 +485,22 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     world.add(leak(geometry_wrapper(sphere(point3(220, 280, 300), 80),
                                     material::lambertian(), pertext)));
 
-    list<geometry_wrapper<sphere>> boxes2;
+    std::vector<sphere> boxes2;
     auto white = texes.solid(.73, .73, .73);
     int ns = 1000;
+    boxes2.reserve(ns);
     for (int j = 0; j < ns; j++) {
-        boxes2.add(sphere(point3::random(0, 165), 10), material::lambertian(),
-                   white);
+        boxes2.emplace_back(point3::random(0, 165), 10);
     }
 
     world.add(leak(hittable_collection(transformed_collection(
         std::vector<transform>{transform::translate(vec3(-100, 270, 395)),
                                transform::rotate_y(15)},
 
-        bvh::must_split(boxes2)))));
+        geometry_collection_wrapper(
+            bvh::over_geometry(bvh::must_split(std::span<sphere>(boxes2)),
+                               std::span<sphere const>(boxes2)),
+            material::lambertian(), white)))));
 
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);
