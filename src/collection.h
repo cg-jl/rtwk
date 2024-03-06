@@ -4,6 +4,7 @@
 #include <type_traits>
 
 #include "hittable.h"
+#include "soa.h"
 
 // Abstraction over a collection. It's used to pack multiple hittables,
 // for caching & type homogeneity benefits.
@@ -107,3 +108,20 @@ struct geometry_collection_wrapper final {
 };
 
 using hittable_poly_collection = hittable_collection<dyn_collection>;
+
+template <is_hittable... Ts>
+struct soa_collection {
+    soa::span<Ts...> span;
+
+    [[nodiscard]] aabb boundingBox() const & {
+        aabb bb = empty_bb;
+
+        ((bb = aabb(bb, view<Ts>(span.template get<Ts>()).boundingBox())), ...);
+
+        return bb;
+    }
+
+    void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
+        (view<Ts>(span.template get<Ts>()).propagate(r, status, rec), ...);
+    }
+};

@@ -458,20 +458,20 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto dielectric = material::dielectric(1.5);
 
     // NOTE: Lookuout for duplication of materials/colors!
+    list<geometry_wrapper<sphere>> wrapped_spheres;
 
-    world.add(leak(geometry_wrapper(sphere(point3(260, 150, 45), 50),
-                                    dielectric, texes.solid(1, 1, 1))));
-    world.add(leak(geometry_wrapper(sphere(point3(0, 150, 145), 50),
-                                    material::metal(1.0),
-                                    texes.solid(0.8, 0.8, 0.9))));
+    wrapped_spheres.add(sphere(point3(260, 150, 45), 50), dielectric,
+                        texes.solid(1, 1, 1));
+    wrapped_spheres.add(sphere(point3(0, 150, 145), 50), material::metal(1.0),
+                        texes.solid(0.8, 0.8, 0.9));
 
     auto full_white = texes.solid(1);
     sphere boundary_geom(point3(360, 150, 145), 70);
-    auto boundary = geometry_wrapper(boundary_geom, dielectric, full_white);
     // NOTE: This addition is necessary so that the medium is contained within
     // the boundary.
     // So these two are one (constant_medium) inside another (dielectric).
-    world.add(&boundary);
+    wrapped_spheres.add(boundary_geom, dielectric, full_white);
+
     world.add(
         leak(constant_medium(boundary_geom, 0.2, color(0.2, 0.4, 0.9), texes)));
     world.add(leak(constant_medium(sphere(point3(0, 0, 0), 5000), .0001,
@@ -479,18 +479,18 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     id_storage<rtw_image> images;
     auto emat = texes.image("earthmap.jpg");
-    world.add(leak(geometry_wrapper(sphere(point3(400, 200, 400), 100),
-                                    material::lambertian(), emat)));
+    wrapped_spheres.add(sphere(point3(400, 200, 400), 100),
+                        material::lambertian(), emat);
     auto pertext = texes.noise(0.1);
-    world.add(leak(geometry_wrapper(sphere(point3(220, 280, 300), 80),
-                                    material::lambertian(), pertext)));
+    wrapped_spheres.add(sphere(point3(220, 280, 300), 80),
+                        material::lambertian(), pertext);
 
-    std::vector<sphere> boxes2;
+    std::vector<sphere> box_of_spheres;
     auto white = texes.solid(.73, .73, .73);
     int ns = 1000;
-    boxes2.reserve(ns);
+    box_of_spheres.reserve(ns);
     for (int j = 0; j < ns; j++) {
-        boxes2.emplace_back(point3::random(0, 165), 10);
+        box_of_spheres.emplace_back(point3::random(0, 165), 10);
     }
 
     world.add(leak(hittable_collection(transformed_collection(
@@ -498,9 +498,16 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
                                transform::rotate_y(15)},
 
         geometry_collection_wrapper(
-            bvh::over_geometry(bvh::must_split(std::span<sphere>(boxes2)),
-                               std::span<sphere const>(boxes2)),
+            bvh::over_geometry(
+                bvh::must_split(std::span<sphere>(box_of_spheres)),
+                std::span<sphere const>(box_of_spheres)),
             material::lambertian(), white)))));
+
+    // FIXME: There's some bug in propagation that makes the spheres up there ^
+    // appear before the perlin-textured sphere. Maybe it's something related to
+    // the BVH, or maybe it's something that makes propagation not
+    // order-independent. In any case, it's a bug.
+    world.add(leak(hittable_collection(wrapped_spheres.finish())));
 
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);
