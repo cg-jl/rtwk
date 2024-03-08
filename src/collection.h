@@ -1,10 +1,8 @@
 #pragma once
-#include <concepts>
-#include <span>
-#include <type_traits>
 
 #include "hittable.h"
 #include "soa.h"
+#include "transform.h"
 
 // Abstraction over a collection. It's used to pack multiple hittables,
 // for caching & type homogeneity benefits.
@@ -123,5 +121,43 @@ struct soa_collection {
 
     void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
         (view<Ts>(span.template get<Ts>()).propagate(r, status, rec), ...);
+    }
+};
+
+template <typename T>
+struct transformed_collection final {
+    // TODO: make these not owned
+    std::vector<transform> transf;
+    T coll;
+
+    transformed_collection(std::vector<transform> transf, T coll)
+        : transf(std::move(transf)), coll(std::move(coll)) {}
+    transformed_collection(transform tf, T coll)
+        : transformed_collection(std::vector{std::move(tf)}, std::move(coll)) {}
+
+    [[nodiscard]] aabb boundingBox() const & {
+        aabb box = coll.boundingBox();
+        for (auto const &tf : transf) {
+            tf.apply_to_bbox(box);
+        }
+        return box;
+    }
+
+    void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
+        ray r_copy = r;
+
+        for (auto const &tf : transf) {
+            tf.apply(r_copy, r.time);
+        }
+
+        auto hit_before = status.hit_anything;
+        status.hit_anything = false;
+        coll.propagate(r_copy, status, rec);
+
+        if (status.hit_anything) {
+            rec.xforms = transf;
+        }
+
+        status.hit_anything |= hit_before;
     }
 };
