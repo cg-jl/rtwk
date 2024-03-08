@@ -43,6 +43,8 @@ static void random_spheres() {
 
     auto dielectric = material::dielectric(1.5);
 
+    xform_builder xforms;
+
     for (int a = -11; a < 11; a++) {
         for (int b = -11; b < 11; b++) {
             auto choose_mat = random_float();
@@ -57,8 +59,9 @@ static void random_spheres() {
                     auto sphere_texture = texes.solid(albedo);
                     auto displacement = vec3(0, random_float(0, .5), 0);
 
+                    xforms.move(displacement);
                     world.add(leak(geometry_wrapper(
-                        transformed_geometry(transform::move(displacement),
+                        transformed_geometry(xforms.finish(),
                                              sphere(point3(center), 0.2)),
                         sphere_material, sphere_texture)));
                 } else if (choose_mat < 0.95) {
@@ -315,19 +318,18 @@ static void cornell_box() {
         quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)),
         material::lambertian(), white)));
 
+    xform_builder xforms;
+    xforms.translate(vec3(265, 0, 295)), xforms.rotate_y(15);
     world.add(leak(geometry_wrapper(
-        transformed_geometry(
-            std::vector<transform>{transform::translate(vec3(265, 0, 295)),
-                                   transform::rotate_y(15)},
+        transformed_geometry(xforms.finish(),
 
-            box(point3(0, 0, 0), point3(165, 330, 165))),
+                             box(point3(0, 0, 0), point3(165, 330, 165))),
         material::lambertian(), white)));
 
+    xforms.translate(vec3(130, 0, 65)), xforms.rotate_y(-18);
     world.add(leak(geometry_wrapper(
-        transformed_geometry(
-            std::vector<transform>{transform::translate(vec3(130, 0, 65)),
-                                   transform::rotate_y(-18)},
-            (box(point3(0, 0, 0), point3(165, 165, 165)))),
+        transformed_geometry(xforms.finish(),
+                             (box(point3(0, 0, 0), point3(165, 165, 165)))),
         material::lambertian(), white)));
 
     camera cam;
@@ -376,18 +378,16 @@ static void cornell_smoke() {
         quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)),
         material::lambertian(), white)));
 
+    xform_builder xforms;
+    xforms.translate(vec3(265, 0, 295)), xforms.rotate_y(15);
     world.add(leak(constant_medium(
-        transformed_geometry(
-
-            std::vector<transform>{transform::translate(vec3(265, 0, 295)),
-                                   transform::rotate_y(15)},
-            (box(point3(0, 0, 0), point3(165, 330, 165)))),
+        transformed_geometry(xforms.finish(),
+                             (box(point3(0, 0, 0), point3(165, 330, 165)))),
         0.01, color(0, 0, 0), texes)));
+    xforms.translate(vec3(130, 0, 65)), xforms.rotate_y(-18);
     world.add(leak(constant_medium(
-        transformed_geometry(
-            std::vector<transform>{transform::translate(vec3(130, 0, 65)),
-                                   transform::rotate_y(-18)},
-            (box(point3(0, 0, 0), point3(165, 165, 165)))),
+        transformed_geometry(xforms.finish(),
+                             (box(point3(0, 0, 0), point3(165, 165, 165)))),
         0.01, color(1, 1, 1), texes)));
 
     camera cam;
@@ -450,10 +450,11 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto center = point3(400, 400, 200);
     auto sphere_material = material::lambertian();
     auto sphere_color = texes.solid(0.7, 0.3, 0.1);
-    world.add(leak(
-        geometry_wrapper(transformed_geometry(transform::move(vec3(30, 0, 0)),
-                                              (sphere(center, 50))),
-                         sphere_material, sphere_color)));
+    xform_builder xforms;
+    xforms.move(vec3(30, 0, 0));
+    world.add(leak(geometry_wrapper(
+        transformed_geometry(xforms.finish(), (sphere(center, 50))),
+        sphere_material, sphere_color)));
 
     auto dielectric = material::dielectric(1.5);
 
@@ -493,10 +494,10 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         box_of_spheres.emplace_back(point3::random(0, 165), 10);
     }
 
-    world.add(leak(hittable_collection(transformed_collection(
-        std::vector<transform>{transform::translate(vec3(-100, 270, 395)),
-                               transform::rotate_y(15)},
+    xforms.translate(vec3(-100, 270, 395)), xforms.rotate_y(15);
 
+    world.add(leak(hittable_collection(transformed_collection(
+        xforms.finish(),
         geometry_collection_wrapper(
             bvh::over_geometry(
                 bvh::must_split(std::span<sphere>(box_of_spheres)),

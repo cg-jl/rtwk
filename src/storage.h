@@ -22,3 +22,18 @@ struct id_storage {
 
     constexpr std::span<T const> view() const noexcept { return ids; }
 };
+
+template <typename T>
+struct span_builder {
+    std::vector<std::vector<T>> spans{};
+
+    span_builder() { spans.emplace_back(); }
+
+    std::vector<T>& current() { return spans.back(); }
+
+    std::span<T const> finish() {
+        std::span span = spans.back();
+        spans.emplace_back();
+        return span;
+    }
+};

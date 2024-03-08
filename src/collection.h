@@ -126,14 +126,11 @@ struct soa_collection {
 
 template <typename T>
 struct transformed_collection final {
-    // TODO: make these not owned
-    std::vector<transform> transf;
+    std::span<transform const> transf;
     T coll;
 
-    transformed_collection(std::vector<transform> transf, T coll)
-        : transf(std::move(transf)), coll(std::move(coll)) {}
-    transformed_collection(transform tf, T coll)
-        : transformed_collection(std::vector{std::move(tf)}, std::move(coll)) {}
+    transformed_collection(std::span<transform const> transf, T coll)
+        : transf(transf), coll(std::move(coll)) {}
 
     [[nodiscard]] aabb boundingBox() const & {
         aabb box = coll.boundingBox();

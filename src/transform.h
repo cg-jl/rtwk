@@ -77,19 +77,14 @@ static inline void apply_reverse_transforms(std::span<transform const> xforms,
     }
 }
 
-// TODO: integrate transforms into geometry_wrapper, and return transform when
-// we get a hit. This will allow us to apply the reverse transform only once per
-// hit check.
+// TODO: integrate transforms into geometry_wrapper
 template <is_geometry T>
 struct transformed_geometry final {
-    // TODO: make these not owned
-    std::vector<transform> transf;
+    std::span<transform const> transf;
     T object;
 
-    transformed_geometry(std::vector<transform> transf, T object)
-        : transf(std::move(transf)), object(std::move(object)) {}
-    transformed_geometry(transform tf, T object)
-        : transformed_geometry(std::vector{std::move(tf)}, std::move(object)) {}
+    transformed_geometry(std::span<transform const> transf, T object)
+        : transf(transf), object(std::move(object)) {}
 
     [[nodiscard]] aabb boundingBox() const& {
         aabb box = object.boundingBox();
@@ -228,3 +223,17 @@ inline void transform::apply_to_bbox(aabb& box) const& {
             __builtin_unreachable();
     }
 }
+
+struct xform_builder : public span_builder<transform> {
+    void move(vec3 max_displacement) {
+        current().push_back(transform::move(max_displacement));
+    }
+
+    void translate(vec3 displacement) {
+        current().push_back(transform::translate(displacement));
+    }
+
+    void rotate_y(float degrees) {
+        current().push_back(transform::rotate_y(degrees));
+    }
+};
