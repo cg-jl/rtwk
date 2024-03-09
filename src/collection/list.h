@@ -29,7 +29,7 @@
 // This way we may cache the AABB in it as a way to get the layering part for
 // BVH easily, but get just the span for the final thing.
 // TODO: think of a better name for hittable_list and this.
-template <is_hittable T>
+template <typename T>
 struct list final {
     std::vector<T> values;
 

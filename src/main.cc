@@ -29,6 +29,7 @@
 #include "storage.h"
 #include "texture.h"
 #include "transform.h"
+#include "wrappers.h"
 
 static bool enable_progress = true;
 
@@ -38,8 +39,8 @@ static void random_spheres() {
 
     auto checker = texes.checker(0.32, color(.2, .3, .1), color(.9, .9, .9));
 
-    world.add(leak(geometry_wrapper(sphere(point3(0, -1000, 0), 1000),
-                                    material::lambertian(), checker)));
+    world.add(leak(tex_wrapper(sphere(point3(0, -1000, 0), 1000),
+                               material::lambertian(), checker)));
 
     auto dielectric = material::dielectric(1.5);
 
@@ -62,37 +63,36 @@ static void random_spheres() {
                     xforms.move(displacement);
                     world.add(leak(transformed_hittable(
                         xforms.finish(),
-                        geometry_wrapper(sphere(point3(center), 0.2),
-                                         sphere_material, sphere_texture))));
+                        tex_wrapper(sphere(point3(center), 0.2),
+                                    sphere_material, sphere_texture))));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = color::random(0.5, 1);
                     auto fuzz = random_float(0, 0.5);
                     auto sphere_material = material::metal(fuzz);
-                    world.add(leak(geometry_wrapper(sphere(center, 0.2),
-                                                    sphere_material,
-                                                    texes.solid(albedo))));
+                    world.add(
+                        leak(tex_wrapper(sphere(center, 0.2), sphere_material,
+                                         texes.solid(albedo))));
                 } else {
                     // glass
-                    world.add(
-                        leak(geometry_wrapper(sphere(center, 0.2), dielectric,
-                                              texes.solid(1, 1, 1))));
+                    world.add(leak(tex_wrapper(sphere(center, 0.2), dielectric,
+                                               texes.solid(1, 1, 1))));
                 }
             }
         }
     }
 
     auto material1 = material::dielectric(1.5);
-    world.add(leak(geometry_wrapper(sphere(point3(0, 1, 0), 1.0), material1,
-                                    texes.solid(1, 1, 1))));
+    world.add(leak(tex_wrapper(sphere(point3(0, 1, 0), 1.0), material1,
+                               texes.solid(1, 1, 1))));
 
     auto material2 = material::lambertian();
-    world.add(leak(geometry_wrapper(sphere(point3(-4, 1, 0), 1.0), material2,
-                                    texes.solid(.4, .2, .1))));
+    world.add(leak(tex_wrapper(sphere(point3(-4, 1, 0), 1.0), material2,
+                               texes.solid(.4, .2, .1))));
 
     auto material3 = material::metal(0.0);
-    world.add(leak(geometry_wrapper(sphere(point3(4, 1, 0), 1.0), material3,
-                                    texes.solid(0.7, .6, .5))));
+    world.add(leak(tex_wrapper(sphere(point3(4, 1, 0), 1.0), material3,
+                               texes.solid(0.7, .6, .5))));
 
     auto const scene = bvh::split_or_view(world);
 
@@ -122,10 +122,10 @@ static void two_spheres() {
 
     auto checker = texes.checker(0.8, color(.2, .3, .1), color(.9, .9, .9));
 
-    world.add(leak(geometry_wrapper(sphere(point3(0, -10, 0), 10),
-                                    material::lambertian(), checker)));
-    world.add(leak(geometry_wrapper(sphere(point3(0, 10, 0), 10),
-                                    material::lambertian(), checker)));
+    world.add(leak(tex_wrapper(sphere(point3(0, -10, 0), 10),
+                               material::lambertian(), checker)));
+    world.add(leak(tex_wrapper(sphere(point3(0, 10, 0), 10),
+                               material::lambertian(), checker)));
 
     camera cam;
 
@@ -150,7 +150,7 @@ static void earth() {
     auto earth_texture = texes.image("earthmap.jpg");
     auto earth_surface = material::lambertian();
 
-    list<geometry_wrapper<sphere>> world;
+    list<tex_wrapper<sphere>> world;
 
     // globe
     world.add(sphere(point3(0, 0, 0), 2), earth_surface, earth_texture);
@@ -182,10 +182,10 @@ static void two_perlin_spheres() {
     tex_storage texes;
 
     auto pertext = texes.noise(4);
-    world.add(leak(geometry_wrapper(sphere(point3(0, -1000, 0), 1000),
-                                    material::lambertian(), pertext)));
-    world.add(leak(geometry_wrapper(sphere(point3(0, 2, 0), 2),
-                                    material::lambertian(), pertext)));
+    world.add(leak(tex_wrapper(sphere(point3(0, -1000, 0), 1000),
+                               material::lambertian(), pertext)));
+    world.add(leak(tex_wrapper(sphere(point3(0, 2, 0), 2),
+                               material::lambertian(), pertext)));
 
     camera cam;
 
@@ -219,20 +219,20 @@ static void quads() {
     auto all_mat = material::lambertian();
 
     // Quads
-    world.add(leak(
-        geometry_wrapper(quad(point3(-3, -2, 5), vec3(0, 0, -4), vec3(0, 4, 0)),
+    world.add(
+        leak(tex_wrapper(quad(point3(-3, -2, 5), vec3(0, 0, -4), vec3(0, 4, 0)),
                          all_mat, left_red)));
-    world.add(leak(
-        geometry_wrapper(quad(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0)),
+    world.add(
+        leak(tex_wrapper(quad(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0)),
                          all_mat, back_green)));
-    world.add(leak(
-        geometry_wrapper(quad(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0)),
+    world.add(
+        leak(tex_wrapper(quad(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0)),
                          all_mat, right_blue)));
-    world.add(leak(
-        geometry_wrapper(quad(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4)),
+    world.add(
+        leak(tex_wrapper(quad(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4)),
                          all_mat, upper_orange)));
-    world.add(leak(
-        geometry_wrapper(quad(point3(-2, -3, 5), vec3(4, 0, 0), vec3(0, 0, -4)),
+    world.add(
+        leak(tex_wrapper(quad(point3(-2, -3, 5), vec3(4, 0, 0), vec3(0, 0, -4)),
                          all_mat, lower_teal)));
 
     camera cam;
@@ -258,17 +258,17 @@ static void simple_light() {
     tex_storage texes;
 
     auto pertext = texes.noise(4);
-    world.add(leak(geometry_wrapper(sphere(point3(0, -1000, 0), 1000),
-                                    material::lambertian(), pertext)));
-    world.add(leak(geometry_wrapper(sphere(point3(0, 2, 0), 2),
-                                    material::lambertian(), pertext)));
+    world.add(leak(tex_wrapper(sphere(point3(0, -1000, 0), 1000),
+                               material::lambertian(), pertext)));
+    world.add(leak(tex_wrapper(sphere(point3(0, 2, 0), 2),
+                               material::lambertian(), pertext)));
 
     auto difflight = material::diffuse_light();
     auto difflight_color = texes.solid(4, 4, 4);
-    world.add(leak(geometry_wrapper(sphere(point3(0, 7, 0), 2), difflight,
-                                    difflight_color)));
     world.add(leak(
-        geometry_wrapper(quad(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0)),
+        tex_wrapper(sphere(point3(0, 7, 0), 2), difflight, difflight_color)));
+    world.add(
+        leak(tex_wrapper(quad(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0)),
                          difflight, difflight_color)));
 
     camera cam;
@@ -299,29 +299,29 @@ static void cornell_box() {
     auto light = material::diffuse_light();
     auto light_color = texes.solid(15, 15, 15);
 
-    world.add(leak(geometry_wrapper(
-        quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
-        material::lambertian(), green)));
-    world.add(leak(geometry_wrapper(
-        quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
-        material::lambertian(), red)));
-    world.add(leak(geometry_wrapper(
+    world.add(leak(
+        tex_wrapper(quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
+                    material::lambertian(), green)));
+    world.add(leak(
+        tex_wrapper(quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
+                    material::lambertian(), red)));
+    world.add(leak(tex_wrapper(
         quad(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105)), light,
         light_color)));
-    world.add(leak(geometry_wrapper(
-        quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
-        material::lambertian(), white)));
-    world.add(leak(geometry_wrapper(
+    world.add(leak(
+        tex_wrapper(quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
+                    material::lambertian(), white)));
+    world.add(leak(tex_wrapper(
         quad(point3(555, 555, 555), vec3(-555, 0, 0), vec3(0, 0, -555)),
         material::lambertian(), white)));
-    world.add(leak(geometry_wrapper(
-        quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)),
-        material::lambertian(), white)));
+    world.add(leak(
+        tex_wrapper(quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)),
+                    material::lambertian(), white)));
 
     xform_builder xforms;
     xforms.translate(vec3(265, 0, 295)), xforms.rotate_y(15);
     world.add(leak(transformed_hittable(
-        xforms.finish(), geometry_wrapper(
+        xforms.finish(), tex_wrapper(
 
                              box(point3(0, 0, 0), point3(165, 330, 165)),
                              material::lambertian(), white))));
@@ -331,8 +331,8 @@ static void cornell_box() {
 
         transformed_hittable(
             xforms.finish(),
-            geometry_wrapper((box(point3(0, 0, 0), point3(165, 165, 165))),
-                             material::lambertian(), white))));
+            tex_wrapper((box(point3(0, 0, 0), point3(165, 165, 165))),
+                        material::lambertian(), white))));
 
     camera cam;
 
@@ -361,24 +361,24 @@ static void cornell_smoke() {
     auto green = texes.solid(.12, .45, .15);
     auto light = texes.solid(7, 7, 7);
 
-    world.add(leak(geometry_wrapper(
-        quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
-        material::lambertian(), green)));
-    world.add(leak(geometry_wrapper(
-        quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
-        material::lambertian(), red)));
-    world.add(leak(geometry_wrapper(
+    world.add(leak(
+        tex_wrapper(quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
+                    material::lambertian(), green)));
+    world.add(leak(
+        tex_wrapper(quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
+                    material::lambertian(), red)));
+    world.add(leak(tex_wrapper(
         quad(point3(113, 554, 127), vec3(330, 0, 0), vec3(0, 0, 305)),
         material::diffuse_light(), light)));
-    world.add(leak(geometry_wrapper(
-        quad(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
-        material::lambertian(), white)));
-    world.add(leak(geometry_wrapper(
-        quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
-        material::lambertian(), white)));
-    world.add(leak(geometry_wrapper(
-        quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)),
-        material::lambertian(), white)));
+    world.add(leak(
+        tex_wrapper(quad(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
+                    material::lambertian(), white)));
+    world.add(leak(
+        tex_wrapper(quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
+                    material::lambertian(), white)));
+    world.add(leak(
+        tex_wrapper(quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)),
+                    material::lambertian(), white)));
 
     xform_builder xforms;
     xforms.translate(vec3(265, 0, 295)), xforms.rotate_y(15);
@@ -386,12 +386,12 @@ static void cornell_smoke() {
 
         transformed_hittable(
             xforms.finish(),
-            constant_medium((box(point3(0, 0, 0), point3(165, 330, 165))), 0.01,
+            constant_medium(box(point3(0, 0, 0), point3(165, 330, 165)), 0.01,
                             color(0, 0, 0), texes))));
     xforms.translate(vec3(130, 0, 65)), xforms.rotate_y(-18);
     world.add(leak(transformed_hittable(
         xforms.finish(),
-        constant_medium((box(point3(0, 0, 0), point3(165, 165, 165))), 0.01,
+        constant_medium(box(point3(0, 0, 0), point3(165, 165, 165)), 0.01,
                         color(1, 1, 1), texes))));
 
     camera cam;
@@ -439,15 +439,15 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     poly_list world;
 
-    world.add(leak(hittable_collection(geometry_collection_wrapper(
-        bvh::over_geometry(bvh::must_split(std::span<box>(boxes1)),
-                           std::span<box const>(boxes1)),
-        ground, ground_col))));
+    world.add(leak(hittable_collection(
+        tex_wrapper(bvh::over(bvh::must_split(std::span<box>(boxes1)),
+                              std::span<box const>(boxes1)),
+                    ground, ground_col))));
 
     auto light = material::diffuse_light();
     auto light_color = texes.solid(7, 7, 7);
 
-    world.add(leak(geometry_wrapper(
+    world.add(leak(tex_wrapper(
         quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265)), light,
         light_color)));
 
@@ -458,12 +458,12 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     xforms.move(vec3(30, 0, 0));
     world.add(leak(transformed_hittable(
         xforms.finish(),
-        geometry_wrapper(sphere(center, 50), sphere_material, sphere_color))));
+        tex_wrapper(sphere(center, 50), sphere_material, sphere_color))));
 
     auto dielectric = material::dielectric(1.5);
 
     // NOTE: Lookuout for duplication of materials/colors!
-    list<geometry_wrapper<sphere>> wrapped_spheres;
+    list<tex_wrapper<sphere>> wrapped_spheres;
 
     wrapped_spheres.add(sphere(point3(260, 150, 45), 50), dielectric,
                         texes.solid(1, 1, 1));
@@ -502,10 +502,9 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     world.add(leak(transformed_hittable(
         xforms.finish(),
-        hittable_collection(geometry_collection_wrapper(
-            bvh::over_geometry(
-                bvh::must_split(std::span<sphere>(box_of_spheres)),
-                std::span<sphere const>(box_of_spheres)),
+        hittable_collection(tex_wrapper(
+            bvh::over(bvh::must_split(std::span<sphere>(box_of_spheres)),
+                      std::span<sphere const>(box_of_spheres)),
             material::lambertian(), white)))));
 
     // FIXME: There's some bug in propagation that makes the spheres up there ^

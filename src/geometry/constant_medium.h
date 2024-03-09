@@ -22,7 +22,7 @@
 // To do this, we'll do a second hit to the same geometry once we know it's a
 // hit. We'll pass the ray through the object if the second hit doesn't check
 // out.
-template <is_geometry T>
+template <typename T>
 struct constant_medium final {
    public:
     T boundary;
@@ -36,8 +36,15 @@ struct constant_medium final {
 
     [[nodiscard]] aabb boundingBox() const& { return boundary.boundingBox(); }
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec,
-             float _time) const {
+    bool hit(ray const& r, interval& ray_t, hit_record& rec, float _time) const
+        requires(is_geometry<T>)
+    {
+        return hit(r, ray_t, rec);
+    }
+
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const
+        requires(is_geometry<T>)
+    {
         hit_record::geometry discarded_rec;
 
         interval hit1(interval::universe);

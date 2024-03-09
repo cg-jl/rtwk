@@ -6,11 +6,11 @@
 #include "hittable.h"
 #include "rtweekend.h"
 
-template <is_hittable T>
+template <typename T>
 struct view final {
     std::span<T const> objects;
 
-    constexpr explicit view(std::span<T const> objects) : objects(objects) {}
+    constexpr view(std::span<T const> objects) : objects(objects) {}
 
     [[nodiscard]] aabb boundingBox() const& {
         aabb box = empty_bb;
@@ -41,8 +41,23 @@ struct view final {
         }
     }
 
+    using Type = T;
+
+    T const* hit(ray const& r, hit_record::geometry& res,
+                 interval& ray_t) const&
+        requires(is_geometry<T>)
+    {
+        T const* best = nullptr;
+        for (auto const& ob : objects) {
+            if (ob.hit(r, res, ray_t)) best = &ob;
+        }
+        return best;
+    }
+
     void propagate(ray const& r, hit_status& status, hit_record& rec,
-                   float time) const& {
+                   float time) const&
+        requires(is_hittable<T>)
+    {
         return propagate(r, status, rec, objects, time);
     }
 };

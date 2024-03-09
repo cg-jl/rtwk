@@ -83,30 +83,6 @@ struct dyn_collection final {
     }
 };
 
-template <is_geometry_collection Coll>
-struct geometry_collection_wrapper final {
-    Coll coll;
-    material mat;
-    texture tex;
-
-    geometry_collection_wrapper(Coll coll, material mat, texture tex)
-        : coll(std::move(coll)), mat(std::move(mat)), tex(tex) {}
-
-    [[nodiscard]] aabb boundingBox() const & { return coll.boundingBox(); }
-
-    void propagate(ray const &r, hit_status &status, hit_record &rec,
-                   float _time) const & {
-        typename Coll::Type const *ptr = coll.hit(r, rec.geom, status.ray_t);
-        status.hit_anything |= ptr != nullptr;
-        if (ptr != nullptr) {
-            typename Coll::Type const &g = *ptr;
-            g.getUVs(rec.geom, rec.u, rec.v);
-            rec.tex = tex;
-            rec.mat = mat;
-        }
-    }
-};
-
 using hittable_poly_collection = hittable_collection<dyn_collection>;
 
 template <is_hittable... Ts>

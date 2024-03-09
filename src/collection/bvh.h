@@ -226,50 +226,43 @@ struct tree final {
     }
 };
 
-// TODO: move these to geometry/hittable?
-template <is_geometry T>
-struct over_geometry final {
+template <typename T>
+struct over final {
+    constexpr over(tree bvh, view<T> view)
+        : bvh(std::move(bvh)), objects(std::move(view)) {}
+    constexpr over(tree bvh, std::span<T const> view)
+        : bvh(std::move(bvh)), objects(view) {}
     tree bvh;
-    geometry_view<T> view;
+    view<T> objects;
     using Type = T;
-
-    over_geometry(tree bvh, std::span<T const> view)
-        : bvh(std::move(bvh)), view(view) {}
 
     [[nodiscard]] aabb boundingBox() const& { return bvh.boundingBox(); }
 
     T const* hit(ray const& r, hit_record::geometry& res,
-                 interval& ray_t) const& {
+                 interval& ray_t) const&
+        requires(is_geometry<T>)
+    {
         T const* best = nullptr;
         bvh.filter(
-            range{0, view.size()}, r, ray_t,
-            [&r, &res, &best, &v = view](interval& ray_t, range span) {
+            range{0, objects.size()}, r, ray_t,
+            [&r, &res, &best, &v = objects](interval& ray_t, range span) {
                 T const* next =
                     v.subspan(span.start, span.size()).hit(r, res, ray_t);
                 best = next ?: best;
             });
         return best;
     }
-};
-
-template <is_hittable T>
-struct over_hittables final {
-    struct tree tree;
-    view<T> objects;
-
-    over_hittables(struct tree tree, view<T> objects)
-        : tree(std::move(tree)), objects(std::move(objects)) {}
-
-    [[nodiscard]] aabb boundingBox() const& { return tree.boundingBox(); }
 
     void propagate(ray const& r, hit_status& status, hit_record& rec,
-                   float time) const& {
-        tree.filter(range{0, objects.size()}, r, status.ray_t,
-                    [&r, &status, &rec, objects = this->objects, time](
-                        interval& _ray_t, range span) {
-                        objects.subspan(span.start, span.size())
-                            .propagate(r, status, rec, time);
-                    });
+                   float time) const&
+        requires(is_hittable<T>)
+    {
+        bvh.filter(range{0, objects.size()}, r, status.ray_t,
+                   [&r, &status, &rec, v = objects, time](interval& ray_t,
+                                                          range span) {
+                       v.subspan(span.start, span.size())
+                           .propagate(r, status, rec, time);
+                   });
     }
 };
 
@@ -376,7 +369,7 @@ template <is_hittable T>
 
     if (!initial_split) return dyn_collection(leak(objects.finish()));
 
-    return dyn_collection(leak(over_hittables(
-        split(objects.span(), *initial_split), objects.finish())));
+    return dyn_collection(leak(
+        bvh::over(split(objects.span(), *initial_split), objects.finish())));
 }
 }  // namespace bvh

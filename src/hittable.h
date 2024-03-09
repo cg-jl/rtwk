@@ -83,29 +83,7 @@ struct dyn_hittable final {
     }
 };
 
-template <is_geometry T>
-struct geometry_wrapper final {
-    T geom;
-    material mat;
-    texture tex;
-
-    geometry_wrapper(T geom, material mat, texture tex)
-        : geom(std::move(geom)), mat(std::move(mat)), tex(tex) {}
-
-    [[nodiscard]] aabb boundingBox() const& { return geom.boundingBox(); }
-    bool hit(ray const& r, interval& ray_t, hit_record& rec,
-             float _time) const {
-        auto did_hit = geom.hit(r, rec.geom, ray_t);
-        if (did_hit) {
-            geom.getUVs(rec.geom, rec.u, rec.v);
-            rec.mat = mat;
-            rec.tex = tex;
-        }
-        return did_hit;
-    }
-};
-
-template <is_hittable T>
+template <typename T>
 struct transformed_hittable final {
     std::span<transform const> transf;
     T object;
@@ -113,7 +91,9 @@ struct transformed_hittable final {
     transformed_hittable(std::span<transform const> transf, T object)
         : transf(transf), object(std::move(object)) {}
 
-    [[nodiscard]] aabb boundingBox() const& {
+    [[nodiscard]] aabb boundingBox() const&
+        requires(has_bb<T>)
+    {
         aabb box = object.boundingBox();
         for (auto const& tf : transf) {
             tf.apply_to_bbox(box);
@@ -121,14 +101,17 @@ struct transformed_hittable final {
         return box;
     }
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec, float time) const {
+    bool hit(ray const& r, interval& ray_t, hit_record& rec, float time) const&
+        requires(is_hittable<T>)
+    {
         ray r_copy = r;
 
         for (auto const& tf : transf) {
             tf.apply(r_copy, time);
         }
 
-        // NOTE: ideally there is only one transform layer here so time shouldn't be used.
+        // NOTE: ideally there is only one transform layer here so time
+        // shouldn't be used.
         auto did_hit = object.hit(r_copy, ray_t, rec, time);
         if (did_hit) rec.xforms = transf;
         return did_hit;
