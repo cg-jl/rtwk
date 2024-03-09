@@ -98,7 +98,6 @@ struct geometry_collection_wrapper final {
         if (ptr != nullptr) {
             typename Coll::Type const &g = *ptr;
             g.getUVs(rec.geom, rec.u, rec.v);
-            rec.xforms = g.getTransforms();
             rec.tex = tex;
             rec.mat = mat;
         }
@@ -121,40 +120,5 @@ struct soa_collection {
 
     void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
         (view<Ts>(span.template get<Ts>()).propagate(r, status, rec), ...);
-    }
-};
-
-template <typename T>
-struct transformed_collection final {
-    std::span<transform const> transf;
-    T coll;
-
-    transformed_collection(std::span<transform const> transf, T coll)
-        : transf(transf), coll(std::move(coll)) {}
-
-    [[nodiscard]] aabb boundingBox() const & {
-        aabb box = coll.boundingBox();
-        for (auto const &tf : transf) {
-            tf.apply_to_bbox(box);
-        }
-        return box;
-    }
-
-    void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
-        ray r_copy = r;
-
-        for (auto const &tf : transf) {
-            tf.apply(r_copy, r.time);
-        }
-
-        auto hit_before = status.hit_anything;
-        status.hit_anything = false;
-        coll.propagate(r_copy, status, rec);
-
-        if (status.hit_anything) {
-            rec.xforms = transf;
-        }
-
-        status.hit_anything |= hit_before;
     }
 };

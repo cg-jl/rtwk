@@ -69,7 +69,6 @@ struct sphere final {
         return true;
     }
 
-    static std::span<transform const> getTransforms() { return {}; }
 
     static void getUVs(hit_record::geometry const& res, float& u, float& v) {
         // p: a given point on the sphere of radius one, centered at the origin.

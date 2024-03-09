@@ -59,8 +59,6 @@ struct box final {
         v = -normal_dir * inv_v_mag * (intersection[ax_v_idx] - beta_distance);
     }
 
-    static std::span<transform const> getTransforms() { return {}; }
-
     void getUVs(hit_record::geometry const &res, float &u, float &v) const {
         if (res.normal.x() != 0) {
             return calcUVs(res.normal.x(), bbox.z, bbox.y, 2, 1, res.p, u, v);

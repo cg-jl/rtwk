@@ -77,42 +77,8 @@ static inline void apply_reverse_transforms(std::span<transform const> xforms,
     }
 }
 
+
 // TODO: integrate transforms into geometry_wrapper
-template <is_geometry T>
-struct transformed_geometry final {
-    std::span<transform const> transf;
-    T object;
-
-    transformed_geometry(std::span<transform const> transf, T object)
-        : transf(transf), object(std::move(object)) {}
-
-    [[nodiscard]] aabb boundingBox() const& {
-        aabb box = object.boundingBox();
-        for (auto const& tf : transf) {
-            tf.apply_to_bbox(box);
-        }
-        return box;
-    }
-
-    [[nodiscard]] std::span<transform const> getTransforms() const noexcept {
-        return transf;
-    }
-
-    void getUVs(hit_record::geometry const& rec, float& u,
-                float& v) const noexcept {
-        object.getUVs(rec, u, v);
-    }
-
-    bool hit(ray const& r, hit_record::geometry& rec, interval& ray_t) const {
-        ray r_copy = r;
-
-        for (auto const& tf : transf) {
-            tf.apply(r_copy, r.time);
-        }
-
-        return object.hit(r_copy, rec, ray_t);
-    }
-};
 inline void transform::apply(ray& r, float time) const& {
     switch (tag) {
         case kind::translate:

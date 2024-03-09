@@ -60,10 +60,10 @@ static void random_spheres() {
                     auto displacement = vec3(0, random_float(0, .5), 0);
 
                     xforms.move(displacement);
-                    world.add(leak(geometry_wrapper(
-                        transformed_geometry(xforms.finish(),
-                                             sphere(point3(center), 0.2)),
-                        sphere_material, sphere_texture)));
+                    world.add(leak(transformed_hittable(
+                        xforms.finish(),
+                        geometry_wrapper(sphere(point3(center), 0.2),
+                                         sphere_material, sphere_texture))));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = color::random(0.5, 1);
@@ -320,17 +320,19 @@ static void cornell_box() {
 
     xform_builder xforms;
     xforms.translate(vec3(265, 0, 295)), xforms.rotate_y(15);
-    world.add(leak(geometry_wrapper(
-        transformed_geometry(xforms.finish(),
+    world.add(leak(transformed_hittable(
+        xforms.finish(), geometry_wrapper(
 
-                             box(point3(0, 0, 0), point3(165, 330, 165))),
-        material::lambertian(), white)));
+                             box(point3(0, 0, 0), point3(165, 330, 165)),
+                             material::lambertian(), white))));
 
     xforms.translate(vec3(130, 0, 65)), xforms.rotate_y(-18);
-    world.add(leak(geometry_wrapper(
-        transformed_geometry(xforms.finish(),
-                             (box(point3(0, 0, 0), point3(165, 165, 165)))),
-        material::lambertian(), white)));
+    world.add(leak(
+
+        transformed_hittable(
+            xforms.finish(),
+            geometry_wrapper((box(point3(0, 0, 0), point3(165, 165, 165))),
+                             material::lambertian(), white))));
 
     camera cam;
 
@@ -380,15 +382,17 @@ static void cornell_smoke() {
 
     xform_builder xforms;
     xforms.translate(vec3(265, 0, 295)), xforms.rotate_y(15);
-    world.add(leak(constant_medium(
-        transformed_geometry(xforms.finish(),
-                             (box(point3(0, 0, 0), point3(165, 330, 165)))),
-        0.01, color(0, 0, 0), texes)));
+    world.add(leak(
+
+        transformed_hittable(
+            xforms.finish(),
+            constant_medium((box(point3(0, 0, 0), point3(165, 330, 165))), 0.01,
+                            color(0, 0, 0), texes))));
     xforms.translate(vec3(130, 0, 65)), xforms.rotate_y(-18);
-    world.add(leak(constant_medium(
-        transformed_geometry(xforms.finish(),
-                             (box(point3(0, 0, 0), point3(165, 165, 165)))),
-        0.01, color(1, 1, 1), texes)));
+    world.add(leak(transformed_hittable(
+        xforms.finish(),
+        constant_medium((box(point3(0, 0, 0), point3(165, 165, 165))), 0.01,
+                        color(1, 1, 1), texes))));
 
     camera cam;
 
@@ -452,9 +456,9 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto sphere_color = texes.solid(0.7, 0.3, 0.1);
     xform_builder xforms;
     xforms.move(vec3(30, 0, 0));
-    world.add(leak(geometry_wrapper(
-        transformed_geometry(xforms.finish(), (sphere(center, 50))),
-        sphere_material, sphere_color)));
+    world.add(leak(transformed_hittable(
+        xforms.finish(),
+        geometry_wrapper(sphere(center, 50), sphere_material, sphere_color))));
 
     auto dielectric = material::dielectric(1.5);
 
@@ -496,9 +500,9 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     xforms.translate(vec3(-100, 270, 395)), xforms.rotate_y(15);
 
-    world.add(leak(hittable_collection(transformed_collection(
+    world.add(leak(transformed_hittable(
         xforms.finish(),
-        geometry_collection_wrapper(
+        hittable_collection(geometry_collection_wrapper(
             bvh::over_geometry(
                 bvh::must_split(std::span<sphere>(box_of_spheres)),
                 std::span<sphere const>(box_of_spheres)),

@@ -24,9 +24,7 @@ concept is_geometry =
              interval &ray_t) {
         { g.hit(r, res, ray_t) } -> std::same_as<bool>;
     } &&
-    requires(T const &g) {
-        { g.getTransforms() } -> std::same_as<std::span<transform const>>;
-    } && has_bb<T>;
+    has_bb<T>;
 
 template <typename Coll>
 concept is_geometry_collection =

@@ -76,7 +76,6 @@ struct constant_medium final {
 
         rec.mat = material::isotropic();
         rec.tex = texture{texture::kind::solid, color_id};
-        rec.xforms = boundary.getTransforms();
 
         return true;
     }

@@ -34,12 +34,11 @@
 #include <utility>
 
 #include "aabb.h"
-#include "collection.h"
 #include "geometry.h"
 #include "hit_record.h"
 #include "interval.h"
-#include "rtweekend.h"
 #include "texture.h"
+#include "transform.h"
 
 // NOTE: material could be the next thing to make common on all hittables so it
 // can be migrated to somewhere else! Reason is that we don't need to access the
@@ -103,10 +102,38 @@ struct geometry_wrapper final {
         auto did_hit = geom.hit(r, rec.geom, ray_t);
         if (did_hit) {
             geom.getUVs(rec.geom, rec.u, rec.v);
-            rec.xforms = geom.getTransforms();
             rec.mat = mat;
             rec.tex = tex;
         }
+        return did_hit;
+    }
+};
+
+template <is_hittable T>
+struct transformed_hittable final {
+    std::span<transform const> transf;
+    T object;
+
+    transformed_hittable(std::span<transform const> transf, T object)
+        : transf(transf), object(std::move(object)) {}
+
+    [[nodiscard]] aabb boundingBox() const& {
+        aabb box = object.boundingBox();
+        for (auto const& tf : transf) {
+            tf.apply_to_bbox(box);
+        }
+        return box;
+    }
+
+    bool hit(ray const& r, interval& ray_t, hit_record& rec) const {
+        ray r_copy = r;
+
+        for (auto const& tf : transf) {
+            tf.apply(r_copy, r.time);
+        }
+
+        auto did_hit = object.hit(r_copy, ray_t, rec);
+        if (did_hit) rec.xforms = transf;
         return did_hit;
     }
 };

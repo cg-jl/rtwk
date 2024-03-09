@@ -71,8 +71,6 @@ struct quad final {
         v = dot(w, cross(this->u, planar_hitpt_vector));
     }
 
-    static std::span<transform const> getTransforms() { return {}; }
-
     void getUVs(hit_record::geometry const& res, float& u, float& v) const {
         auto n = cross(this->u, this->v);
         auto inv_sqrtn = 1 / n.length();
