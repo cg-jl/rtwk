@@ -36,7 +36,8 @@ struct constant_medium final {
 
     [[nodiscard]] aabb boundingBox() const& { return boundary.boundingBox(); }
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const {
+    bool hit(ray const& r, interval& ray_t, hit_record& rec,
+             float _time) const {
         hit_record::geometry discarded_rec;
 
         interval hit1(interval::universe);

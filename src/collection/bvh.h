@@ -262,12 +262,13 @@ struct over_hittables final {
 
     [[nodiscard]] aabb boundingBox() const& { return tree.boundingBox(); }
 
-    void propagate(ray const& r, hit_status& status, hit_record& rec) const& {
+    void propagate(ray const& r, hit_status& status, hit_record& rec,
+                   float time) const& {
         tree.filter(range{0, objects.size()}, r, status.ray_t,
-                    [&r, &status, &rec, objects = this->objects](
+                    [&r, &status, &rec, objects = this->objects, time](
                         interval& _ray_t, range span) {
                         objects.subspan(span.start, span.size())
-                            .propagate(r, status, rec);
+                            .propagate(r, status, rec, time);
                     });
     }
 };

@@ -17,17 +17,18 @@ struct hit_status {
 
 // TODO: move out from base class
 template <typename T>
-concept is_collection =
-    requires(T const &coll, ray const &r, hit_status &status, hit_record &rec) {
-        { coll.propagate(r, status, rec) } -> std::same_as<void>;
-    } && has_bb<T>;
+concept is_collection = requires(T const &coll, ray const &r,
+                                 hit_status &status, hit_record &rec,
+                                 float time) {
+    { coll.propagate(r, status, rec, time) } -> std::same_as<void>;
+} && has_bb<T>;
 
 namespace detail::collection::erased {
 template <is_collection T>
 static void propagate(void const *ptr, ray const &r, hit_status &status,
-                      hit_record &rec) {
+                      hit_record &rec, float time) {
     T const &p = *reinterpret_cast<T const *>(ptr);
-    return p.propagate(r, status, rec);
+    return p.propagate(r, status, rec, time);
 }
 
 template <is_collection T>
@@ -54,9 +55,9 @@ struct hittable_collection final {
         : wrapped(std::move(wrapped)) {}
 
     [[nodiscard]] aabb boundingBox() const & { return wrapped.boundingBox(); }
-    bool hit(ray const &r, interval &ray_t, hit_record &rec) const {
+    bool hit(ray const &r, interval &ray_t, hit_record &rec, float time) const {
         hit_status status{ray_t};
-        wrapped.propagate(r, status, rec);
+        wrapped.propagate(r, status, rec, time);
         return status.hit_anything;
     }
 };
@@ -64,8 +65,8 @@ struct hittable_collection final {
 // TODO: these wrappers should be named 'pointer collection" or sth like that.
 struct dyn_collection final {
     void const *ptr;
-    void (*propagate_pfn)(void const *, ray const &, hit_status &,
-                          hit_record &);
+    void (*propagate_pfn)(void const *, ray const &, hit_status &, hit_record &,
+                          float);
     aabb (*box_pfn)(void const *);
 
     template <is_collection T>
@@ -76,8 +77,9 @@ struct dyn_collection final {
 
     [[nodiscard]] aabb boundingBox() const & noexcept { return box_pfn(ptr); }
 
-    void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
-        return propagate_pfn(ptr, r, status, rec);
+    void propagate(ray const &r, hit_status &status, hit_record &rec,
+                   float time) const & {
+        return propagate_pfn(ptr, r, status, rec, time);
     }
 };
 
@@ -92,7 +94,8 @@ struct geometry_collection_wrapper final {
 
     [[nodiscard]] aabb boundingBox() const & { return coll.boundingBox(); }
 
-    void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
+    void propagate(ray const &r, hit_status &status, hit_record &rec,
+                   float _time) const & {
         typename Coll::Type const *ptr = coll.hit(r, rec.geom, status.ray_t);
         status.hit_anything |= ptr != nullptr;
         if (ptr != nullptr) {
@@ -118,7 +121,9 @@ struct soa_collection {
         return bb;
     }
 
-    void propagate(ray const &r, hit_status &status, hit_record &rec) const & {
-        (view<Ts>(span.template get<Ts>()).propagate(r, status, rec), ...);
+    void propagate(ray const &r, hit_status &status, hit_record &rec,
+                   float time) const & {
+        (view<Ts>(span.template get<Ts>()).propagate(r, status, rec, time),
+         ...);
     }
 };

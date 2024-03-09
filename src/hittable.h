@@ -30,7 +30,6 @@
 // implement (other than having 3 BVHs). Specialization here might give this a
 // nice boost, so it may be a good idea!
 
-#include <cmath>
 #include <utility>
 
 #include "aabb.h"
@@ -40,27 +39,23 @@
 #include "texture.h"
 #include "transform.h"
 
-// NOTE: material could be the next thing to make common on all hittables so it
-// can be migrated to somewhere else! Reason is that we don't need to access the
-// material pointer until we're sure that it's the correct one. By doing this
-// we'll ensure a cache miss, but we have one cache miss per hit already
-// guaranteed, so it may give more than it takes.
-
-// NOTE: hittable occupies 8 bytes and adds always a pointer indirection, just
-// to get a couple of functions. What about removing one of the indirections?
+// NOTE: There are two kinds of hittables:
+// those that are wrapped by a transform layer
+// those that aren't
+// Is it worth it to separate the concept into two?
 
 template <typename T>
-concept is_hittable =
-    requires(T const& ob, ray const& r, interval& ray_t, hit_record& rec) {
-        { ob.hit(r, ray_t, rec) } -> std::same_as<bool>;
-    } && has_bb<T>;
+concept is_hittable = requires(T const& ob, ray const& r, interval& ray_t,
+                               hit_record& rec, float time) {
+    { ob.hit(r, ray_t, rec, time) } -> std::same_as<bool>;
+} && has_bb<T>;
 
 namespace erase::hittable {
 template <is_hittable H>
-static bool hit(void const* ptr, ray const& r, interval& ray_t,
-                hit_record& rec) {
+static bool hit(void const* ptr, ray const& r, interval& ray_t, hit_record& rec,
+                float time) {
     H const& h = *reinterpret_cast<H const*>(ptr);
-    return h.hit(r, ray_t, rec);
+    return h.hit(r, ray_t, rec, time);
 }
 
 template <is_hittable H>
@@ -73,7 +68,7 @@ static aabb boundingBox(void const* ptr) {
 
 struct dyn_hittable final {
     void const* ptr;
-    bool (*hit_pfn)(void const*, ray const&, interval&, hit_record&);
+    bool (*hit_pfn)(void const*, ray const&, interval&, hit_record&, float);
     aabb (*box_pfn)(void const*);
 
     template <is_hittable H>
@@ -83,8 +78,8 @@ struct dyn_hittable final {
           box_pfn(erase::hittable::boundingBox<H>) {}
 
     [[nodiscard]] aabb boundingBox() const& { return box_pfn(ptr); }
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const {
-        return hit_pfn(ptr, r, ray_t, rec);
+    bool hit(ray const& r, interval& ray_t, hit_record& rec, float time) const {
+        return hit_pfn(ptr, r, ray_t, rec, time);
     }
 };
 
@@ -98,7 +93,8 @@ struct geometry_wrapper final {
         : geom(std::move(geom)), mat(std::move(mat)), tex(tex) {}
 
     [[nodiscard]] aabb boundingBox() const& { return geom.boundingBox(); }
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const {
+    bool hit(ray const& r, interval& ray_t, hit_record& rec,
+             float _time) const {
         auto did_hit = geom.hit(r, rec.geom, ray_t);
         if (did_hit) {
             geom.getUVs(rec.geom, rec.u, rec.v);
@@ -125,14 +121,15 @@ struct transformed_hittable final {
         return box;
     }
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec) const {
+    bool hit(ray const& r, interval& ray_t, hit_record& rec, float time) const {
         ray r_copy = r;
 
         for (auto const& tf : transf) {
-            tf.apply(r_copy, r.time);
+            tf.apply(r_copy, time);
         }
 
-        auto did_hit = object.hit(r_copy, ray_t, rec);
+        // NOTE: ideally there is only one transform layer here so time shouldn't be used.
+        auto did_hit = object.hit(r_copy, ray_t, rec, time);
         if (did_hit) rec.xforms = transf;
         return did_hit;
     }

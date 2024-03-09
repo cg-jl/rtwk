@@ -35,14 +35,15 @@ struct view final {
     }
 
     static void propagate(ray const& r, hit_status& status, hit_record& rec,
-                          std::span<T const> objects) {
+                          std::span<T const> objects, float time) {
         for (auto const& ob : objects) {
-            status.hit_anything |= ob.hit(r, status.ray_t, rec);
+            status.hit_anything |= ob.hit(r, status.ray_t, rec, time);
         }
     }
 
-    void propagate(ray const& r, hit_status& status, hit_record& rec) const& {
-        return propagate(r, status, rec, objects);
+    void propagate(ray const& r, hit_status& status, hit_record& rec,
+                   float time) const& {
+        return propagate(r, status, rec, objects, time);
     }
 };
 

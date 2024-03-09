@@ -132,8 +132,9 @@ struct camera {
                             texes);
 
                         ray r = get_ray(i, j);
+                        auto time = random_float();
 
-                        if (simulate_ray(r, world, tex_reqs)) {
+                        if (simulate_ray(r, world, time, tex_reqs)) {
                             total_checker_requests += tex_reqs.checker_count;
                             total_solids += tex_reqs.solid_count;
                             total_images += tex_reqs.image_count;
@@ -352,9 +353,8 @@ struct camera {
 
         auto ray_origin = (defocus_angle <= 0) ? center : defocus_disk_sample();
         auto ray_direction = pixel_sample - ray_origin;
-        auto ray_time = random_float();
 
-        return {ray_origin, unit_vector(ray_direction), ray_time};
+        return {ray_origin, unit_vector(ray_direction)};
     }
 
     [[nodiscard]] vec3 pixel_sample_square() const {
@@ -495,7 +495,8 @@ struct camera {
     // hits the skybox.
     // Returns whether it hits a light or not
     template <is_collection C>
-    static bool simulate_ray(ray r, C const& world, tex_request_queue& texes) {
+    static bool simulate_ray(ray r, C const& world, float time,
+                             tex_request_queue& texes) {
         while (!texes.is_full()) {
             hit_record rec;
 
@@ -505,10 +506,10 @@ struct camera {
             // the ray, since texture is the only thing that is completely
             // separate from geometry (except for hit point).
             hit_status status{ray_t};
-            world.propagate(r, status, rec);
+            world.propagate(r, status, rec, time);
             if (!status.hit_anything) return false;
 
-            apply_reverse_transforms(rec.xforms, rec.geom.p, r.time,
+            apply_reverse_transforms(rec.xforms, rec.geom.p, time,
                                      rec.geom.normal);
             texes.add(rec.tex, rec.geom.p, rec.u, rec.v);
 
@@ -520,7 +521,7 @@ struct camera {
 
             rec.mat.scatter(r.direction, face, scattered);
 
-            r = ray(rec.geom.p, scattered, r.time);
+            r = ray(rec.geom.p, scattered);
         }
         // The ray didn't converge to a light source, so no light is to be
         // returned
