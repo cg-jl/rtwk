@@ -48,13 +48,13 @@ template <typename T>
 concept is_hittable = requires(T const& ob, ray const& r, interval& ray_t,
                                hit_record& rec, float time) {
     { ob.hit(r, ray_t, rec, time) } -> std::same_as<bool>;
-} && has_bb<T>;
+};
 
 template <typename T>
 concept time_invariant_hittable =
     requires(T const& ob, ray const& r, interval& ray_t, hit_record& rec) {
         { ob.hit(r, ray_t, rec) } -> std::same_as<bool>;
-    } && has_bb<T>;
+    };
 
 namespace erase::hittable {
 template <is_hittable H>
@@ -64,26 +64,16 @@ static bool hit(void const* ptr, ray const& r, interval& ray_t, hit_record& rec,
     return h.hit(r, ray_t, rec, time);
 }
 
-template <is_hittable H>
-static aabb boundingBox(void const* ptr) {
-    H const& h = *reinterpret_cast<H const*>(ptr);
-    return h.boundingBox();
-}
-
 }  // namespace erase::hittable
 
 struct dyn_hittable final {
     void const* ptr;
     bool (*hit_pfn)(void const*, ray const&, interval&, hit_record&, float);
-    aabb (*box_pfn)(void const*);
 
     template <is_hittable H>
     explicit constexpr dyn_hittable(H const* ptr)
-        : ptr(ptr),
-          hit_pfn(erase::hittable::hit<H>),
-          box_pfn(erase::hittable::boundingBox<H>) {}
+        : ptr(ptr), hit_pfn(erase::hittable::hit<H>) {}
 
-    [[nodiscard]] aabb boundingBox() const& { return box_pfn(ptr); }
     bool hit(ray const& r, interval& ray_t, hit_record& rec, float time) const {
         return hit_pfn(ptr, r, ray_t, rec, time);
     }

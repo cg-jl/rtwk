@@ -369,7 +369,7 @@ template <has_bb T>
     return split(objects, *initial_split);
 }
 
-template <is_hittable T>
+template <has_bb T>
 [[nodiscard]] static dyn_collection split_or_view(list<T>& objects) {
     assert(objects.values.size() >= 2 && "There's no need to split this!");
 

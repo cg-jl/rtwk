@@ -44,6 +44,9 @@ static void random_spheres() {
 
     auto dielectric = material::dielectric(1.5);
 
+    list<transformed_hittable<tex_wrapper<sphere>>> moving_spheres;
+    list<tex_wrapper<sphere>> stationary_spheres;
+
     xform_builder xforms;
 
     for (int a = -11; a < 11; a++) {
@@ -61,41 +64,43 @@ static void random_spheres() {
                     auto displacement = vec3(0, random_float(0, .5), 0);
 
                     xforms.move(displacement);
-                    world.add(leak(transformed_hittable(
+                    moving_spheres.add(
                         xforms.finish(),
                         tex_wrapper(sphere(point3(center), 0.2),
-                                    sphere_material, sphere_texture))));
+                                    sphere_material, sphere_texture));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = color::random(0.5, 1);
                     auto fuzz = random_float(0, 0.5);
                     auto sphere_material = material::metal(fuzz);
-                    world.add(leak(time_wrapper(
-                        tex_wrapper(sphere(center, 0.2), sphere_material,
-                                    texes.solid(albedo)))));
+                    stationary_spheres.add(tex_wrapper(sphere(center, 0.2),
+                                                       sphere_material,
+                                                       texes.solid(albedo)));
                 } else {
                     // glass
-                    world.add(leak(time_wrapper(
-                        tex_wrapper(sphere(center, 0.2), dielectric,
-                                    texes.solid(1, 1, 1)))));
+                    stationary_spheres.add(
+                        (tex_wrapper(sphere(center, 0.2), dielectric,
+                                     texes.solid(1, 1, 1))));
                 }
             }
         }
     }
 
     auto material1 = material::dielectric(1.5);
-    world.add(leak(time_wrapper(tex_wrapper(sphere(point3(0, 1, 0), 1.0),
-                                            material1, texes.solid(1, 1, 1)))));
+    stationary_spheres.add(tex_wrapper(sphere(point3(0, 1, 0), 1.0), material1,
+                                       texes.solid(1, 1, 1)));
 
     auto material2 = material::lambertian();
-    world.add(leak(time_wrapper(tex_wrapper(
-        sphere(point3(-4, 1, 0), 1.0), material2, texes.solid(.4, .2, .1)))));
+    stationary_spheres.add(tex_wrapper(sphere(point3(-4, 1, 0), 1.0), material2,
+                                       texes.solid(.4, .2, .1)));
 
     auto material3 = material::metal(0.0);
-    world.add(leak(time_wrapper(tex_wrapper(
-        sphere(point3(4, 1, 0), 1.0), material3, texes.solid(0.7, .6, .5)))));
+    stationary_spheres.add(tex_wrapper(sphere(point3(4, 1, 0), 1.0), material3,
+                                       texes.solid(0.7, .6, .5)));
 
-    auto const scene = bvh::split_or_view(world);
+    world.add(
+        leak(hittable_collection(bvh::split_or_view(stationary_spheres))));
+    world.add(leak(hittable_collection(bvh::split_or_view(moving_spheres))));
 
     camera cam;
 
@@ -113,7 +118,7 @@ static void random_spheres() {
     cam.defocus_angle = 0.02;
     cam.focus_dist = 10.0;
 
-    cam.render(scene, enable_progress, texes.view());
+    cam.render(world.finish(), enable_progress, texes.view());
 }
 
 static void two_spheres() {
@@ -478,10 +483,10 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     // So these two are one (constant_medium) inside another (dielectric).
     wrapped_spheres.add(boundary_geom, dielectric, full_white);
 
-    world.add(
-        leak(constant_medium(boundary_geom, 0.2, color(0.2, 0.4, 0.9), texes)));
-    world.add(leak(constant_medium(sphere(point3(0, 0, 0), 5000), .0001,
-                                   color(1), texes)));
+    world.add(leak(time_wrapper(
+        constant_medium(boundary_geom, 0.2, color(0.2, 0.4, 0.9), texes))));
+    world.add(leak(time_wrapper(constant_medium(sphere(point3(0, 0, 0), 5000),
+                                                .0001, color(1), texes))));
 
     id_storage<rtw_image> images;
     auto emat = texes.image("earthmap.jpg");

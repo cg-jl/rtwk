@@ -37,7 +37,14 @@ static void propagate(void const *ptr, ray const &r, hit_status &status,
     return p.propagate(r, status, rec, time);
 }
 
-template <is_collection T>
+template <time_invariant_collection T>
+static void propagate_time(void const *ptr, ray const &r, hit_status &status,
+                           hit_record &rec, float _time) {
+    T const &p = *reinterpret_cast<T const *>(ptr);
+    return p.propagate(r, status, rec);
+}
+
+template <has_bb T>
 static aabb boundingBox(void const *ptr) {
     T const &p = *reinterpret_cast<T const *>(ptr);
     return p.boundingBox();
@@ -93,6 +100,12 @@ struct dyn_collection final {
     constexpr dyn_collection(T const *poly)
         : ptr(poly),
           propagate_pfn(detail::collection::erased::propagate<T>),
+          box_pfn(detail::collection::erased::boundingBox<T>) {}
+
+    template <time_invariant_collection T>
+    constexpr dyn_collection(T const *ptr)
+        : ptr(ptr),
+          propagate_pfn(detail::collection::erased::propagate_time<T>),
           box_pfn(detail::collection::erased::boundingBox<T>) {}
 
     [[nodiscard]] aabb boundingBox() const & noexcept { return box_pfn(ptr); }

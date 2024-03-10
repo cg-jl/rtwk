@@ -36,12 +36,6 @@ struct constant_medium final {
 
     [[nodiscard]] aabb boundingBox() const& { return boundary.boundingBox(); }
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec, float _time) const
-        requires(is_geometry<T>)
-    {
-        return hit(r, ray_t, rec);
-    }
-
     bool hit(ray const& r, interval& ray_t, hit_record& rec) const
         requires(is_geometry<T>)
     {
