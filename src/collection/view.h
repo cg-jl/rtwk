@@ -54,6 +54,14 @@ struct view final {
         return best;
     }
 
+    void propagate(ray const& r, hit_status& status, hit_record& rec) const&
+        requires(time_invariant_hittable<T>)
+    {
+        for (auto const& ob : objects) {
+            status.hit_anything |= ob.hit(r, status.ray_t, rec);
+        }
+    }
+
     void propagate(ray const& r, hit_status& status, hit_record& rec,
                    float time) const&
         requires(is_hittable<T>)

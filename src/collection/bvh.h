@@ -253,6 +253,16 @@ struct over final {
         return best;
     }
 
+    void propagate(ray const& r, hit_status& status, hit_record& rec) const&
+        requires(time_invariant_hittable<T>)
+    {
+        bvh.filter(
+            range{0, objects.size()}, r, status.ray_t,
+            [&r, &status, &rec, v = objects](interval& ray_t, range span) {
+                v.subspan(span.start, span.size()).propagate(r, status, rec);
+            });
+    }
+
     void propagate(ray const& r, hit_status& status, hit_record& rec,
                    float time) const&
         requires(is_hittable<T>)

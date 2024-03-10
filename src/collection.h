@@ -23,6 +23,12 @@ concept is_collection = requires(T const &coll, ray const &r,
     { coll.propagate(r, status, rec, time) } -> std::same_as<void>;
 } && has_bb<T>;
 
+template <typename T>
+concept time_invariant_collection =
+    requires(T const &coll, ray const &r, hit_status &status, hit_record &rec) {
+        { coll.propagate(r, status, rec) } -> std::same_as<void>;
+    };
+
 namespace detail::collection::erased {
 template <is_collection T>
 static void propagate(void const *ptr, ray const &r, hit_status &status,
@@ -47,15 +53,29 @@ static aabb boundingBox(void const *ptr) {
 // removed as I progress in dissecting the properties of hittables vs
 // collections.
 // It serves as a way to layer collections
-template <is_collection T>
+template <typename T>
 struct hittable_collection final {
     T wrapped;
 
     explicit constexpr hittable_collection(T wrapped)
         : wrapped(std::move(wrapped)) {}
 
-    [[nodiscard]] aabb boundingBox() const & { return wrapped.boundingBox(); }
-    bool hit(ray const &r, interval &ray_t, hit_record &rec, float time) const {
+    [[nodiscard]] aabb boundingBox() const &
+        requires(has_bb<T>)
+    {
+        return wrapped.boundingBox();
+    }
+
+    bool hit(ray const &r, interval &ray_t, hit_record &rec) const &
+        requires(time_invariant_collection<T>)
+    {
+        hit_status status{ray_t};
+        wrapped.propagate(r, status, rec);
+        return status.hit_anything;
+    }
+    bool hit(ray const &r, interval &ray_t, hit_record &rec, float time) const &
+        requires(is_collection<T>)
+    {
         hit_status status{ray_t};
         wrapped.propagate(r, status, rec, time);
         return status.hit_anything;

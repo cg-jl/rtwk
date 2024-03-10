@@ -21,8 +21,7 @@ struct tex_wrapper final {
         return wrapped.boundingBox();
     }
 
-    bool hit(ray const &r, interval &ray_t, hit_record &rec,
-             float _time) const &
+    bool hit(ray const &r, interval &ray_t, hit_record &rec) const &
         requires(is_geometry<T>)
     {
         auto did_hit = wrapped.hit(r, rec.geom, ray_t);
@@ -34,8 +33,7 @@ struct tex_wrapper final {
         return did_hit;
     }
 
-    void propagate(ray const &r, hit_status &status, hit_record &rec,
-                   float _time) const &
+    void propagate(ray const &r, hit_status &status, hit_record &rec) const &
         requires(is_geometry_collection<T>)
     {
         typename T::Type const *ptr = wrapped.hit(r, rec.geom, status.ray_t);
@@ -46,5 +44,36 @@ struct tex_wrapper final {
             rec.tex = tex;
             rec.mat = mat;
         }
+    }
+
+    constexpr operator T const &() { return wrapped; }
+};
+
+template <typename T>
+struct time_wrapper {
+    T wrapped;
+
+    explicit time_wrapper(T wrapped) : wrapped(std::move(wrapped)) {}
+
+    constexpr operator T const &() { return wrapped; }
+
+    [[nodiscard]] aabb boundingBox() const &
+        requires(has_bb<T>)
+    {
+        return wrapped.boundingBox();
+    }
+
+    void propagate(ray const &r, hit_status &status, hit_record &rec,
+                   float _time) const &
+        requires(time_invariant_collection<T>)
+    {
+        return wrapped.propagate(r, status, rec);
+    }
+
+    bool hit(ray const &r, interval &ray_t, hit_record &rec,
+             float _time) const &
+        requires(time_invariant_hittable<T>)
+    {
+        return wrapped.hit(r, ray_t, rec);
     }
 };

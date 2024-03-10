@@ -50,6 +50,12 @@ concept is_hittable = requires(T const& ob, ray const& r, interval& ray_t,
     { ob.hit(r, ray_t, rec, time) } -> std::same_as<bool>;
 } && has_bb<T>;
 
+template <typename T>
+concept time_invariant_hittable =
+    requires(T const& ob, ray const& r, interval& ray_t, hit_record& rec) {
+        { ob.hit(r, ray_t, rec) } -> std::same_as<bool>;
+    } && has_bb<T>;
+
 namespace erase::hittable {
 template <is_hittable H>
 static bool hit(void const* ptr, ray const& r, interval& ray_t, hit_record& rec,
@@ -102,7 +108,7 @@ struct transformed_hittable final {
     }
 
     bool hit(ray const& r, interval& ray_t, hit_record& rec, float time) const&
-        requires(is_hittable<T>)
+        requires(time_invariant_hittable<T>)
     {
         ray r_copy = r;
 
@@ -110,9 +116,7 @@ struct transformed_hittable final {
             tf.apply(r_copy, time);
         }
 
-        // NOTE: ideally there is only one transform layer here so time
-        // shouldn't be used.
-        auto did_hit = object.hit(r_copy, ray_t, rec, time);
+        auto did_hit = object.hit(r_copy, ray_t, rec);
         if (did_hit) rec.xforms = transf;
         return did_hit;
     }
