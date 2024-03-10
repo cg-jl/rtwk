@@ -1,12 +1,12 @@
 #pragma once
 
-#include "hittable.h"
-#include "soa.h"
-#include "transform.h"
-
 // Abstraction over a collection. It's used to pack multiple hittables,
 // for caching & type homogeneity benefits.
 
+#include "geometry.h"
+#include "hit_record.h"
+#include "interval.h"
+#include "ray.h"
 struct hit_status {
     bool hit_anything;
     interval ray_t;
@@ -15,13 +15,14 @@ struct hit_status {
         : hit_anything(false), ray_t(initial_intv) {}
 };
 
-// TODO: move out from base class
+// TODO: split hit_record so that xforms are only required on time dependent
+// hittables/collections
 template <typename T>
-concept is_collection = requires(T const &coll, ray const &r,
-                                 hit_status &status, hit_record &rec,
-                                 float time) {
-    { coll.propagate(r, status, rec, time) } -> std::same_as<void>;
-} && has_bb<T>;
+concept is_collection =
+    requires(T const &coll, ray const &r, hit_status &status, hit_record &rec,
+             transform_set &xforms, float time) {
+        { coll.propagate(r, status, rec, xforms, time) } -> std::same_as<void>;
+    };
 
 template <typename T>
 concept time_invariant_collection =
@@ -32,17 +33,14 @@ concept time_invariant_collection =
 namespace detail::collection::erased {
 template <is_collection T>
 static void propagate(void const *ptr, ray const &r, hit_status &status,
-                      hit_record &rec, float time) {
+                      hit_record &rec, transform_set &xforms, float time) {
     T const &p = *reinterpret_cast<T const *>(ptr);
-    return p.propagate(r, status, rec, time);
+    return p.propagate(r, status, rec, xforms, time);
 }
 
 template <time_invariant_collection T>
 static void propagate_time(void const *ptr, ray const &r, hit_status &status,
-                           hit_record &rec, float _time) {
-    T const &p = *reinterpret_cast<T const *>(ptr);
-    return p.propagate(r, status, rec);
-}
+                           hit_record &rec, transform_set &xforms, float _time);
 
 template <has_bb T>
 static aabb boundingBox(void const *ptr) {
@@ -80,59 +78,13 @@ struct hittable_collection final {
         wrapped.propagate(r, status, rec);
         return status.hit_anything;
     }
-    bool hit(ray const &r, interval &ray_t, hit_record &rec, float time) const &
+
+    bool hit(ray const &r, interval &ray_t, hit_record &rec,
+             transform_set &xforms, float time) const &
         requires(is_collection<T>)
     {
         hit_status status{ray_t};
-        wrapped.propagate(r, status, rec, time);
+        wrapped.propagate(r, status, rec, xforms, time);
         return status.hit_anything;
-    }
-};
-
-// TODO: these wrappers should be named 'pointer collection" or sth like that.
-struct dyn_collection final {
-    void const *ptr;
-    void (*propagate_pfn)(void const *, ray const &, hit_status &, hit_record &,
-                          float);
-    aabb (*box_pfn)(void const *);
-
-    template <is_collection T>
-    constexpr dyn_collection(T const *poly)
-        : ptr(poly),
-          propagate_pfn(detail::collection::erased::propagate<T>),
-          box_pfn(detail::collection::erased::boundingBox<T>) {}
-
-    template <time_invariant_collection T>
-    constexpr dyn_collection(T const *ptr)
-        : ptr(ptr),
-          propagate_pfn(detail::collection::erased::propagate_time<T>),
-          box_pfn(detail::collection::erased::boundingBox<T>) {}
-
-    [[nodiscard]] aabb boundingBox() const & noexcept { return box_pfn(ptr); }
-
-    void propagate(ray const &r, hit_status &status, hit_record &rec,
-                   float time) const & {
-        return propagate_pfn(ptr, r, status, rec, time);
-    }
-};
-
-using hittable_poly_collection = hittable_collection<dyn_collection>;
-
-template <is_hittable... Ts>
-struct soa_collection {
-    soa::span<Ts...> span;
-
-    [[nodiscard]] aabb boundingBox() const & {
-        aabb bb = empty_bb;
-
-        ((bb = aabb(bb, view<Ts>(span.template get<Ts>()).boundingBox())), ...);
-
-        return bb;
-    }
-
-    void propagate(ray const &r, hit_status &status, hit_record &rec,
-                   float time) const & {
-        (view<Ts>(span.template get<Ts>()).propagate(r, status, rec, time),
-         ...);
     }
 };

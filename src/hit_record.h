@@ -8,6 +8,8 @@
 
 struct transform;
 
+using transform_set = std::span<transform const>;
+
 struct hit_record {
     struct geometry {
         point3 p;
@@ -21,5 +23,4 @@ struct hit_record {
     material mat{};
     // TODO: Inline texture struct into this?
     texture tex{};
-    std::span<transform const> xforms{};
 };

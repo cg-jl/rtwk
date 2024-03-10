@@ -24,8 +24,10 @@
 #include "geometry/constant_medium.h"
 #include "geometry/quad.h"
 #include "geometry/sphere.h"
+#include "hittable.h"
 #include "material.h"
 #include "rtweekend.h"
+#include "soa.h"
 #include "storage.h"
 #include "texture.h"
 #include "transform.h"
@@ -34,18 +36,20 @@
 static bool enable_progress = true;
 
 static void random_spheres() {
-    poly_list world;
     tex_storage texes;
 
     auto checker = texes.checker(0.32, color(.2, .3, .1), color(.9, .9, .9));
 
-    world.add(leak(time_wrapper(tex_wrapper(sphere(point3(0, -1000, 0), 1000),
-                                            material::lambertian(), checker))));
+    list<tex_wrapper<sphere>> stationary_spheres;
+    stationary_spheres.add(sphere(point3(0, -1000, 0), 1000),
+                           material::lambertian(), checker);
+    // light
+    stationary_spheres.add(sphere(point3(0, 0, 0), 10000),
+                           material::diffuse_light(), texes.solid(.7));
 
     auto dielectric = material::dielectric(1.5);
 
-    list<transformed_hittable<tex_wrapper<sphere>>> moving_spheres;
-    list<tex_wrapper<sphere>> stationary_spheres;
+    list<transformed<tex_wrapper<sphere>>> moving_spheres;
 
     xform_builder xforms;
 
@@ -98,9 +102,13 @@ static void random_spheres() {
     stationary_spheres.add(tex_wrapper(sphere(point3(4, 1, 0), 1.0), material3,
                                        texes.solid(0.7, .6, .5)));
 
-    world.add(
-        leak(hittable_collection(bvh::split_or_view(stationary_spheres))));
-    world.add(leak(hittable_collection(bvh::split_or_view(moving_spheres))));
+    auto stationary_bvh = bvh::over(bvh::must_split(stationary_spheres.span()),
+                                    stationary_spheres.finish());
+    auto moving_bvh = bvh::over(bvh::must_split(moving_spheres.span()),
+                                moving_spheres.finish());
+
+    auto world = tuple_wrapper<decltype(stationary_bvh), decltype(moving_bvh)>(
+        std::move(stationary_bvh), std::move(moving_bvh));
 
     camera cam;
 
@@ -118,7 +126,7 @@ static void random_spheres() {
     cam.defocus_angle = 0.02;
     cam.focus_dist = 10.0;
 
-    cam.render(world.finish(), enable_progress, texes.view());
+    cam.render(world, enable_progress, texes.view());
 }
 
 static void two_spheres() {
@@ -326,19 +334,18 @@ static void cornell_box() {
 
     xform_builder xforms;
     xforms.translate(vec3(265, 0, 295)), xforms.rotate_y(15);
-    world.add(leak(transformed_hittable(
-        xforms.finish(), tex_wrapper(
+    world.add(leak(transformed(xforms.finish(),
+                               tex_wrapper(
 
-                             box(point3(0, 0, 0), point3(165, 330, 165)),
-                             material::lambertian(), white))));
+                                   box(point3(0, 0, 0), point3(165, 330, 165)),
+                                   material::lambertian(), white))));
 
     xforms.translate(vec3(130, 0, 65)), xforms.rotate_y(-18);
     world.add(leak(
 
-        transformed_hittable(
-            xforms.finish(),
-            tex_wrapper((box(point3(0, 0, 0), point3(165, 165, 165))),
-                        material::lambertian(), white))));
+        transformed(xforms.finish(),
+                    tex_wrapper((box(point3(0, 0, 0), point3(165, 165, 165))),
+                                material::lambertian(), white))));
 
     camera cam;
 
@@ -390,15 +397,14 @@ static void cornell_smoke() {
     xforms.translate(vec3(265, 0, 295)), xforms.rotate_y(15);
     world.add(leak(
 
-        transformed_hittable(
-            xforms.finish(),
-            constant_medium(box(point3(0, 0, 0), point3(165, 330, 165)), 0.01,
-                            color(0, 0, 0), texes))));
+        transformed(xforms.finish(),
+                    constant_medium(box(point3(0, 0, 0), point3(165, 330, 165)),
+                                    0.01, color(0, 0, 0), texes))));
     xforms.translate(vec3(130, 0, 65)), xforms.rotate_y(-18);
-    world.add(leak(transformed_hittable(
-        xforms.finish(),
-        constant_medium(box(point3(0, 0, 0), point3(165, 165, 165)), 0.01,
-                        color(1, 1, 1), texes))));
+    world.add(leak(
+        transformed(xforms.finish(),
+                    constant_medium(box(point3(0, 0, 0), point3(165, 165, 165)),
+                                    0.01, color(1, 1, 1), texes))));
 
     camera cam;
 
@@ -426,7 +432,6 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     std::vector<box> boxes1;
     auto ground_col = texes.solid(0.48, 0.83, 0.53);
-    auto ground = material::lambertian();
 
     int boxes_per_side = 20;
     for (int i = 0; i < boxes_per_side; i++) {
@@ -443,50 +448,47 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         }
     }
 
-    poly_list world;
+    auto ground = tex_wrapper(bvh::over(bvh::must_split(std::span<box>(boxes1)),
+                                        std::span<box const>(boxes1)),
+                              material::lambertian(), ground_col);
 
-    world.add(leak(time_wrapper(hittable_collection(
-        tex_wrapper(bvh::over(bvh::must_split(std::span<box>(boxes1)),
-                              std::span<box const>(boxes1)),
-                    ground, ground_col)))));
-
-    auto light = material::diffuse_light();
     auto light_color = texes.solid(7, 7, 7);
 
-    world.add(leak(time_wrapper(tex_wrapper(
-        quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265)), light,
-        light_color))));
+    auto light = tex_wrapper(
+        quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265)),
+        material::diffuse_light(), light_color);
 
     auto center = point3(400, 400, 200);
     auto sphere_material = material::lambertian();
     auto sphere_color = texes.solid(0.7, 0.3, 0.1);
     xform_builder xforms;
     xforms.move(vec3(30, 0, 0));
-    world.add(leak(transformed_hittable(
+    auto moving_sphere = transformed(
         xforms.finish(),
-        tex_wrapper(sphere(center, 50), sphere_material, sphere_color))));
+        tex_wrapper(sphere(center, 50), sphere_material, sphere_color));
 
     auto dielectric = material::dielectric(1.5);
 
     // NOTE: Lookuout for duplication of materials/colors!
     list<tex_wrapper<sphere>> wrapped_spheres;
 
+    auto full_white = texes.solid(1);
     wrapped_spheres.add(sphere(point3(260, 150, 45), 50), dielectric,
-                        texes.solid(1, 1, 1));
+                        full_white);
     wrapped_spheres.add(sphere(point3(0, 150, 145), 50), material::metal(1.0),
                         texes.solid(0.8, 0.8, 0.9));
 
-    auto full_white = texes.solid(1);
+    static_assert(time_invariant_collection<decltype(wrapped_spheres.finish())>);
     sphere boundary_geom(point3(360, 150, 145), 70);
     // NOTE: This addition is necessary so that the medium is contained within
     // the boundary.
     // So these two are one (constant_medium) inside another (dielectric).
     wrapped_spheres.add(boundary_geom, dielectric, full_white);
 
-    world.add(leak(time_wrapper(
-        constant_medium(boundary_geom, 0.2, color(0.2, 0.4, 0.9), texes))));
-    world.add(leak(time_wrapper(constant_medium(sphere(point3(0, 0, 0), 5000),
-                                                .0001, color(1), texes))));
+    list<constant_medium<sphere>> cms_builder;
+    cms_builder.add(sphere(boundary_geom.center, boundary_geom.radius - 0.001f),
+                    0.2, color(0.2, 0.4, 0.9), texes);
+    cms_builder.add(sphere(point3(0, 0, 0), 5000), .0001, color(1), texes);
 
     id_storage<rtw_image> images;
     auto emat = texes.image("earthmap.jpg");
@@ -498,7 +500,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     std::vector<sphere> box_of_spheres;
     auto white = texes.solid(.73, .73, .73);
-    int ns = 1000;
+    static constexpr int ns = 1000;
     box_of_spheres.reserve(ns);
     for (int j = 0; j < ns; j++) {
         box_of_spheres.emplace_back(point3::random(0, 165), 10);
@@ -506,19 +508,27 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     xforms.translate(vec3(-100, 270, 395)), xforms.rotate_y(15);
 
-    world.add(leak(transformed_hittable(
+    auto white_spheres = transformed(
         xforms.finish(),
-        hittable_collection(tex_wrapper(
+        tex_wrapper(
             bvh::over(bvh::must_split(std::span<sphere>(box_of_spheres)),
                       std::span<sphere const>(box_of_spheres)),
-            material::lambertian(), white)))));
+            material::lambertian(), white));
 
     // FIXME: There's some bug in propagation that makes the spheres up there ^
     // appear before the perlin-textured sphere. Maybe it's something related to
     // the BVH, or maybe it's something that makes propagation not
     // order-independent. In any case, it's a bug.
-    world.add(
-        leak(time_wrapper(hittable_collection(wrapped_spheres.finish()))));
+
+    auto cms = cms_builder.finish();
+
+    static_assert(time_invariant_collection<decltype(ground)>);
+
+    auto world = tuple_wrapper<
+        decltype(white_spheres), decltype(cms), decltype(moving_sphere),
+        decltype(wrapped_spheres.finish()), decltype(ground), decltype(light)>(
+        std::move(white_spheres), std::move(cms), std::move(moving_sphere),
+        wrapped_spheres.finish(), std::move(ground), std::move(light));
 
     struct timespec end;
     clock_gettime(CLOCK_MONOTONIC, &end);
@@ -544,7 +554,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view());
+    cam.render(world, enable_progress, texes.view());
 }
 
 int main(int argc, char const *argv[]) {

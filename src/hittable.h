@@ -33,6 +33,7 @@
 #include <utility>
 
 #include "aabb.h"
+#include "collection.h"
 #include "geometry.h"
 #include "hit_record.h"
 #include "interval.h"
@@ -45,10 +46,11 @@
 // Is it worth it to separate the concept into two?
 
 template <typename T>
-concept is_hittable = requires(T const& ob, ray const& r, interval& ray_t,
-                               hit_record& rec, float time) {
-    { ob.hit(r, ray_t, rec, time) } -> std::same_as<bool>;
-};
+concept is_hittable =
+    requires(T const& ob, ray const& r, interval& ray_t, hit_record& rec,
+             transform_set& xforms, float time) {
+        { ob.hit(r, ray_t, rec, xforms, time) } -> std::same_as<bool>;
+    };
 
 template <typename T>
 concept time_invariant_hittable =
@@ -59,32 +61,34 @@ concept time_invariant_hittable =
 namespace erase::hittable {
 template <is_hittable H>
 static bool hit(void const* ptr, ray const& r, interval& ray_t, hit_record& rec,
-                float time) {
+                transform_set& xforms, float time) {
     H const& h = *reinterpret_cast<H const*>(ptr);
-    return h.hit(r, ray_t, rec, time);
+    return h.hit(r, ray_t, rec, xforms, time);
 }
 
 }  // namespace erase::hittable
 
 struct dyn_hittable final {
     void const* ptr;
-    bool (*hit_pfn)(void const*, ray const&, interval&, hit_record&, float);
+    bool (*hit_pfn)(void const*, ray const&, interval&, hit_record&,
+                    transform_set&, float);
 
     template <is_hittable H>
     explicit constexpr dyn_hittable(H const* ptr)
         : ptr(ptr), hit_pfn(erase::hittable::hit<H>) {}
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec, float time) const {
-        return hit_pfn(ptr, r, ray_t, rec, time);
+    bool hit(ray const& r, interval& ray_t, hit_record& rec,
+             transform_set& xforms, float time) const {
+        return hit_pfn(ptr, r, ray_t, rec, xforms, time);
     }
 };
 
 template <typename T>
-struct transformed_hittable final {
+struct transformed final {
     std::span<transform const> transf;
     T object;
 
-    transformed_hittable(std::span<transform const> transf, T object)
+    transformed(std::span<transform const> transf, T object)
         : transf(transf), object(std::move(object)) {}
 
     [[nodiscard]] aabb boundingBox() const&
@@ -97,17 +101,36 @@ struct transformed_hittable final {
         return box;
     }
 
-    bool hit(ray const& r, interval& ray_t, hit_record& rec, float time) const&
-        requires(time_invariant_hittable<T>)
-    {
-        ray r_copy = r;
+    ray transform_ray(ray const& orig, float time) const& {
+        ray r_copy = orig;
 
         for (auto const& tf : transf) {
             tf.apply(r_copy, time);
         }
+        return r_copy;
+    }
 
-        auto did_hit = object.hit(r_copy, ray_t, rec);
-        if (did_hit) rec.xforms = transf;
+    void propagate(ray const& orig, hit_status& status, hit_record& rec,
+                   transform_set& xforms, float time) const&
+        requires(time_invariant_collection<T>)
+    {
+        auto r = transform_ray(orig, time);
+
+        hit_status clean_status{status.ray_t};
+        object.propagate(r, clean_status, rec);
+        if (clean_status.hit_anything) xforms = transf;
+        status.hit_anything |= clean_status.hit_anything;
+        status.ray_t = clean_status.ray_t;
+    }
+
+    bool hit(ray const& orig, interval& ray_t, hit_record& rec,
+             transform_set& xforms, float time) const&
+        requires(time_invariant_hittable<T>)
+    {
+        auto r = transform_ray(orig, time);
+
+        auto did_hit = object.hit(r, ray_t, rec);
+        if (did_hit) xforms = transf;
         return did_hit;
     }
 };

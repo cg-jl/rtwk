@@ -12,7 +12,9 @@ struct view final {
 
     constexpr view(std::span<T const> objects) : objects(objects) {}
 
-    [[nodiscard]] aabb boundingBox() const& {
+    [[nodiscard]] aabb boundingBox() const&
+        requires(has_bb<T>)
+    {
         aabb box = empty_bb;
         for (auto const& h : objects) {
             box = aabb(box, h.boundingBox());
@@ -35,9 +37,17 @@ struct view final {
     }
 
     static void propagate(ray const& r, hit_status& status, hit_record& rec,
-                          std::span<T const> objects, float time) {
+                          std::span<T const> objects) {
         for (auto const& ob : objects) {
-            status.hit_anything |= ob.hit(r, status.ray_t, rec, time);
+            status.hit_anything |= ob.hit(r, status.ray_t, rec);
+        }
+    }
+
+    static void propagate(ray const& r, hit_status& status, hit_record& rec,
+                          transform_set& xforms, std::span<T const> objects,
+                          float time) {
+        for (auto const& ob : objects) {
+            status.hit_anything |= ob.hit(r, status.ray_t, rec, xforms, time);
         }
     }
 
@@ -63,10 +73,10 @@ struct view final {
     }
 
     void propagate(ray const& r, hit_status& status, hit_record& rec,
-                   float time) const&
+                   transform_set& xforms, float time) const&
         requires(is_hittable<T>)
     {
-        return propagate(r, status, rec, objects, time);
+        return propagate(r, status, rec, xforms, objects, time);
     }
 };
 

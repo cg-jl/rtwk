@@ -169,6 +169,8 @@ struct tree final {
         return inorder_nodes[root_node].box;
     }
 
+    // NOTE: maybe it's better to change this to an iterator, so it doesn't
+    // have to be re-instanced.
     template <typename Inner>
     void filter(range initial, ray const& r, interval& ray_t,
                 Inner func) const& {
@@ -248,7 +250,7 @@ struct over final {
             [&r, &res, &best, &v = objects](interval& ray_t, range span) {
                 T const* next =
                     v.subspan(span.start, span.size()).hit(r, res, ray_t);
-                best = next ?: best;
+                if (next != nullptr) best = next;
             });
         return best;
     }
@@ -264,14 +266,14 @@ struct over final {
     }
 
     void propagate(ray const& r, hit_status& status, hit_record& rec,
-                   float time) const&
+                   transform_set& xforms, float time) const&
         requires(is_hittable<T>)
     {
         bvh.filter(range{0, objects.size()}, r, status.ray_t,
-                   [&r, &status, &rec, v = objects, time](interval& ray_t,
-                                                          range span) {
+                   [&r, &status, &rec, v = objects, time, &xforms](
+                       interval& ray_t, range span) {
                        v.subspan(span.start, span.size())
-                           .propagate(r, status, rec, time);
+                           .propagate(r, status, rec, xforms, time);
                    });
     }
 };
@@ -369,17 +371,4 @@ template <has_bb T>
     return split(objects, *initial_split);
 }
 
-template <has_bb T>
-[[nodiscard]] static dyn_collection split_or_view(list<T>& objects) {
-    assert(objects.values.size() >= 2 && "There's no need to split this!");
-
-    std::vector<node> inorder_nodes;
-
-    auto initial_split = find_best_split(objects.span(), 0);
-
-    if (!initial_split) return dyn_collection(leak(objects.finish()));
-
-    return dyn_collection(leak(
-        bvh::over(split(objects.span(), *initial_split), objects.finish())));
-}
 }  // namespace bvh

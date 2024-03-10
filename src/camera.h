@@ -497,6 +497,7 @@ struct camera {
     template <is_collection C>
     static bool simulate_ray(ray r, C const& world, float time,
                              tex_request_queue& texes) {
+        transform_set xforms{};
         while (!texes.is_full()) {
             hit_record rec;
 
@@ -506,11 +507,10 @@ struct camera {
             // the ray, since texture is the only thing that is completely
             // separate from geometry (except for hit point).
             hit_status status{ray_t};
-            world.propagate(r, status, rec, time);
+            world.propagate(r, status, rec, xforms, time);
             if (!status.hit_anything) return false;
 
-            apply_reverse_transforms(rec.xforms, rec.geom.p, time,
-                                     rec.geom.normal);
+            apply_reverse_transforms(xforms, rec.geom.p, time, rec.geom.normal);
             texes.add(rec.tex, rec.geom.p, rec.u, rec.v);
 
             if (rec.mat.tag == material::kind::diffuse_light) return true;
