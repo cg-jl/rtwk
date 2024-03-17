@@ -2,12 +2,31 @@ cmake_minimum_required(VERSION 3.20)
 
 project(rt CXX)
 
+include(FetchContent)
+
 find_package(PNG REQUIRED)
 
 add_executable(rt src/main.cc)
 
+option(TRACY_ENABLE "" OFF)
+option(TRACY_ON_DEMAND "" ON)
+option(TRACY_NO_BROADCAST "" ON)
+option(TRACY_ONLY_LOCALHOST "" ON)
+option(TRACY_NO_EXIT "" ON)
+option(ASAN_ENABLE "" OFF)
+
+FetchContent_Declare(
+    tracy
+    GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+    GIT_TAG master
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(tracy)
+
+target_link_libraries(rt PRIVATE TracyClient "${PNG_LIBRARY}")
+
 target_include_directories(rt PRIVATE "${PNG_INCLUDE_DIR}")
-target_link_libraries(rt ${PNG_LIBRARY})
 
 target_include_directories(rt PRIVATE src vendor)
 
@@ -15,15 +34,17 @@ target_link_options(rt PRIVATE -lpthread)
 
 set_property(TARGET rt PROPERTY CXX_STANDARD 20)
 
-target_compile_options(rt PRIVATE -fsingle-precision-constant -fdiagnostics-color)
+target_compile_options(rt PRIVATE 
+    -fsingle-precision-constant 
+    -fdiagnostics-color
+    -fdiagnostics-show-template-tree
+    -fconcepts-diagnostics-depth=4
+)
 
 
-if (FALSE)
+if (ASAN_ENABLE)
     target_compile_options(rt PRIVATE -fsanitize=address)
     target_link_options(rt PRIVATE -fsanitize=address)
-endif ()
-
-if (FALSE)
     target_compile_options(rt PRIVATE -fsanitize=undefined)
     target_link_options(rt PRIVATE -fsanitize=undefined)
 endif ()
@@ -44,7 +65,7 @@ else ()
             -fno-trapping-math
             -fno-signed-zeros
             -fno-rounding-math
-            -freciprocal-math
+            #-freciprocal-math
             -fassociative-math
             -ffinite-math-only
             -fallow-store-data-races

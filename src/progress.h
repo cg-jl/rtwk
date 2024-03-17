@@ -20,7 +20,9 @@ struct thread_args {
 };
 
 [[gnu::noinline]] void *reporter_thread(void *start) {
-    thread_args prog = *reinterpret_cast<thread_args *>(start);
+    auto *progp = reinterpret_cast<thread_args *>(start);
+    thread_args prog = *progp;
+    delete progp;
 
     printf("Progress thread started @ %p, target = %u\n", prog.progressp,
            prog.total_count);
@@ -54,11 +56,9 @@ struct progress_state {
     // Same return as `pthread_create`
     int setup(uint32_t total_count) {
         progress = 0;
-        // NOTE: Requires `volatile`, otherwise the pointer to `progress` may be
-        // optimized out.
-        thread_args volatile args(&progress, total_count);
+        auto *args = new thread_args(&progress, total_count);
         int res = pthread_create(&reporter_handle, NULL, reporter_thread,
-                                 (void *)&args);
+                                 (void *)args);
 
         return res;
     }
