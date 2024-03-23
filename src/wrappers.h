@@ -49,22 +49,19 @@ struct tex_wrapper final {
             rec.mat = mat;
         }
     }
-
-    constexpr operator T const &() { return wrapped; }
 };
 
 namespace time_wrapper_impls {
-template <time_invariant_hittable H>
-static bool hit(H const &h, ray const &r, interval &ray_t, hit_record &rec,
-                transform_set &xforms) {
+static bool hit(time_invariant_hittable auto const &h, ray const &r,
+                interval &ray_t, hit_record &rec, transform_set &xforms) {
     auto did_hit = h.hit(r, ray_t, rec);
     if (did_hit) xforms = {};
     return did_hit;
 }
 
-template <time_invariant_collection C>
-static void propagate(C const &c, ray const &r, hit_status &status,
-                      hit_record &rec, transform_set &xforms) {
+static void propagate(time_invariant_collection auto const &c, ray const &r,
+                      hit_status &status, hit_record &rec,
+                      transform_set &xforms) {
     hit_status clean_status{status.ray_t};
     c.propagate(r, clean_status, rec);
     if (clean_status.hit_anything) xforms = {};

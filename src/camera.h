@@ -18,6 +18,7 @@
 #include <iostream>
 #include <memory>
 #include <span>
+#include <tracy/Tracy.hpp>
 
 #include "collection.h"
 #include "color.h"
@@ -32,6 +33,7 @@
 #include "texture.h"
 #include "transform.h"
 #include "vec3.h"
+#include "workq.h"
 
 struct camera {
    public:
@@ -66,11 +68,13 @@ struct camera {
         auto ichannels = colors_mem.get();
         auto channels = reinterpret_cast<float const*>(fcol_ptr);
 
+        auto* q = new range_queue(px_count);
+
 #ifdef _OPENMP
         progress::progress_state progress;
 
         if (enable_progress) {
-            int res = progress.setup(px_count);
+            int res = progress.setup(q->max_capacity);
             if (res != 0) {
                 fprintf(stderr, "Could not setup progress thread! (%s)\n",
                         strerror(res));
@@ -88,37 +92,51 @@ struct camera {
 
 #pragma omp parallel num_threads(12)
         {
-            auto max_rays = size_t(max_depth) * size_t(samples_per_pixel);
+            auto const max_batch_size = image_width;
+            auto const max_rays_ppx =
+                size_t(max_depth) * size_t(samples_per_pixel);
+            auto const max_rays = max_rays_ppx * size_t(max_batch_size);
             // We do one per thread.
-            auto checker_requests =
-                std::make_unique<checker_request[]>(max_rays);
-            auto image_requests = std::make_unique<image_request[]>(max_rays);
-            auto noise_requests = std::make_unique<noise_request[]>(max_rays);
-            auto sampled_grays = std::make_unique<float[]>(max_rays);
-            auto sampled_colors = std::make_unique<color[]>(max_rays);
+            auto const checker_requests =
+                std::make_unique<checker_request[]>(max_rays_ppx);
+            auto const image_requests =
+                std::make_unique<image_request[]>(max_rays_ppx);
+            auto const noise_requests =
+                std::make_unique<noise_request[]>(max_rays_ppx);
+            auto const sampled_grays = std::make_unique<float[]>(max_rays_ppx);
+            auto const sampled_colors = std::make_unique<color[]>(max_rays_ppx);
 
-            auto checker_counts =
+            auto const checker_counts =
                 std::make_unique<uint16_t[]>(samples_per_pixel);
-            auto solid_counts = std::make_unique<uint16_t[]>(samples_per_pixel);
-            auto image_counts = std::make_unique<uint16_t[]>(samples_per_pixel);
-            auto noise_counts = std::make_unique<uint16_t[]>(samples_per_pixel);
+            auto const solid_counts =
+                std::make_unique<uint16_t[]>(samples_per_pixel);
+            auto const image_counts =
+                std::make_unique<uint16_t[]>(samples_per_pixel);
+            auto const noise_counts =
+                std::make_unique<uint16_t[]>(samples_per_pixel);
 
             auto ray_colors = std::make_unique<color[]>(samples_per_pixel);
 
-#pragma omp for firstprivate(fcol_ptr, image_height, image_width)
-            for (uint32_t j = 0; j < image_height; ++j) {
+            for (auto work = q->next(max_batch_size); work;
+                 work = q->next(max_batch_size)) {
 #ifndef _OPENMP
                 // NOTE: doing this in MT will enable locks in I/O and
                 // synchronize the threads, which I don't want to :(
                 std::clog << "\rScanlines remaining: " << (image_height - j)
                           << ' ' << std::flush;
 #endif
-                for (uint32_t i = 0; i < image_width; ++i) {
+                auto [lane_start, lane_size] = *work;
+                ZoneScopedN("work batch");
+                ZoneValue(lane_size);
+                static constexpr char text[] = "batch size";
+                ZoneText(text, sizeof(text));
+                for (uint32_t i = 0; i < lane_size; ++i) {
                     // geometry
                     uint32_t total_checker_requests = 0;
                     uint32_t total_solids = 0;
                     uint32_t total_images = 0;
                     uint32_t total_noises = 0;
+
                     for (uint32_t sample = 0; sample < samples_per_pixel;
                          ++sample) {
                         tex_request_queue tex_reqs(
@@ -131,8 +149,9 @@ struct camera {
                             noise_requests.get() + total_noises, max_depth,
                             texes);
 
-                        ray r = get_ray(i, j);
-                        auto time = random_float();
+                        ray const r =
+                            get_ray(i, (lane_start + i) / image_width);
+                        auto const time = random_float();
 
                         if (simulate_ray(r, world, time, tex_reqs)) {
                             total_checker_requests += tex_reqs.checker_count;
@@ -215,14 +234,16 @@ struct camera {
                         pixel_color += ray_colors[k];
                     }
 
-                    fcol_ptr[j * image_width + i] =
+                    fcol_ptr[lane_start + i] =
                         pixel_color / float(samples_per_pixel);
                 }
 #ifdef _OPENMP
-                progress.increment(image_width);
+                progress.increment(lane_size);
 #endif
             }
         }
+
+        delete q;
 
 #ifdef _OPENMP
         progress.manual_teardown();
