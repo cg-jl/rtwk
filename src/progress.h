@@ -63,8 +63,8 @@ struct progress_state {
         return res;
     }
 
-    void increment() {
-        __atomic_fetch_add(&progress, 1, __ATOMIC_ACQ_REL);
+    void increment(int count = 1) {
+        __atomic_fetch_add(&progress, count, __ATOMIC_ACQ_REL);
         syscall(SYS_futex, &progress, FUTEX_WAKE_PRIVATE, 1);
     }
 

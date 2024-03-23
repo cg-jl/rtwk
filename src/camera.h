@@ -52,8 +52,8 @@ struct camera {
 
     // NOTE: may use dyn collection to avoid templating on collection?
     // Compile times don't seem too bad rn.
-    template <is_collection C>
-    void render(C const& world, bool enable_progress, tex_view texes) {
+    void render(is_collection auto const& world, bool enable_progress,
+                tex_view texes) {
         initialize();
 
         auto px_count = image_width * image_height;
@@ -70,7 +70,7 @@ struct camera {
         progress::progress_state progress;
 
         if (enable_progress) {
-            int res = progress.setup(image_height);
+            int res = progress.setup(px_count);
             if (res != 0) {
                 fprintf(stderr, "Could not setup progress thread! (%s)\n",
                         strerror(res));
@@ -219,7 +219,7 @@ struct camera {
                         pixel_color / float(samples_per_pixel);
                 }
 #ifdef _OPENMP
-                progress.increment();
+                progress.increment(image_width);
 #endif
             }
         }
@@ -494,8 +494,7 @@ struct camera {
     // Simulates a ray until either it hits too many times, hits a light, or
     // hits the skybox.
     // Returns whether it hits a light or not
-    template <is_collection C>
-    static bool simulate_ray(ray r, C const& world, float time,
+    static bool simulate_ray(ray r, is_collection auto const& world, float time,
                              tex_request_queue& texes) {
         transform_set xforms{};
         while (!texes.is_full()) {
