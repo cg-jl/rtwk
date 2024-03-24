@@ -133,17 +133,18 @@ struct node {
 };
 
 struct range {
-    size_t start, end;
+    uint32_t start, end;
 
-    [[nodiscard]] constexpr size_t size() const noexcept { return end - start; }
+    [[nodiscard]] constexpr uint32_t size() const noexcept {
+        return end - start;
+    }
 
     [[nodiscard]] constexpr std::pair<range, range> split(
-        size_t first_of_right) const noexcept {
+        uint32_t first_of_right) const noexcept {
         return {{start, start + first_of_right}, {start + first_of_right, end}};
     }
 };
 
-// TODO: make it span over a range
 // TODO: can I figure out box index from layer?
 struct state {
     range span;
@@ -174,9 +175,10 @@ struct tree final {
     template <typename Inner>
     void filter(range initial, ray const& r, interval& ray_t,
                 Inner func) const& {
-        // TODO: Some passable structure like 'thread buffers' where I can tell the threads
-        // how much to allocate and pass it to this structure could be beneficial, and I can stick it
-        // to everyone and make it trivially removable via templates.
+        // TODO: Some passable structure like 'thread buffers' where I can tell
+        // the threads how much to allocate and pass it to this structure could
+        // be beneficial, and I can stick it to everyone and make it trivially
+        // removable via templates.
         static thread_local state* second_sides_ptr = nullptr;
         if (second_sides_ptr == nullptr) {
             second_sides_ptr = new state[2ull * max_depth];
