@@ -7,14 +7,14 @@
 template <typename T>
 struct vecview {
     T* values;
-    uint32_t cap;
     uint32_t count;
+    uint32_t cap;
 
     constexpr vecview(T* values, uint32_t cap)
-        : values(values), cap(cap), count(0) {}
+        : values(values), count(0), cap(cap) {}
 
-    [[nodiscard]] constexpr bool is_empty() const& { return count == 0; }
-    [[nodiscard]] constexpr bool is_full() const& { return cap == count; }
+    [[nodiscard]] constexpr bool empty() const& { return count == 0; }
+    [[nodiscard]] constexpr bool full() const& { return cap == count; }
 
     constexpr std::span<T> span() const& { return std::span<T>(values, count); }
 
@@ -22,11 +22,11 @@ struct vecview {
 
     T* reserve() { return &values[count++]; }
 
-    T const& top() { return values[count - 1]; }
+    T const& back() { return values[count - 1]; }
 
     T pop() { return values[--count]; }
 
-    void drop_top() { --count; }
+    void pop_back() { --count; }
 
     template <typename... Args>
     void emplace_back(Args&&... args) {

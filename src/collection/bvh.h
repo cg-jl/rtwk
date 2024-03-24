@@ -174,15 +174,21 @@ struct tree final {
     template <typename Inner>
     void filter(range initial, ray const& r, interval& ray_t,
                 Inner func) const& {
-        std::vector<state> second_sides;
+        // TODO: Some passable structure like 'thread buffers' where I can tell the threads
+        // how much to allocate and pass it to this structure could be beneficial, and I can stick it
+        // to everyone and make it trivially removable via templates.
+        static thread_local state* second_sides_ptr = nullptr;
+        if (second_sides_ptr == nullptr) {
+            second_sides_ptr = new state[2ull * max_depth];
+        }
+        static thread_local vecview<state> second_sides(second_sides_ptr,
+                                                        2ull * max_depth);
         // TODO: some pmr resource usage?
-        second_sides.reserve(2ull * max_depth);
 
         second_sides.emplace_back(initial, root_node, ray_t.min);
 
         while (!second_sides.empty()) {
-            state curr = second_sides.back();
-            second_sides.pop_back();
+            state curr = second_sides.pop();
 
             // Go left while we can
             while (curr.box_index != -1) {
@@ -241,9 +247,7 @@ struct over final {
     [[nodiscard]] aabb boundingBox() const& { return bvh.boundingBox(); }
 
     T const* hit(ray const& r, hit_record::geometry& res,
-                 interval& ray_t) const&
-        requires(is_geometry<T>)
-    {
+                 interval& ray_t) const& requires(is_geometry<T>) {
         T const* best = nullptr;
         bvh.filter(
             range{0, objects.size()}, r, ray_t,
@@ -255,9 +259,8 @@ struct over final {
         return best;
     }
 
-    void propagate(ray const& r, hit_status& status, hit_record& rec) const&
-        requires(time_invariant_hittable<T>)
-    {
+    void propagate(ray const& r, hit_status& status, hit_record& rec)
+        const& requires(time_invariant_hittable<T>) {
         bvh.filter(
             range{0, objects.size()}, r, status.ray_t,
             [&r, &status, &rec, v = objects](interval& ray_t, range span) {
@@ -266,9 +269,8 @@ struct over final {
     }
 
     void propagate(ray const& r, hit_status& status, hit_record& rec,
-                   transform_set& xforms, float time) const&
-        requires(is_hittable<T>)
-    {
+                   transform_set& xforms,
+                   float time) const& requires(is_hittable<T>) {
         bvh.filter(range{0, objects.size()}, r, status.ray_t,
                    [&r, &status, &rec, v = objects, time, &xforms](
                        interval& ray_t, range span) {
