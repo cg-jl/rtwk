@@ -34,6 +34,7 @@
 #include "wrappers.h"
 
 static bool enable_progress = true;
+static constexpr auto num_threads = 12;
 
 static void random_spheres() {
     tex_storage texes;
@@ -126,7 +127,7 @@ static void random_spheres() {
     cam.defocus_angle = 0.02;
     cam.focus_dist = 10.0;
 
-    cam.render(world, enable_progress, texes.view());
+    cam.render(world, enable_progress, texes.view(), num_threads);
 }
 
 static void two_spheres() {
@@ -156,7 +157,7 @@ static void two_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view());
+    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void earth() {
@@ -188,7 +189,8 @@ static void earth() {
 
     cam.defocus_angle = 0;
 
-    cam.render(time_wrapper(world.finish()), enable_progress, texes.view());
+    cam.render(time_wrapper(world.finish()), enable_progress, texes.view(),
+               num_threads);
 }
 
 static void two_perlin_spheres() {
@@ -216,7 +218,7 @@ static void two_perlin_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view());
+    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void quads() {
@@ -264,7 +266,7 @@ static void quads() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view());
+    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void simple_light() {
@@ -300,7 +302,7 @@ static void simple_light() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view());
+    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void cornell_box() {
@@ -362,7 +364,7 @@ static void cornell_box() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view());
+    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void cornell_smoke() {
@@ -421,7 +423,7 @@ static void cornell_smoke() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view());
+    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
@@ -478,7 +480,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     wrapped_spheres.add(sphere(point3(0, 150, 145), 50), material::metal(1.0),
                         texes.solid(0.8, 0.8, 0.9));
 
-    static_assert(time_invariant_collection<decltype(wrapped_spheres.finish())>);
+    static_assert(
+        time_invariant_collection<decltype(wrapped_spheres.finish())>);
     sphere boundary_geom(point3(360, 150, 145), 70);
     // NOTE: This addition is necessary so that the medium is contained within
     // the boundary.
@@ -554,7 +557,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     cam.defocus_angle = 0;
 
-    cam.render(world, enable_progress, texes.view());
+    cam.render(world, enable_progress, texes.view(), num_threads);
 }
 
 int main(int argc, char const *argv[]) {

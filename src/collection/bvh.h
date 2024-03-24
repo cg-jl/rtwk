@@ -249,10 +249,12 @@ struct over final {
     [[nodiscard]] aabb boundingBox() const& { return bvh.boundingBox(); }
 
     T const* hit(ray const& r, hit_record::geometry& res,
-                 interval& ray_t) const& requires(is_geometry<T>) {
+                 interval& ray_t) const&
+        requires(is_geometry<T>)
+    {
         T const* best = nullptr;
         bvh.filter(
-            range{0, objects.size()}, r, ray_t,
+            range{0, uint32_t(objects.size())}, r, ray_t,
             [&r, &res, &best, &v = objects](interval& ray_t, range span) {
                 T const* next =
                     v.subspan(span.start, span.size()).hit(r, res, ray_t);
@@ -261,19 +263,21 @@ struct over final {
         return best;
     }
 
-    void propagate(ray const& r, hit_status& status, hit_record& rec)
-        const& requires(time_invariant_hittable<T>) {
+    void propagate(ray const& r, hit_status& status, hit_record& rec) const&
+        requires(time_invariant_hittable<T>)
+    {
         bvh.filter(
-            range{0, objects.size()}, r, status.ray_t,
+            range{0, uint32_t(objects.size())}, r, status.ray_t,
             [&r, &status, &rec, v = objects](interval& ray_t, range span) {
                 v.subspan(span.start, span.size()).propagate(r, status, rec);
             });
     }
 
     void propagate(ray const& r, hit_status& status, hit_record& rec,
-                   transform_set& xforms,
-                   float time) const& requires(is_hittable<T>) {
-        bvh.filter(range{0, objects.size()}, r, status.ray_t,
+                   transform_set& xforms, float time) const&
+        requires(is_hittable<T>)
+    {
+        bvh.filter(range{0, uint32_t(objects.size())}, r, status.ray_t,
                    [&r, &status, &rec, v = objects, time, &xforms](
                        interval& ray_t, range span) {
                        v.subspan(span.start, span.size())

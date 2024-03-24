@@ -11,6 +11,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <omp.h>
 #include <png.h>
 
 #include <algorithm>
@@ -55,7 +56,7 @@ struct camera {
     // NOTE: may use dyn collection to avoid templating on collection?
     // Compile times don't seem too bad rn.
     void render(is_collection auto const& world, bool enable_progress,
-                tex_view texes) {
+                tex_view texes, int thread_count) {
         initialize();
 
         auto px_count = image_width * image_height;
@@ -83,19 +84,20 @@ struct camera {
             }
         }
 
+        omp_set_num_threads(thread_count);
 #endif
 
         auto perlin_noise = leak(perlin());
 
+        auto const max_batch_size = image_width;
+        auto const max_rays_ppx = size_t(max_depth) * size_t(samples_per_pixel);
+        auto const max_rays = max_rays_ppx * size_t(max_batch_size);
+
         // NOTE: 30% of the time (5 seconds) is spent just on a couple of
         // threads. Consider sharing work, e.g lighting?
 
-#pragma omp parallel num_threads(12)
+#pragma omp parallel
         {
-            auto const max_batch_size = image_width;
-            auto const max_rays_ppx =
-                size_t(max_depth) * size_t(samples_per_pixel);
-            auto const max_rays = max_rays_ppx * size_t(max_batch_size);
             // We do one per thread.
             auto const checker_requests =
                 std::make_unique<checker_request[]>(max_rays_ppx);
@@ -126,10 +128,7 @@ struct camera {
                           << ' ' << std::flush;
 #endif
                 auto [lane_start, lane_size] = *work;
-                ZoneScopedN("work batch");
-                ZoneValue(lane_size);
-                static constexpr char text[] = "batch size";
-                ZoneText(text, sizeof(text));
+                ZoneScoped;
                 for (uint32_t i = 0; i < lane_size; ++i) {
                     // geometry
                     uint32_t total_checker_requests = 0;
