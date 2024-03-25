@@ -22,19 +22,16 @@ struct range_queue {
         // CAS loop
 
         Int cached_current = current.load(std::memory_order_acquire);
-        if (cached_current >= max_capacity) return {};
+        Int next;
+        do {
+            if (cached_current == max_capacity) return {};
+            next = std::min(max_capacity, cached_current + max_load);
+        } while (!current.compare_exchange_weak(cached_current, next,
+                                                std::memory_order_acq_rel));
 
-        while (!current.compare_exchange_weak(cached_current,
-                                              cached_current + max_load,
-                                              std::memory_order_acq_rel)) {
-            if (cached_current >= max_capacity) return {};
-            // NOTE: use syscall to sleep (lock) or not?
-        }
+        if (cached_current == max_capacity) return {};
 
-        if (cached_current >= max_capacity) return {};
-
-        return std::pair{cached_current,
-                         std::min(max_capacity - cached_current, max_load)};
+        return std::pair{cached_current, next - cached_current};
 
 #else
         if (current >= max_capacity) return {};
