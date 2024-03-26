@@ -50,3 +50,16 @@ inline float random_float(float min, float max) {
 inline int random_int(int min, int max) {
     return static_cast<int>(random_float(min, max + 1));
 }
+
+struct range {
+    uint32_t start, end;
+
+    [[nodiscard]] constexpr uint32_t size() const noexcept {
+        return end - start;
+    }
+
+    [[nodiscard]] constexpr std::pair<range, range> split(
+        uint32_t first_of_right) const noexcept {
+        return {{start, start + first_of_right}, {start + first_of_right, end}};
+    }
+};

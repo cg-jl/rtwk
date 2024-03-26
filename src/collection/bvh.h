@@ -132,19 +132,6 @@ struct node {
     float split_point{};
 };
 
-struct range {
-    uint32_t start, end;
-
-    [[nodiscard]] constexpr uint32_t size() const noexcept {
-        return end - start;
-    }
-
-    [[nodiscard]] constexpr std::pair<range, range> split(
-        uint32_t first_of_right) const noexcept {
-        return {{start, start + first_of_right}, {start + first_of_right, end}};
-    }
-};
-
 // TODO: can I figure out box index from layer?
 struct state {
     range span;
