@@ -89,7 +89,9 @@ struct camera {
 
         auto perlin_noise = leak(perlin());
 
-        auto const max_batch_size = image_width;
+        auto const max_batch_size = size_t(image_width);
+        auto const max_samples_per_batch =
+            size_t(samples_per_pixel) * max_batch_size;
         auto const max_rays_ppx = size_t(max_depth) * size_t(samples_per_pixel);
         auto const max_rays = max_rays_ppx * size_t(max_batch_size);
 
@@ -100,24 +102,24 @@ struct camera {
         {
             // We do one per thread.
             auto const checker_requests =
-                std::make_unique<checker_request[]>(max_rays_ppx);
+                std::make_unique<checker_request[]>(max_rays);
             auto const image_requests =
-                std::make_unique<image_request[]>(max_rays_ppx);
+                std::make_unique<image_request[]>(max_rays);
             auto const noise_requests =
-                std::make_unique<noise_request[]>(max_rays_ppx);
-            auto const sampled_grays = std::make_unique<float[]>(max_rays_ppx);
-            auto const sampled_colors = std::make_unique<color[]>(max_rays_ppx);
+                std::make_unique<noise_request[]>(max_rays);
+            auto const sampled_grays = std::make_unique<float[]>(max_rays);
+            auto const sampled_colors = std::make_unique<color[]>(max_rays);
 
             auto const checker_counts =
-                std::make_unique<uint16_t[]>(samples_per_pixel);
+                std::make_unique<uint16_t[]>(max_samples_per_batch);
             auto const solid_counts =
-                std::make_unique<uint16_t[]>(samples_per_pixel);
+                std::make_unique<uint16_t[]>(max_samples_per_batch);
             auto const image_counts =
-                std::make_unique<uint16_t[]>(samples_per_pixel);
+                std::make_unique<uint16_t[]>(max_samples_per_batch);
             auto const noise_counts =
-                std::make_unique<uint16_t[]>(samples_per_pixel);
+                std::make_unique<uint16_t[]>(max_samples_per_batch);
 
-            auto ray_colors = std::make_unique<color[]>(samples_per_pixel);
+            auto ray_colors = std::make_unique<color[]>(max_samples_per_batch);
 
             for (auto work = q->next(max_batch_size); work;
                  work = q->next(max_batch_size)) {
@@ -128,24 +130,33 @@ struct camera {
                           << ' ' << std::flush;
 #endif
                 auto [lane_start, lane_size] = *work;
+                uint32_t checker_count = 0;
+                uint32_t image_count = 0;
+                uint32_t noise_count = 0;
+                uint32_t solid_count = 0;
                 ZoneScoped;
                 for (uint32_t i = 0; i < lane_size; ++i) {
                     // geometry
-                    uint32_t total_checker_requests = 0;
-                    uint32_t total_solids = 0;
-                    uint32_t total_images = 0;
-                    uint32_t total_noises = 0;
+
+                    auto const solid_counts_px =
+                        solid_counts.get() + i * samples_per_pixel;
+                    auto const noise_counts_px =
+                        noise_counts.get() + i * samples_per_pixel;
+                    auto const checker_counts_px =
+                        checker_counts.get() + i * samples_per_pixel;
+                    auto const image_counts_px =
+                        image_counts.get() + i * samples_per_pixel;
 
                     for (uint32_t sample = 0; sample < samples_per_pixel;
                          ++sample) {
                         tex_request_queue tex_reqs(
-                            checker_requests.get() + total_checker_requests,
+                            checker_requests.get() + checker_count,
                             // NOTE: all solids get directly copied into the
                             // shared samples array. They will get multiplied
                             // the first.
-                            sampled_colors.get() + total_solids,
-                            image_requests.get() + total_images,
-                            noise_requests.get() + total_noises, max_depth,
+                            sampled_colors.get() + solid_count,
+                            image_requests.get() + image_count,
+                            noise_requests.get() + noise_count, max_depth,
                             texes);
 
                         ray const r =
@@ -153,84 +164,79 @@ struct camera {
                         auto const time = random_float();
 
                         if (simulate_ray(r, world, time, tex_reqs)) {
-                            total_checker_requests += tex_reqs.checker_count;
-                            total_solids += tex_reqs.solid_count;
-                            total_images += tex_reqs.image_count;
-                            total_noises += tex_reqs.noise_count;
+                            checker_count += tex_reqs.checker_count;
+                            solid_count += tex_reqs.solid_count;
+                            image_count += tex_reqs.image_count;
+                            noise_count += tex_reqs.noise_count;
 
-                            checker_counts[sample] = tex_reqs.checker_count;
-                            solid_counts[sample] = tex_reqs.solid_count;
-                            image_counts[sample] = tex_reqs.image_count;
-                            noise_counts[sample] = tex_reqs.noise_count;
+                            checker_counts_px[sample] = tex_reqs.checker_count;
+                            solid_counts_px[sample] = tex_reqs.solid_count;
+                            image_counts_px[sample] = tex_reqs.image_count;
+                            noise_counts_px[sample] = tex_reqs.noise_count;
                         } else {
                             // cancelled!
-                            checker_counts[sample] = 0;
-                            image_counts[sample] = 0;
-                            noise_counts[sample] = 0;
+                            checker_counts_px[sample] = 0;
+                            image_counts_px[sample] = 0;
+                            noise_counts_px[sample] = 0;
 
-                            solid_counts[sample] = 1;
-                            sampled_colors[total_solids] = color(0);
-                            ++total_solids;
+                            solid_counts_px[sample] = 1;
+                            sampled_colors[solid_count] = color(0);
+                            ++solid_count;
                         }
                     }
+                }
 
-                    multiply_init(sampled_colors.get(), solid_counts.get(),
-                                  samples_per_pixel, ray_colors.get());
+                multiply_init(sampled_colors.get(), solid_counts.get(),
+                              size_t(samples_per_pixel) * lane_size,
+                              ray_colors.get());
 
-                    if (total_noises != 0) {
-                        // sample all noise functions
-                        for (uint32_t k = 0; k < total_noises; ++k) {
-                            auto const& info = noise_requests[k];
-                            // TODO: have perlin noise be a parameter to
-                            // noise.value()
-                            sampled_grays[k] =
-                                info.noise.value(info.p, perlin_noise);
-                        }
-                        multiply_grays(sampled_grays.get(), noise_counts.get(),
-                                       samples_per_pixel, ray_colors.get());
+                if (noise_count != 0) {
+                    // sample all noise functions
+                    for (uint32_t k = 0; k < noise_count; ++k) {
+                        auto const& info = noise_requests.get()[k];
+                        // TODO: have perlin noise be a parameter to
+                        // noise.value()
+                        sampled_grays[k] =
+                            info.noise.value(info.p, perlin_noise);
+                    }
+                    multiply_grays(sampled_grays.get(), noise_counts.get(),
+                                   size_t(samples_per_pixel) * lane_size,
+                                   ray_colors.get());
+                }
+                if (image_count != 0) {
+                    // sample all images
+                    // NOTE: I could have some pointer based mappings.
+                    // Sorting is out of the picture, otherwise it will move
+                    // samples between pixels.
+                    for (uint32_t k = 0; k < image_count; ++k) {
+                        auto const& info = image_requests.get()[k];
+                        sampled_colors[k] =
+                            texes.images[info.image_id].sample(info.u, info.v);
                     }
 
-                    if (total_images != 0) {
-                        std::sort(
-                            image_requests.get(),
-                            image_requests.get() + total_images,
-                            [](image_request const& a, image_request const& b) {
-                                return a.image_id < b.image_id ||
-                                       a.u * a.v < b.u * b.v;
-                            });
-                        // sample all images
-                        // NOTE: I could have some pointer based mappings and/or
-                        // sorting to speed this up....
-                        for (uint32_t k = 0; k < total_images; ++k) {
-                            auto const& info = image_requests[k];
-                            sampled_colors[k] =
-                                texes.images[info.image_id].sample(info.u,
-                                                                   info.v);
-                        }
-
-                        multiply_samples(sampled_colors.get(),
-                                         image_counts.get(), samples_per_pixel,
-                                         ray_colors.get());
+                    multiply_samples(sampled_colors.get(), image_counts.get(),
+                                     size_t(samples_per_pixel) * lane_size,
+                                     ray_colors.get());
+                }
+                if (checker_count != 0) {
+                    // sample all textures
+                    for (uint32_t req = 0; req < checker_count; ++req) {
+                        auto const& info = checker_requests.get()[req];
+                        sampled_colors[req] = info.checker->value(info.p);
                     }
 
-                    if (total_checker_requests != 0) {
-                        // sample all textures
-                        for (uint32_t req = 0; req < total_checker_requests;
-                             ++req) {
-                            auto const& info = checker_requests.get()[req];
-                            sampled_colors[req] = info.checker->value(info.p);
-                        }
-
-                        // multiply sampled textures
-                        multiply_samples(sampled_colors.get(),
-                                         checker_counts.get(),
-                                         samples_per_pixel, ray_colors.get());
-                    }
-
+                    // multiply sampled textures
+                    multiply_samples(sampled_colors.get(), checker_counts.get(),
+                                     size_t(samples_per_pixel) * lane_size,
+                                     ray_colors.get());
+                }
+                for (size_t i = 0; i < lane_size; ++i) {
+                    auto ray_colors_px =
+                        ray_colors.get() + i * samples_per_pixel;
                     // average samples
                     color pixel_color(0, 0, 0);
                     for (uint32_t k = 0; k < samples_per_pixel; ++k) {
-                        pixel_color += ray_colors[k];
+                        pixel_color += ray_colors_px[k];
                     }
 
                     fcol_ptr[lane_start + i] =
@@ -465,8 +471,8 @@ struct camera {
     // Assumes `dst` is uninitialized so uses `src` as the source.
     static void multiply_init(color const* src,
                               uint16_t const* counts_per_sample,
-                              uint16_t total_samples, color* dst) {
-        for (uint16_t k = 0; k < total_samples; ++k) {
+                              size_t total_samples, color* dst) {
+        for (size_t k = 0; k < total_samples; ++k) {
             auto num_samples = counts_per_sample[k];
             if (num_samples == 0) continue;
             auto col = *src++;
@@ -480,8 +486,8 @@ struct camera {
     // Assumes `dst` is initialized and uses it as the source
     static void multiply_grays(float const* src,
                                uint16_t const* counts_per_sample,
-                               uint16_t total_samples, color* dst) {
-        for (uint16_t k = 0; k < total_samples; ++k) {
+                               size_t total_samples, color* dst) {
+        for (size_t k = 0; k < total_samples; ++k) {
             auto num_samples = counts_per_sample[k];
             if (num_samples == 0) continue;
 
@@ -495,8 +501,8 @@ struct camera {
     // Assumes `dst` is initialized and uses it as the source.
     static void multiply_samples(color const* src,
                                  uint16_t const* counts_per_sample,
-                                 uint16_t total_samples, color* dst) {
-        for (uint16_t k = 0; k < total_samples; ++k) {
+                                 size_t total_samples, color* dst) {
+        for (size_t k = 0; k < total_samples; ++k) {
             auto num_samples = counts_per_sample[k];
             if (num_samples == 0) continue;
             auto col = dst[k];
