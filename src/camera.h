@@ -346,37 +346,32 @@ struct camera {
         auto perlin_noise = leak(perlin());
 
         auto const max_batch_size = size_t(image_width);
-        auto const max_samples_per_batch =
-            size_t(samples_per_pixel) * max_batch_size;
-        auto const max_rays = size_t(max_depth) * max_samples_per_batch;
-
-        // NOTE: 30% of the time (5 seconds) is spent just on a couple of
-        // threads. Consider sharing work, e.g lighting?
+        auto const max_rays_ppx = size_t(max_depth) * size_t(samples_per_pixel);
 
 #pragma omp parallel
         {
             ZoneScopedN("worker thread");
             // We do one per thread.
             auto const checker_requests =
-                std::make_unique<checker_request[]>(max_rays);
+                std::make_unique<checker_request[]>(max_rays_ppx);
             auto const image_requests =
-                std::make_unique<image_request[]>(max_rays);
+                std::make_unique<image_request[]>(max_rays_ppx);
             auto const noise_requests =
-                std::make_unique<noise_request[]>(max_rays);
-            auto const sampled_colors = std::make_unique<color[]>(max_rays);
+                std::make_unique<noise_request[]>(max_rays_ppx);
+            auto const sampled_colors = std::make_unique<color[]>(max_rays_ppx);
 
             auto const trq_mem =
                 trq_memory(checker_requests.get(), sampled_colors.get(),
                            image_requests.get(), noise_requests.get());
 
             auto const checker_counts =
-                std::make_unique<uint16_t[]>(max_samples_per_batch);
+                std::make_unique<uint16_t[]>(samples_per_pixel);
             auto const solid_counts =
-                std::make_unique<uint16_t[]>(max_samples_per_batch);
+                std::make_unique<uint16_t[]>(samples_per_pixel);
             auto const image_counts =
-                std::make_unique<uint16_t[]>(max_samples_per_batch);
+                std::make_unique<uint16_t[]>(samples_per_pixel);
             auto const noise_counts =
-                std::make_unique<uint16_t[]>(max_samples_per_batch);
+                std::make_unique<uint16_t[]>(samples_per_pixel);
 
             auto const sample_mem =
                 sample_memory(checker_counts.get(), solid_counts.get(),
@@ -391,12 +386,31 @@ struct camera {
                           << ' ' << std::flush;
 #endif
                 auto [lane_start, lane_size] = *work;
-                sample_request sreq;
-                uint32_t solid_count = 0;
-                sampleGeometries(world, texes, trq_mem, sample_mem, sreq,
-                                 solid_count, lane_start, lane_size);
-                sampleTextures(fcol_ptr, perlin_noise, trq_mem, sample_mem,
-                               lane_start, lane_size, sreq);
+
+                for (uint32_t i = 0; i < lane_size; ++i) {
+                    // geometry
+
+                    sample_request sreq;
+                    uint32_t solid_count = 0;
+                    auto const solid_counts_px = sample_mem.solids;
+                    auto const noise_counts_px = sample_mem.noises;
+                    auto const checker_counts_px = sample_mem.checkers;
+                    auto const image_counts_px = sample_mem.images;
+
+                    auto const j = (lane_start + i) / image_width;
+                    // Get a randomly-sampled camera ray for the pixel at
+                    // location i,j,
+                    // originating from the camera defocus disk.
+                    auto pixelCenter = getPixelCenter(float(i), float(j));
+
+                    sampleGeometryPixel(world, trq_mem, sreq, solid_count,
+                                        texes, pixelCenter, checker_counts_px,
+                                        solid_counts_px, image_counts_px,
+                                        noise_counts_px);
+                    sampleTextures(fcol_ptr[lane_start + i], perlin_noise,
+                                   trq_mem, sample_mem, sreq);
+                }
+
 #ifdef _OPENMP
                 progress.increment(lane_size);
 #endif
@@ -451,7 +465,8 @@ struct camera {
                          PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
                          PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
-            // TODO: do gamma correction on libpng instead of ourselves?
+            // NOTE: do gamma correction on libpng instead of ourselves? No!
+            // looks like it isn't applied correctly.
             png_write_info(png_ptr, info_ptr);
 
             auto row_pointers = std::make_unique<uint8_t*[]>(image_height);
@@ -466,6 +481,50 @@ struct camera {
 
             png_destroy_write_struct(&png_ptr, &info_ptr);
             fclose(fp);
+        }
+    }
+
+    void sampleGeometryPixel(is_collection auto const& world,
+                             trq_memory trq_mem, sample_request& sreq,
+                             uint32_t& solid_count, tex_view const& texes,
+                             point3 pixel_center,
+                             uint16_t __restrict_arr* checker_counts_px,
+                             uint16_t __restrict_arr* solid_counts_px,
+                             uint16_t __restrict_arr* image_counts_px,
+                             uint16_t __restrict_arr* noise_counts_px) {
+        ZoneScopedN("geometry");
+        for (uint32_t sample = 0; sample < samples_per_pixel; ++sample) {
+            tex_request_queue tex_reqs(
+                trq_mem.checkers + sreq.checkers,
+                // NOTE: all solids get directly copied into the
+                // shared samples array. They will get
+                // multiplied the first.
+                trq_mem.solids + solid_count, trq_mem.images + sreq.images,
+                trq_mem.noises + sreq.noises, max_depth, texes);
+
+            ray const r = defocusRay(center, pixel_center);
+            auto const time = random_float();
+
+            if (simulate_ray(r, world, time, tex_reqs)) {
+                sreq.checkers += tex_reqs.checker_count;
+                solid_count += tex_reqs.solid_count;
+                sreq.images += tex_reqs.image_count;
+                sreq.noises += tex_reqs.noise_count;
+
+                checker_counts_px[sample] = tex_reqs.checker_count;
+                solid_counts_px[sample] = tex_reqs.solid_count;
+                image_counts_px[sample] = tex_reqs.image_count;
+                noise_counts_px[sample] = tex_reqs.noise_count;
+            } else {
+                // cancelled!
+                checker_counts_px[sample] = 0;
+                image_counts_px[sample] = 0;
+                noise_counts_px[sample] = 0;
+
+                solid_counts_px[sample] = 1;
+                trq_mem.solids[solid_count] = color(0);
+                ++solid_count;
+            }
         }
     }
 
@@ -493,53 +552,21 @@ struct camera {
             // originating from the camera defocus disk.
             auto pixelCenter = getPixelCenter(float(i), float(j));
 
-            for (uint32_t sample = 0; sample < samples_per_pixel; ++sample) {
-                tex_request_queue tex_reqs(
-                    trq_mem.checkers + sreq.checkers,
-                    // NOTE: all solids get directly copied into the
-                    // shared samples array. They will get
-                    // multiplied the first.
-                    trq_mem.solids + solid_count, trq_mem.images + sreq.images,
-                    trq_mem.noises + sreq.noises, max_depth, texes);
-
-                ray const r = defocusRay(center, pixelCenter);
-                auto const time = random_float();
-
-                if (simulate_ray(r, world, time, tex_reqs)) {
-                    sreq.checkers += tex_reqs.checker_count;
-                    solid_count += tex_reqs.solid_count;
-                    sreq.images += tex_reqs.image_count;
-                    sreq.noises += tex_reqs.noise_count;
-
-                    checker_counts_px[sample] = tex_reqs.checker_count;
-                    solid_counts_px[sample] = tex_reqs.solid_count;
-                    image_counts_px[sample] = tex_reqs.image_count;
-                    noise_counts_px[sample] = tex_reqs.noise_count;
-                } else {
-                    // cancelled!
-                    checker_counts_px[sample] = 0;
-                    image_counts_px[sample] = 0;
-                    noise_counts_px[sample] = 0;
-
-                    solid_counts_px[sample] = 1;
-                    trq_mem.solids[solid_count] = color(0);
-                    ++solid_count;
-                }
-            }
+            sampleGeometryPixel(world, trq_mem, sreq, solid_count, texes,
+                                pixelCenter, checker_counts_px, solid_counts_px,
+                                image_counts_px, noise_counts_px);
         }
     }
 
-    void sampleTextures(color __restrict_arr* fcol_ptr,
-                        perlin const* perlin_noise, trq_memory reqs,
-                        sample_memory smpl, uint32_t lane_start,
-                        uint32_t lane_size,
+    void sampleTextures(color& res_col, perlin const* perlin_noise,
+                        trq_memory reqs, sample_memory smpl,
                         sample_request sreq) const noexcept {
         ZoneScopedN("tex sample");
         // NOTE: the overlapping is fine since the read always ahead
         // from the write.
         multiply_init(
             [solids = reqs.solids](size_t sample) { return solids[sample]; },
-            smpl.solids, size_t(samples_per_pixel) * lane_size, reqs.solids);
+            smpl.solids, size_t(samples_per_pixel), reqs.solids);
 
         if (sreq.noises != 0) {
             multiply_samples(
@@ -547,8 +574,7 @@ struct camera {
                     auto const& info = noises[sample];
                     return info.noise->value(info.p, perlin_noise);
                 },
-                smpl.noises, size_t(samples_per_pixel) * lane_size,
-                reqs.solids);
+                smpl.noises, size_t(samples_per_pixel), reqs.solids);
         }
         if (sreq.images != 0) {
             // sample all images
@@ -561,8 +587,7 @@ struct camera {
                     auto const& info = images[sample];
                     return info.image->sample(info.u, info.v);
                 },
-                smpl.images, size_t(samples_per_pixel) * lane_size,
-                reqs.solids);
+                smpl.images, size_t(samples_per_pixel), reqs.solids);
         }
         if (sreq.checkers != 0) {
             // multiply checkers into the mix
@@ -571,18 +596,14 @@ struct camera {
                     auto const& info = checkers[sample];
                     return info.checker->value(info.p);
                 },
-                smpl.checkers, size_t(samples_per_pixel) * lane_size,
-                reqs.solids);
+                smpl.checkers, size_t(samples_per_pixel), reqs.solids);
         }
-        for (size_t i = 0; i < lane_size; ++i) {
-            auto ray_colors_px = reqs.solids + i * samples_per_pixel;
-            // average samples
-            color pixel_color(0, 0, 0);
-            for (uint32_t k = 0; k < samples_per_pixel; ++k) {
-                pixel_color += ray_colors_px[k];
-            }
+        // average samples
+        color pixel_color(0, 0, 0);
+        for (uint32_t k = 0; k < samples_per_pixel; ++k) {
+            pixel_color += reqs.solids[k];
+        }
 
-            fcol_ptr[lane_start + i] = pixel_color / float(samples_per_pixel);
-        }
+        res_col = pixel_color / float(samples_per_pixel);
     }
 };
