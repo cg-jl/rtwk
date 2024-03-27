@@ -147,6 +147,12 @@ struct camera {
                     auto const image_counts_px =
                         image_counts.get() + i * samples_per_pixel;
 
+                    auto const j = (lane_start + i) / image_width;
+                    // Get a randomly-sampled camera ray for the pixel at
+                    // location i,j,
+                    // originating from the camera defocus disk.
+                    auto pixelCenter = getPixelCenter(float(i), float(j));
+
                     for (uint32_t sample = 0; sample < samples_per_pixel;
                          ++sample) {
                         tex_request_queue tex_reqs(
@@ -159,8 +165,7 @@ struct camera {
                             noise_requests.get() + noise_count, max_depth,
                             texes);
 
-                        ray const r =
-                            get_ray(i, (lane_start + i) / image_width);
+                        ray const r = defocusRay(center, pixelCenter);
                         auto const time = random_float();
 
                         if (simulate_ray(r, world, time, tex_reqs)) {
@@ -369,18 +374,16 @@ struct camera {
         defocus_disk_v = v * defocus_radius;
     }
 
-    [[nodiscard]] ray get_ray(uint32_t i, uint32_t j) const {
-        // Get a randomly-sampled camera ray for the pixel at location i,j,
-        // originating from the camera defocus disk.
+    [[nodiscard]] ray defocusRay(vec3 origin, vec3 pixel_center) const& {
+        auto pixel_deviation = pixel_sample_square();
+        auto new_origin = origin + defocus_disk_sample();
 
-        auto pixel_center = pixel00_loc + (float(i) * pixel_delta_u) +
-                            (float(j) * pixel_delta_v);
-        auto pixel_sample = pixel_center + pixel_sample_square();
+        return {new_origin,
+                unit_vector(pixel_center + pixel_deviation - new_origin)};
+    }
 
-        auto ray_origin = (defocus_angle <= 0) ? center : defocus_disk_sample();
-        auto ray_direction = pixel_sample - ray_origin;
-
-        return {ray_origin, unit_vector(ray_direction)};
+    [[nodiscard]] vec3 getPixelCenter(float i, float j) const {
+        return pixel00_loc + (i * pixel_delta_u) + (j * pixel_delta_v);
     }
 
     [[nodiscard]] vec3 pixel_sample_square() const {
@@ -391,10 +394,11 @@ struct camera {
         return (px * pixel_delta_u) + (py * pixel_delta_v);
     }
 
-    [[nodiscard]] point3 defocus_disk_sample() const {
+    [[nodiscard]] vec3 defocus_disk_sample() const {
+        if (defocus_angle == 0) return vec3(0);
         // Returns a random point in the camera defocus disk.
         auto p = random_in_unit_disk();
-        return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
+        return (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
     // NOTE: Should have some way of only keeping the sets that are active in
