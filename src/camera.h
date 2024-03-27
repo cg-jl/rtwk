@@ -551,13 +551,11 @@ struct camera {
             smpl.solids, size_t(samples_per_pixel) * lane_size, ray_colors);
 
         if (sreq.noises != 0) {
-            // sample all noise functions
-            for (uint32_t k = 0; k < sreq.noises; ++k) {
-                auto const& info = reqs.noises[k];
-                smpl.grays[k] = info.noise->value(info.p, perlin_noise);
-            }
             multiply_samples(
-                [grays = smpl.grays](size_t sample) { return grays[sample]; },
+                [noises = reqs.noises, perlin_noise](size_t sample) {
+                    auto const& info = noises[sample];
+                    return info.noise->value(info.p, perlin_noise);
+                },
                 smpl.noises, size_t(samples_per_pixel) * lane_size, ray_colors);
         }
         if (sreq.images != 0) {
@@ -565,29 +563,23 @@ struct camera {
             // NOTE: I could have some pointer based mappings.
             // Sorting is out of the picture, otherwise it will move
             // samples between pixels.
-            for (uint32_t k = 0; k < sreq.images; ++k) {
-                auto const& info = reqs.images[k];
-                reqs.solids[k] = info.image->sample(info.u, info.v);
-            }
 
             multiply_samples(
-                [solids = reqs.solids](size_t sample) {
-                    return solids[sample];
+                [images = reqs.images](size_t sample) {
+                    auto const& info = images[sample];
+                    return info.image->sample(info.u, info.v);
                 },
                 smpl.images, size_t(samples_per_pixel) * lane_size, ray_colors);
         }
         if (sreq.checkers != 0) {
-            // sample all textures
-            for (uint32_t req = 0; req < sreq.checkers; ++req) {
-                auto const& info = reqs.checkers[req];
-                reqs.solids[req] = info.checker->value(info.p);
-            }
-
-            // multiply sampled textures
-            multiply_samples([solids = reqs.solids](
-                                 size_t sample) { return solids[sample]; },
-                             smpl.checkers,
-                             size_t(samples_per_pixel) * lane_size, ray_colors);
+            // multiply checkers into the mix
+            multiply_samples(
+                [checkers = reqs.checkers](size_t sample) {
+                    auto const& info = checkers[sample];
+                    return info.checker->value(info.p);
+                },
+                smpl.checkers, size_t(samples_per_pixel) * lane_size,
+                ray_colors);
         }
         for (size_t i = 0; i < lane_size; ++i) {
             auto ray_colors_px = ray_colors + i * samples_per_pixel;
