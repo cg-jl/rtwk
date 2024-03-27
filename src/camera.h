@@ -238,45 +238,31 @@ struct camera {
     };
 
     // Assumes `dst` is uninitialized so uses `src` as the source.
-    static void multiply_init(color const* src,
-                              uint16_t const* counts_per_sample,
+    static void multiply_init(auto src, uint16_t const* counts_per_sample,
                               size_t total_samples, color* dst) {
+        size_t sample = 0;
         for (size_t k = 0; k < total_samples; ++k) {
             auto num_samples = counts_per_sample[k];
             if (num_samples == 0) continue;
-            auto col = *src++;
+            color col = src(sample);
 
-            while (--num_samples) col *= *src++;
+            ++sample;
+            for (; --num_samples; ++sample) col *= src(sample);
 
             dst[k] = col;
         }
     }
 
-    // Assumes `dst` is initialized and uses it as the source
-    static void multiply_grays(float const* src,
-                               uint16_t const* counts_per_sample,
-                               size_t total_samples, color* dst) {
-        for (size_t k = 0; k < total_samples; ++k) {
-            auto num_samples = counts_per_sample[k];
-            if (num_samples == 0) continue;
-
-            auto accum = *src++;
-            while (--num_samples) accum *= *src++;
-
-            dst[k] *= accum;
-        }
-    }
-
     // Assumes `dst` is initialized and uses it as the source.
-    static void multiply_samples(color const* src,
-                                 uint16_t const* counts_per_sample,
+    static void multiply_samples(auto src, uint16_t const* counts_per_sample,
                                  size_t total_samples, color* dst) {
+        size_t sample = 0;
         for (size_t k = 0; k < total_samples; ++k) {
             auto num_samples = counts_per_sample[k];
             if (num_samples == 0) continue;
             auto col = dst[k];
 
-            while (num_samples--) col *= *src++;
+            for (;num_samples--; ++sample) col *= src(sample);
 
             dst[k] = col;
         }
@@ -559,8 +545,9 @@ struct camera {
         // TODO: alias reqs.solids and ray_colors to get better memory
         // consumption
         ZoneScopedN("tex sample");
-        multiply_init(reqs.solids, smpl.solids,
-                      size_t(samples_per_pixel) * lane_size, ray_colors);
+        multiply_init(
+            [solids = reqs.solids](size_t sample) { return solids[sample]; },
+            smpl.solids, size_t(samples_per_pixel) * lane_size, ray_colors);
 
         if (sreq.noises != 0) {
             // sample all noise functions
@@ -568,8 +555,9 @@ struct camera {
                 auto const& info = reqs.noises[k];
                 smpl.grays[k] = info.noise.value(info.p, perlin_noise);
             }
-            multiply_grays(smpl.grays, smpl.noises,
-                           size_t(samples_per_pixel) * lane_size, ray_colors);
+            multiply_samples(
+                [grays = smpl.grays](size_t sample) { return grays[sample]; },
+                smpl.noises, size_t(samples_per_pixel) * lane_size, ray_colors);
         }
         if (sreq.images != 0) {
             // sample all images
@@ -582,8 +570,11 @@ struct camera {
                     texes.images[info.image_id].sample(info.u, info.v);
             }
 
-            multiply_samples(reqs.solids, smpl.images,
-                             size_t(samples_per_pixel) * lane_size, ray_colors);
+            multiply_samples(
+                [solids = reqs.solids](size_t sample) {
+                    return solids[sample];
+                },
+                smpl.images, size_t(samples_per_pixel) * lane_size, ray_colors);
         }
         if (sreq.checkers != 0) {
             // sample all textures
@@ -593,7 +584,9 @@ struct camera {
             }
 
             // multiply sampled textures
-            multiply_samples(reqs.solids, smpl.checkers,
+            multiply_samples([solids = reqs.solids](
+                                 size_t sample) { return solids[sample]; },
+                             smpl.checkers,
                              size_t(samples_per_pixel) * lane_size, ray_colors);
         }
         for (size_t i = 0; i < lane_size; ++i) {
