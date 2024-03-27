@@ -152,12 +152,12 @@ struct camera {
     // NOTE: Should have some way of only keeping the sets that are active in
     // the system...
     struct image_request {
-        uint32_t image_id;
+        rtw_image const* image;
         float u, v;
     };
 
     struct noise_request {
-        noise_texture noise;
+        noise_texture const* noise;
         point3 p;
     };
 
@@ -228,10 +228,11 @@ struct camera {
                     break;
                 case texture::kind::noise:
                     new (&noises[noise_count++])
-                        noise_request{texes.noises[tex.id], p};
+                        noise_request{&texes.noises[tex.id], p};
                     break;
                 case texture::kind::image:
-                    new (&images[image_count++]) image_request{tex.id, u, v};
+                    new (&images[image_count++])
+                        image_request{&texes.images[tex.id], u, v};
                     break;
             }
         }
@@ -262,7 +263,7 @@ struct camera {
             if (num_samples == 0) continue;
             auto col = dst[k];
 
-            for (;num_samples--; ++sample) col *= src(sample);
+            for (; num_samples--; ++sample) col *= src(sample);
 
             dst[k] = col;
         }
@@ -553,7 +554,7 @@ struct camera {
             // sample all noise functions
             for (uint32_t k = 0; k < sreq.noises; ++k) {
                 auto const& info = reqs.noises[k];
-                smpl.grays[k] = info.noise.value(info.p, perlin_noise);
+                smpl.grays[k] = info.noise->value(info.p, perlin_noise);
             }
             multiply_samples(
                 [grays = smpl.grays](size_t sample) { return grays[sample]; },
@@ -566,8 +567,7 @@ struct camera {
             // samples between pixels.
             for (uint32_t k = 0; k < sreq.images; ++k) {
                 auto const& info = reqs.images[k];
-                reqs.solids[k] =
-                    texes.images[info.image_id].sample(info.u, info.v);
+                reqs.solids[k] = info.image->sample(info.u, info.v);
             }
 
             multiply_samples(
