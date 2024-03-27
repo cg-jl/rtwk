@@ -174,7 +174,6 @@ struct camera {
     };
 
     struct sample_memory {
-        float __restrict_arr* grays;
         uint16_t __restrict_arr *checkers, __restrict_arr *solids,
             __restrict_arr *images, __restrict_arr *noises;
     };
@@ -349,8 +348,7 @@ struct camera {
         auto const max_batch_size = size_t(image_width);
         auto const max_samples_per_batch =
             size_t(samples_per_pixel) * max_batch_size;
-        auto const max_rays_ppx = size_t(max_depth) * size_t(samples_per_pixel);
-        auto const max_rays = max_rays_ppx * size_t(max_batch_size);
+        auto const max_rays = size_t(max_depth) * max_samples_per_batch;
 
         // NOTE: 30% of the time (5 seconds) is spent just on a couple of
         // threads. Consider sharing work, e.g lighting?
@@ -365,7 +363,6 @@ struct camera {
                 std::make_unique<image_request[]>(max_rays);
             auto const noise_requests =
                 std::make_unique<noise_request[]>(max_rays);
-            auto const sampled_grays = std::make_unique<float[]>(max_rays);
             auto const sampled_colors = std::make_unique<color[]>(max_rays);
 
             auto const trq_mem =
@@ -381,14 +378,9 @@ struct camera {
             auto const noise_counts =
                 std::make_unique<uint16_t[]>(max_samples_per_batch);
 
-            // TODO: reuse ray_colors for both tex samples and reducing.
-            // The code might be a bit slower due to aliasing, but we'll reduce
-            // the amount of memory we eat.
-            auto ray_colors = std::make_unique<color[]>(max_samples_per_batch);
-
-            auto const sample_mem = sample_memory(
-                sampled_grays.get(), checker_counts.get(), solid_counts.get(),
-                image_counts.get(), noise_counts.get());
+            auto const sample_mem =
+                sample_memory(checker_counts.get(), solid_counts.get(),
+                              image_counts.get(), noise_counts.get());
 
             for (auto work = q->next(max_batch_size); work;
                  work = q->next(max_batch_size)) {
@@ -403,9 +395,8 @@ struct camera {
                 uint32_t solid_count = 0;
                 sampleGeometries(world, texes, trq_mem, sample_mem, sreq,
                                  solid_count, lane_start, lane_size);
-                sampleTextures(texes, fcol_ptr, perlin_noise, trq_mem,
-                               sample_mem, ray_colors.get(), lane_start,
-                               lane_size, sreq);
+                sampleTextures(fcol_ptr, perlin_noise, trq_mem, sample_mem,
+                               lane_start, lane_size, sreq);
 #ifdef _OPENMP
                 progress.increment(lane_size);
 #endif
@@ -538,17 +529,17 @@ struct camera {
         }
     }
 
-    void sampleTextures(tex_view texes, color __restrict_arr* fcol_ptr,
+    void sampleTextures(color __restrict_arr* fcol_ptr,
                         perlin const* perlin_noise, trq_memory reqs,
-                        sample_memory smpl, color __restrict_arr* ray_colors,
-                        uint32_t lane_start, uint32_t lane_size,
+                        sample_memory smpl, uint32_t lane_start,
+                        uint32_t lane_size,
                         sample_request sreq) const noexcept {
-        // TODO: alias reqs.solids and ray_colors to get better memory
-        // consumption
         ZoneScopedN("tex sample");
+        // NOTE: the overlapping is fine since the read always ahead
+        // from the write.
         multiply_init(
             [solids = reqs.solids](size_t sample) { return solids[sample]; },
-            smpl.solids, size_t(samples_per_pixel) * lane_size, ray_colors);
+            smpl.solids, size_t(samples_per_pixel) * lane_size, reqs.solids);
 
         if (sreq.noises != 0) {
             multiply_samples(
@@ -556,7 +547,8 @@ struct camera {
                     auto const& info = noises[sample];
                     return info.noise->value(info.p, perlin_noise);
                 },
-                smpl.noises, size_t(samples_per_pixel) * lane_size, ray_colors);
+                smpl.noises, size_t(samples_per_pixel) * lane_size,
+                reqs.solids);
         }
         if (sreq.images != 0) {
             // sample all images
@@ -569,7 +561,8 @@ struct camera {
                     auto const& info = images[sample];
                     return info.image->sample(info.u, info.v);
                 },
-                smpl.images, size_t(samples_per_pixel) * lane_size, ray_colors);
+                smpl.images, size_t(samples_per_pixel) * lane_size,
+                reqs.solids);
         }
         if (sreq.checkers != 0) {
             // multiply checkers into the mix
@@ -579,10 +572,10 @@ struct camera {
                     return info.checker->value(info.p);
                 },
                 smpl.checkers, size_t(samples_per_pixel) * lane_size,
-                ray_colors);
+                reqs.solids);
         }
         for (size_t i = 0; i < lane_size; ++i) {
-            auto ray_colors_px = ray_colors + i * samples_per_pixel;
+            auto ray_colors_px = reqs.solids + i * samples_per_pixel;
             // average samples
             color pixel_color(0, 0, 0);
             for (uint32_t k = 0; k < samples_per_pixel; ++k) {
