@@ -67,281 +67,6 @@ struct camera {
     float focus_dist =
         10;  // Distance from camera look-from point to plane of perfect focus
 
-    // NOTE: may use dyn collection to avoid templating on collection?
-    // Compile times don't seem too bad rn.
-    void render(is_collection auto const& world, bool enable_progress,
-                tex_view texes, int thread_count) {
-        initialize();
-
-        auto px_count = image_width * image_height;
-
-        auto fcolors_mem = std::make_unique<color[]>(px_count);
-
-        auto fcol_ptr = fcolors_mem.get();
-
-        auto colors_mem = std::make_unique<uint8_t[]>(3ull * px_count);
-        auto ichannels = colors_mem.get();
-        auto channels = reinterpret_cast<float const*>(fcol_ptr);
-
-        auto* q = new range_queue(px_count);
-
-#ifdef _OPENMP
-        progress::progress_state progress;
-
-        if (enable_progress) {
-            int res = progress.setup(q->max_capacity);
-            if (res != 0) {
-                fprintf(stderr, "Could not setup progress thread! (%s)\n",
-                        strerror(res));
-                // NOTE: This is not really something we can't live without.
-                exit(1);
-            }
-        }
-
-        omp_set_num_threads(thread_count);
-#endif
-
-        auto perlin_noise = leak(perlin());
-
-        auto const max_batch_size = size_t(image_width);
-        auto const max_samples_per_batch =
-            size_t(samples_per_pixel) * max_batch_size;
-        auto const max_rays_ppx = size_t(max_depth) * size_t(samples_per_pixel);
-        auto const max_rays = max_rays_ppx * size_t(max_batch_size);
-
-        // NOTE: 30% of the time (5 seconds) is spent just on a couple of
-        // threads. Consider sharing work, e.g lighting?
-
-#pragma omp parallel
-        {
-            ZoneScopedN("worker thread");
-            // We do one per thread.
-            auto const checker_requests =
-                std::make_unique<checker_request[]>(max_rays);
-            auto const image_requests =
-                std::make_unique<image_request[]>(max_rays);
-            auto const noise_requests =
-                std::make_unique<noise_request[]>(max_rays);
-            auto const sampled_grays = std::make_unique<float[]>(max_rays);
-            auto const sampled_colors = std::make_unique<color[]>(max_rays);
-
-            auto const checker_counts =
-                std::make_unique<uint16_t[]>(max_samples_per_batch);
-            auto const solid_counts =
-                std::make_unique<uint16_t[]>(max_samples_per_batch);
-            auto const image_counts =
-                std::make_unique<uint16_t[]>(max_samples_per_batch);
-            auto const noise_counts =
-                std::make_unique<uint16_t[]>(max_samples_per_batch);
-
-            auto ray_colors = std::make_unique<color[]>(max_samples_per_batch);
-
-            for (auto work = q->next(max_batch_size); work;
-                 work = q->next(max_batch_size)) {
-#ifndef _OPENMP
-                // NOTE: doing this in MT will enable locks in I/O and
-                // synchronize the threads, which I don't want to :(
-                std::clog << "\rScanlines remaining: " << (image_height - j)
-                          << ' ' << std::flush;
-#endif
-                auto [lane_start, lane_size] = *work;
-                uint32_t checker_count = 0;
-                uint32_t image_count = 0;
-                uint32_t noise_count = 0;
-                uint32_t solid_count = 0;
-                {
-                    ZoneScopedN("geometry");
-                    for (uint32_t i = 0; i < lane_size; ++i) {
-                        // geometry
-
-                        auto const solid_counts_px =
-                            solid_counts.get() + i * samples_per_pixel;
-                        auto const noise_counts_px =
-                            noise_counts.get() + i * samples_per_pixel;
-                        auto const checker_counts_px =
-                            checker_counts.get() + i * samples_per_pixel;
-                        auto const image_counts_px =
-                            image_counts.get() + i * samples_per_pixel;
-
-                        auto const j = (lane_start + i) / image_width;
-                        // Get a randomly-sampled camera ray for the pixel at
-                        // location i,j,
-                        // originating from the camera defocus disk.
-                        auto pixelCenter = getPixelCenter(float(i), float(j));
-
-                        for (uint32_t sample = 0; sample < samples_per_pixel;
-                             ++sample) {
-                            tex_request_queue tex_reqs(
-                                checker_requests.get() + checker_count,
-                                // NOTE: all solids get directly copied into the
-                                // shared samples array. They will get
-                                // multiplied the first.
-                                sampled_colors.get() + solid_count,
-                                image_requests.get() + image_count,
-                                noise_requests.get() + noise_count, max_depth,
-                                texes);
-
-                            ray const r = defocusRay(center, pixelCenter);
-                            auto const time = random_float();
-
-                            if (simulate_ray(r, world, time, tex_reqs)) {
-                                checker_count += tex_reqs.checker_count;
-                                solid_count += tex_reqs.solid_count;
-                                image_count += tex_reqs.image_count;
-                                noise_count += tex_reqs.noise_count;
-
-                                checker_counts_px[sample] =
-                                    tex_reqs.checker_count;
-                                solid_counts_px[sample] = tex_reqs.solid_count;
-                                image_counts_px[sample] = tex_reqs.image_count;
-                                noise_counts_px[sample] = tex_reqs.noise_count;
-                            } else {
-                                // cancelled!
-                                checker_counts_px[sample] = 0;
-                                image_counts_px[sample] = 0;
-                                noise_counts_px[sample] = 0;
-
-                                solid_counts_px[sample] = 1;
-                                sampled_colors[solid_count] = color(0);
-                                ++solid_count;
-                            }
-                        }
-                    }
-                }
-                {
-                    ZoneScopedN("tex sample");
-                    multiply_init(sampled_colors.get(), solid_counts.get(),
-                                  size_t(samples_per_pixel) * lane_size,
-                                  ray_colors.get());
-
-                    if (noise_count != 0) {
-                        // sample all noise functions
-                        for (uint32_t k = 0; k < noise_count; ++k) {
-                            auto const& info = noise_requests.get()[k];
-                            // TODO: have perlin noise be a parameter to
-                            // noise.value()
-                            sampled_grays[k] =
-                                info.noise.value(info.p, perlin_noise);
-                        }
-                        multiply_grays(sampled_grays.get(), noise_counts.get(),
-                                       size_t(samples_per_pixel) * lane_size,
-                                       ray_colors.get());
-                    }
-                    if (image_count != 0) {
-                        // sample all images
-                        // NOTE: I could have some pointer based mappings.
-                        // Sorting is out of the picture, otherwise it will move
-                        // samples between pixels.
-                        for (uint32_t k = 0; k < image_count; ++k) {
-                            auto const& info = image_requests.get()[k];
-                            sampled_colors[k] =
-                                texes.images[info.image_id].sample(info.u,
-                                                                   info.v);
-                        }
-
-                        multiply_samples(sampled_colors.get(),
-                                         image_counts.get(),
-                                         size_t(samples_per_pixel) * lane_size,
-                                         ray_colors.get());
-                    }
-                    if (checker_count != 0) {
-                        // sample all textures
-                        for (uint32_t req = 0; req < checker_count; ++req) {
-                            auto const& info = checker_requests.get()[req];
-                            sampled_colors[req] = info.checker->value(info.p);
-                        }
-
-                        // multiply sampled textures
-                        multiply_samples(sampled_colors.get(),
-                                         checker_counts.get(),
-                                         size_t(samples_per_pixel) * lane_size,
-                                         ray_colors.get());
-                    }
-                    for (size_t i = 0; i < lane_size; ++i) {
-                        auto ray_colors_px =
-                            ray_colors.get() + i * samples_per_pixel;
-                        // average samples
-                        color pixel_color(0, 0, 0);
-                        for (uint32_t k = 0; k < samples_per_pixel; ++k) {
-                            pixel_color += ray_colors_px[k];
-                        }
-
-                        fcol_ptr[lane_start + i] =
-                            pixel_color / float(samples_per_pixel);
-                    }
-                }
-#ifdef _OPENMP
-                progress.increment(lane_size);
-#endif
-            }
-        }
-
-        delete q;
-
-#ifdef _OPENMP
-        progress.manual_teardown();
-#endif
-        puts("\r\x1b[2KRender done. Outputting colors...\n");
-
-#pragma omp parallel for
-        for (uint32_t i = 0; i < 3 * px_count; ++i) {
-            auto channel = channels[i];
-            // Apply the linear to gamma transform.
-            channel = sqrtf(channel);
-            // Write the translated [0,255] value of each color
-            // component.
-            static interval const intensity(0.000, 0.999);
-            ichannels[i] = static_cast<uint8_t>(256 * intensity.clamp(channel));
-        }
-
-#pragma omp single
-        {
-            // NOTE: this is not cleanly freeing its resources.
-            // It's ok, since all the error exit points here are asserts.
-
-            FILE* fp = fopen("test.png", "wb");
-            assert(fp && "cannot create file for writing");
-
-            auto png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
-                                                   nullptr, nullptr, nullptr);
-            assert(png_ptr && "cannot create write struct");
-
-            auto info_ptr = png_create_info_struct(png_ptr);
-            assert(info_ptr && "cannot create info struct");
-
-            // HACK: for some reason, GCC loses the definition for non-debug
-            // builds?
-#ifdef NDEBUG
-            assert(!setjmp(png_ptr->jmpbuf) && "libpng error");
-#endif
-
-            png_init_io(png_ptr, fp);
-
-            // NOTE: not required to set compression, libpng will choose one for
-            // us.
-
-            png_set_IHDR(png_ptr, info_ptr, image_width, image_height, 8,
-                         PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
-                         PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
-
-            // TODO: do gamma correction on libpng instead of ourselves?
-            png_write_info(png_ptr, info_ptr);
-
-            auto row_pointers = std::make_unique<uint8_t*[]>(image_height);
-            for (size_t i = 0; i < image_height; ++i) {
-                row_pointers[i] = reinterpret_cast<uint8_t*>(
-                    colors_mem.get() + i * image_width * 3ull);
-            }
-
-            png_write_image(png_ptr, row_pointers.get());
-
-            png_write_end(png_ptr, info_ptr);
-
-            png_destroy_write_struct(&png_ptr, &info_ptr);
-            fclose(fp);
-        }
-    }
-
    private:
     uint32_t image_height{};  // Rendered image height
     point3 center;            // Camera center
@@ -439,6 +164,23 @@ struct camera {
     struct checker_request {
         checker_texture const* checker;
         point3 p;
+    };
+
+    struct trq_memory {
+        checker_request* checkers;
+        color __restrict_arr* solids;
+        image_request* images;
+        noise_request* noises;
+    };
+
+    struct sample_memory {
+        float __restrict_arr* grays;
+        uint16_t __restrict_arr *checkers, __restrict_arr *solids,
+            __restrict_arr *images, __restrict_arr *noises;
+    };
+
+    struct sample_request {
+        uint32_t checkers{}, images{}, noises{};
     };
 
     struct tex_request_queue {
@@ -578,5 +320,291 @@ struct camera {
         // The ray didn't converge to a light source, so no light is to be
         // returned
         return false;
+    }
+
+   public:
+    // NOTE: may use dyn collection to avoid templating on collection?
+    // Compile times don't seem too bad rn.
+    void start(is_collection auto const& world, bool enable_progress,
+               tex_view texes, int thread_count) {
+        initialize();
+
+        auto px_count = image_width * image_height;
+
+        auto fcolors_mem = std::make_unique<color[]>(px_count);
+
+        auto fcol_ptr = fcolors_mem.get();
+
+        auto colors_mem = std::make_unique<uint8_t[]>(3ull * px_count);
+        auto ichannels = colors_mem.get();
+        auto channels = reinterpret_cast<float const*>(fcol_ptr);
+
+        auto* q = new range_queue(px_count);
+
+#ifdef _OPENMP
+        progress::progress_state progress;
+
+        if (enable_progress) {
+            int res = progress.setup(q->max_capacity);
+            if (res != 0) {
+                fprintf(stderr, "Could not setup progress thread! (%s)\n",
+                        strerror(res));
+                // NOTE: This is not really something we can't live without.
+                exit(1);
+            }
+        }
+
+        omp_set_num_threads(thread_count);
+#endif
+
+        auto perlin_noise = leak(perlin());
+
+        auto const max_batch_size = size_t(image_width);
+        auto const max_samples_per_batch =
+            size_t(samples_per_pixel) * max_batch_size;
+        auto const max_rays_ppx = size_t(max_depth) * size_t(samples_per_pixel);
+        auto const max_rays = max_rays_ppx * size_t(max_batch_size);
+
+        // NOTE: 30% of the time (5 seconds) is spent just on a couple of
+        // threads. Consider sharing work, e.g lighting?
+
+#pragma omp parallel
+        {
+            ZoneScopedN("worker thread");
+            // We do one per thread.
+            auto const checker_requests =
+                std::make_unique<checker_request[]>(max_rays);
+            auto const image_requests =
+                std::make_unique<image_request[]>(max_rays);
+            auto const noise_requests =
+                std::make_unique<noise_request[]>(max_rays);
+            auto const sampled_grays = std::make_unique<float[]>(max_rays);
+            auto const sampled_colors = std::make_unique<color[]>(max_rays);
+
+            auto const trq_mem =
+                trq_memory(checker_requests.get(), sampled_colors.get(),
+                           image_requests.get(), noise_requests.get());
+
+            auto const checker_counts =
+                std::make_unique<uint16_t[]>(max_samples_per_batch);
+            auto const solid_counts =
+                std::make_unique<uint16_t[]>(max_samples_per_batch);
+            auto const image_counts =
+                std::make_unique<uint16_t[]>(max_samples_per_batch);
+            auto const noise_counts =
+                std::make_unique<uint16_t[]>(max_samples_per_batch);
+
+            // TODO: reuse ray_colors for both tex samples and reducing.
+            // The code might be a bit slower due to aliasing, but we'll reduce
+            // the amount of memory we eat.
+            auto ray_colors = std::make_unique<color[]>(max_samples_per_batch);
+
+            auto const sample_mem = sample_memory(
+                sampled_grays.get(), checker_counts.get(), solid_counts.get(),
+                image_counts.get(), noise_counts.get());
+
+            for (auto work = q->next(max_batch_size); work;
+                 work = q->next(max_batch_size)) {
+#ifndef _OPENMP
+                // NOTE: doing this in MT will enable locks in I/O and
+                // synchronize the threads, which I don't want to :(
+                std::clog << "\rScanlines remaining: " << (image_height - j)
+                          << ' ' << std::flush;
+#endif
+                auto [lane_start, lane_size] = *work;
+                sample_request sreq;
+                uint32_t solid_count = 0;
+                sampleGeometries(world, texes, trq_mem, sample_mem, sreq,
+                                 solid_count, lane_start, lane_size);
+                sampleTextures(texes, fcol_ptr, perlin_noise, trq_mem,
+                               sample_mem, ray_colors.get(), lane_start,
+                               lane_size, sreq);
+#ifdef _OPENMP
+                progress.increment(lane_size);
+#endif
+            }
+        }
+
+        delete q;
+
+#ifdef _OPENMP
+        progress.manual_teardown();
+#endif
+        puts("\r\x1b[2KRender done. Outputting colors...\n");
+
+#pragma omp parallel for
+        for (uint32_t i = 0; i < 3 * px_count; ++i) {
+            auto channel = channels[i];
+            // Apply the linear to gamma transform.
+            channel = sqrtf(channel);
+            // Write the translated [0,255] value of each color
+            // component.
+            static interval const intensity(0.000, 0.999);
+            ichannels[i] = static_cast<uint8_t>(256 * intensity.clamp(channel));
+        }
+
+#pragma omp single
+        {
+            // NOTE: this is not cleanly freeing its resources.
+            // It's ok, since all the error exit points here are asserts.
+
+            FILE* fp = fopen("test.png", "wb");
+            assert(fp && "cannot create file for writing");
+
+            auto png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
+                                                   nullptr, nullptr, nullptr);
+            assert(png_ptr && "cannot create write struct");
+
+            auto info_ptr = png_create_info_struct(png_ptr);
+            assert(info_ptr && "cannot create info struct");
+
+            // HACK: for some reason, GCC loses the definition for non-debug
+            // builds?
+#ifdef NDEBUG
+            assert(!setjmp(png_ptr->jmpbuf) && "libpng error");
+#endif
+
+            png_init_io(png_ptr, fp);
+
+            // NOTE: not required to set compression, libpng will choose one for
+            // us.
+
+            png_set_IHDR(png_ptr, info_ptr, image_width, image_height, 8,
+                         PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+                         PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+
+            // TODO: do gamma correction on libpng instead of ourselves?
+            png_write_info(png_ptr, info_ptr);
+
+            auto row_pointers = std::make_unique<uint8_t*[]>(image_height);
+            for (size_t i = 0; i < image_height; ++i) {
+                row_pointers[i] = reinterpret_cast<uint8_t*>(
+                    colors_mem.get() + i * image_width * 3ull);
+            }
+
+            png_write_image(png_ptr, row_pointers.get());
+
+            png_write_end(png_ptr, info_ptr);
+
+            png_destroy_write_struct(&png_ptr, &info_ptr);
+            fclose(fp);
+        }
+    }
+
+    void sampleGeometries(is_collection auto const& world, tex_view texes,
+                          trq_memory const& trq_mem,
+                          sample_memory const& sample_mem, sample_request& sreq,
+                          uint32_t& solid_count, uint32_t lane_start,
+                          uint32_t lane_size) {
+        ZoneScopedN("geometry");
+        for (uint32_t i = 0; i < lane_size; ++i) {
+            // geometry
+
+            auto const solid_counts_px =
+                sample_mem.solids + i * samples_per_pixel;
+            auto const noise_counts_px =
+                sample_mem.noises + i * samples_per_pixel;
+            auto const checker_counts_px =
+                sample_mem.checkers + i * samples_per_pixel;
+            auto const image_counts_px =
+                sample_mem.images + i * samples_per_pixel;
+
+            auto const j = (lane_start + i) / image_width;
+            // Get a randomly-sampled camera ray for the pixel at
+            // location i,j,
+            // originating from the camera defocus disk.
+            auto pixelCenter = getPixelCenter(float(i), float(j));
+
+            for (uint32_t sample = 0; sample < samples_per_pixel; ++sample) {
+                tex_request_queue tex_reqs(
+                    trq_mem.checkers + sreq.checkers,
+                    // NOTE: all solids get directly copied into the
+                    // shared samples array. They will get
+                    // multiplied the first.
+                    trq_mem.solids + solid_count, trq_mem.images + sreq.images,
+                    trq_mem.noises + sreq.noises, max_depth, texes);
+
+                ray const r = defocusRay(center, pixelCenter);
+                auto const time = random_float();
+
+                if (simulate_ray(r, world, time, tex_reqs)) {
+                    sreq.checkers += tex_reqs.checker_count;
+                    solid_count += tex_reqs.solid_count;
+                    sreq.images += tex_reqs.image_count;
+                    sreq.noises += tex_reqs.noise_count;
+
+                    checker_counts_px[sample] = tex_reqs.checker_count;
+                    solid_counts_px[sample] = tex_reqs.solid_count;
+                    image_counts_px[sample] = tex_reqs.image_count;
+                    noise_counts_px[sample] = tex_reqs.noise_count;
+                } else {
+                    // cancelled!
+                    checker_counts_px[sample] = 0;
+                    image_counts_px[sample] = 0;
+                    noise_counts_px[sample] = 0;
+
+                    solid_counts_px[sample] = 1;
+                    trq_mem.solids[solid_count] = color(0);
+                    ++solid_count;
+                }
+            }
+        }
+    }
+
+    void sampleTextures(tex_view texes, color __restrict_arr* fcol_ptr,
+                        perlin const* perlin_noise, trq_memory reqs,
+                        sample_memory smpl, color __restrict_arr* ray_colors,
+                        uint32_t lane_start, uint32_t lane_size,
+                        sample_request sreq) const noexcept {
+        // TODO: alias reqs.solids and ray_colors to get better memory
+        // consumption
+        ZoneScopedN("tex sample");
+        multiply_init(reqs.solids, smpl.solids,
+                      size_t(samples_per_pixel) * lane_size, ray_colors);
+
+        if (sreq.noises != 0) {
+            // sample all noise functions
+            for (uint32_t k = 0; k < sreq.noises; ++k) {
+                auto const& info = reqs.noises[k];
+                smpl.grays[k] = info.noise.value(info.p, perlin_noise);
+            }
+            multiply_grays(smpl.grays, smpl.noises,
+                           size_t(samples_per_pixel) * lane_size, ray_colors);
+        }
+        if (sreq.images != 0) {
+            // sample all images
+            // NOTE: I could have some pointer based mappings.
+            // Sorting is out of the picture, otherwise it will move
+            // samples between pixels.
+            for (uint32_t k = 0; k < sreq.images; ++k) {
+                auto const& info = reqs.images[k];
+                reqs.solids[k] =
+                    texes.images[info.image_id].sample(info.u, info.v);
+            }
+
+            multiply_samples(reqs.solids, smpl.images,
+                             size_t(samples_per_pixel) * lane_size, ray_colors);
+        }
+        if (sreq.checkers != 0) {
+            // sample all textures
+            for (uint32_t req = 0; req < sreq.checkers; ++req) {
+                auto const& info = reqs.checkers[req];
+                reqs.solids[req] = info.checker->value(info.p);
+            }
+
+            // multiply sampled textures
+            multiply_samples(reqs.solids, smpl.checkers,
+                             size_t(samples_per_pixel) * lane_size, ray_colors);
+        }
+        for (size_t i = 0; i < lane_size; ++i) {
+            auto ray_colors_px = ray_colors + i * samples_per_pixel;
+            // average samples
+            color pixel_color(0, 0, 0);
+            for (uint32_t k = 0; k < samples_per_pixel; ++k) {
+                pixel_color += ray_colors_px[k];
+            }
+
+            fcol_ptr[lane_start + i] = pixel_color / float(samples_per_pixel);
+        }
     }
 };

@@ -127,7 +127,7 @@ static void random_spheres() {
     cam.defocus_angle = 0.02;
     cam.focus_dist = 10.0;
 
-    cam.render(world, enable_progress, texes.view(), num_threads);
+    cam.start(world, enable_progress, texes.view(), num_threads);
 }
 
 static void two_spheres() {
@@ -157,7 +157,7 @@ static void two_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void earth() {
@@ -189,8 +189,8 @@ static void earth() {
 
     cam.defocus_angle = 0;
 
-    cam.render(time_wrapper(world.finish()), enable_progress, texes.view(),
-               num_threads);
+    cam.start(time_wrapper(world.finish()), enable_progress, texes.view(),
+              num_threads);
 }
 
 static void two_perlin_spheres() {
@@ -218,7 +218,7 @@ static void two_perlin_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void quads() {
@@ -266,7 +266,7 @@ static void quads() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void simple_light() {
@@ -302,7 +302,7 @@ static void simple_light() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void cornell_box() {
@@ -364,7 +364,7 @@ static void cornell_box() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void cornell_smoke() {
@@ -423,7 +423,7 @@ static void cornell_smoke() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
 }
 
 static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
@@ -557,7 +557,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     cam.defocus_angle = 0;
 
-    cam.render(world, enable_progress, texes.view(), num_threads);
+    cam.start(world, enable_progress, texes.view(), num_threads);
 }
 
 int main(int argc, char const *argv[]) {
