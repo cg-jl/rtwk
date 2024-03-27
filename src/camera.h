@@ -19,6 +19,7 @@
 #include <iostream>
 #include <memory>
 #include <span>
+#include <sstream>
 #include <tracy/Tracy.hpp>
 
 #include "collection.h"
@@ -35,6 +36,19 @@
 #include "transform.h"
 #include "vec3.h"
 #include "workq.h"
+
+#ifdef TRACY_ENABLE
+void* operator new(size_t size) {
+    void* ptr = malloc(size);
+    TracyAlloc(ptr, size);
+    return ptr;
+}
+
+void operator delete(void* ptr, size_t size) {
+    TracyFree(ptr);
+    free(ptr);
+}
+#endif
 
 struct camera {
    public:
@@ -100,6 +114,7 @@ struct camera {
 
 #pragma omp parallel
         {
+            ZoneScopedN("worker thread");
             // We do one per thread.
             auto const checker_requests =
                 std::make_unique<checker_request[]>(max_rays);
@@ -134,118 +149,126 @@ struct camera {
                 uint32_t image_count = 0;
                 uint32_t noise_count = 0;
                 uint32_t solid_count = 0;
-                ZoneScoped;
-                for (uint32_t i = 0; i < lane_size; ++i) {
-                    // geometry
+                {
+                    ZoneScopedN("geometry");
+                    for (uint32_t i = 0; i < lane_size; ++i) {
+                        // geometry
 
-                    auto const solid_counts_px =
-                        solid_counts.get() + i * samples_per_pixel;
-                    auto const noise_counts_px =
-                        noise_counts.get() + i * samples_per_pixel;
-                    auto const checker_counts_px =
-                        checker_counts.get() + i * samples_per_pixel;
-                    auto const image_counts_px =
-                        image_counts.get() + i * samples_per_pixel;
+                        auto const solid_counts_px =
+                            solid_counts.get() + i * samples_per_pixel;
+                        auto const noise_counts_px =
+                            noise_counts.get() + i * samples_per_pixel;
+                        auto const checker_counts_px =
+                            checker_counts.get() + i * samples_per_pixel;
+                        auto const image_counts_px =
+                            image_counts.get() + i * samples_per_pixel;
 
-                    auto const j = (lane_start + i) / image_width;
-                    // Get a randomly-sampled camera ray for the pixel at
-                    // location i,j,
-                    // originating from the camera defocus disk.
-                    auto pixelCenter = getPixelCenter(float(i), float(j));
+                        auto const j = (lane_start + i) / image_width;
+                        // Get a randomly-sampled camera ray for the pixel at
+                        // location i,j,
+                        // originating from the camera defocus disk.
+                        auto pixelCenter = getPixelCenter(float(i), float(j));
 
-                    for (uint32_t sample = 0; sample < samples_per_pixel;
-                         ++sample) {
-                        tex_request_queue tex_reqs(
-                            checker_requests.get() + checker_count,
-                            // NOTE: all solids get directly copied into the
-                            // shared samples array. They will get multiplied
-                            // the first.
-                            sampled_colors.get() + solid_count,
-                            image_requests.get() + image_count,
-                            noise_requests.get() + noise_count, max_depth,
-                            texes);
+                        for (uint32_t sample = 0; sample < samples_per_pixel;
+                             ++sample) {
+                            tex_request_queue tex_reqs(
+                                checker_requests.get() + checker_count,
+                                // NOTE: all solids get directly copied into the
+                                // shared samples array. They will get
+                                // multiplied the first.
+                                sampled_colors.get() + solid_count,
+                                image_requests.get() + image_count,
+                                noise_requests.get() + noise_count, max_depth,
+                                texes);
 
-                        ray const r = defocusRay(center, pixelCenter);
-                        auto const time = random_float();
+                            ray const r = defocusRay(center, pixelCenter);
+                            auto const time = random_float();
 
-                        if (simulate_ray(r, world, time, tex_reqs)) {
-                            checker_count += tex_reqs.checker_count;
-                            solid_count += tex_reqs.solid_count;
-                            image_count += tex_reqs.image_count;
-                            noise_count += tex_reqs.noise_count;
+                            if (simulate_ray(r, world, time, tex_reqs)) {
+                                checker_count += tex_reqs.checker_count;
+                                solid_count += tex_reqs.solid_count;
+                                image_count += tex_reqs.image_count;
+                                noise_count += tex_reqs.noise_count;
 
-                            checker_counts_px[sample] = tex_reqs.checker_count;
-                            solid_counts_px[sample] = tex_reqs.solid_count;
-                            image_counts_px[sample] = tex_reqs.image_count;
-                            noise_counts_px[sample] = tex_reqs.noise_count;
-                        } else {
-                            // cancelled!
-                            checker_counts_px[sample] = 0;
-                            image_counts_px[sample] = 0;
-                            noise_counts_px[sample] = 0;
+                                checker_counts_px[sample] =
+                                    tex_reqs.checker_count;
+                                solid_counts_px[sample] = tex_reqs.solid_count;
+                                image_counts_px[sample] = tex_reqs.image_count;
+                                noise_counts_px[sample] = tex_reqs.noise_count;
+                            } else {
+                                // cancelled!
+                                checker_counts_px[sample] = 0;
+                                image_counts_px[sample] = 0;
+                                noise_counts_px[sample] = 0;
 
-                            solid_counts_px[sample] = 1;
-                            sampled_colors[solid_count] = color(0);
-                            ++solid_count;
+                                solid_counts_px[sample] = 1;
+                                sampled_colors[solid_count] = color(0);
+                                ++solid_count;
+                            }
                         }
                     }
                 }
+                {
+                    ZoneScopedN("tex sample");
+                    multiply_init(sampled_colors.get(), solid_counts.get(),
+                                  size_t(samples_per_pixel) * lane_size,
+                                  ray_colors.get());
 
-                multiply_init(sampled_colors.get(), solid_counts.get(),
-                              size_t(samples_per_pixel) * lane_size,
-                              ray_colors.get());
-
-                if (noise_count != 0) {
-                    // sample all noise functions
-                    for (uint32_t k = 0; k < noise_count; ++k) {
-                        auto const& info = noise_requests.get()[k];
-                        // TODO: have perlin noise be a parameter to
-                        // noise.value()
-                        sampled_grays[k] =
-                            info.noise.value(info.p, perlin_noise);
+                    if (noise_count != 0) {
+                        // sample all noise functions
+                        for (uint32_t k = 0; k < noise_count; ++k) {
+                            auto const& info = noise_requests.get()[k];
+                            // TODO: have perlin noise be a parameter to
+                            // noise.value()
+                            sampled_grays[k] =
+                                info.noise.value(info.p, perlin_noise);
+                        }
+                        multiply_grays(sampled_grays.get(), noise_counts.get(),
+                                       size_t(samples_per_pixel) * lane_size,
+                                       ray_colors.get());
                     }
-                    multiply_grays(sampled_grays.get(), noise_counts.get(),
-                                   size_t(samples_per_pixel) * lane_size,
-                                   ray_colors.get());
-                }
-                if (image_count != 0) {
-                    // sample all images
-                    // NOTE: I could have some pointer based mappings.
-                    // Sorting is out of the picture, otherwise it will move
-                    // samples between pixels.
-                    for (uint32_t k = 0; k < image_count; ++k) {
-                        auto const& info = image_requests.get()[k];
-                        sampled_colors[k] =
-                            texes.images[info.image_id].sample(info.u, info.v);
-                    }
+                    if (image_count != 0) {
+                        // sample all images
+                        // NOTE: I could have some pointer based mappings.
+                        // Sorting is out of the picture, otherwise it will move
+                        // samples between pixels.
+                        for (uint32_t k = 0; k < image_count; ++k) {
+                            auto const& info = image_requests.get()[k];
+                            sampled_colors[k] =
+                                texes.images[info.image_id].sample(info.u,
+                                                                   info.v);
+                        }
 
-                    multiply_samples(sampled_colors.get(), image_counts.get(),
-                                     size_t(samples_per_pixel) * lane_size,
-                                     ray_colors.get());
-                }
-                if (checker_count != 0) {
-                    // sample all textures
-                    for (uint32_t req = 0; req < checker_count; ++req) {
-                        auto const& info = checker_requests.get()[req];
-                        sampled_colors[req] = info.checker->value(info.p);
+                        multiply_samples(sampled_colors.get(),
+                                         image_counts.get(),
+                                         size_t(samples_per_pixel) * lane_size,
+                                         ray_colors.get());
                     }
+                    if (checker_count != 0) {
+                        // sample all textures
+                        for (uint32_t req = 0; req < checker_count; ++req) {
+                            auto const& info = checker_requests.get()[req];
+                            sampled_colors[req] = info.checker->value(info.p);
+                        }
 
-                    // multiply sampled textures
-                    multiply_samples(sampled_colors.get(), checker_counts.get(),
-                                     size_t(samples_per_pixel) * lane_size,
-                                     ray_colors.get());
-                }
-                for (size_t i = 0; i < lane_size; ++i) {
-                    auto ray_colors_px =
-                        ray_colors.get() + i * samples_per_pixel;
-                    // average samples
-                    color pixel_color(0, 0, 0);
-                    for (uint32_t k = 0; k < samples_per_pixel; ++k) {
-                        pixel_color += ray_colors_px[k];
+                        // multiply sampled textures
+                        multiply_samples(sampled_colors.get(),
+                                         checker_counts.get(),
+                                         size_t(samples_per_pixel) * lane_size,
+                                         ray_colors.get());
                     }
+                    for (size_t i = 0; i < lane_size; ++i) {
+                        auto ray_colors_px =
+                            ray_colors.get() + i * samples_per_pixel;
+                        // average samples
+                        color pixel_color(0, 0, 0);
+                        for (uint32_t k = 0; k < samples_per_pixel; ++k) {
+                            pixel_color += ray_colors_px[k];
+                        }
 
-                    fcol_ptr[lane_start + i] =
-                        pixel_color / float(samples_per_pixel);
+                        fcol_ptr[lane_start + i] =
+                            pixel_color / float(samples_per_pixel);
+                    }
                 }
 #ifdef _OPENMP
                 progress.increment(lane_size);
