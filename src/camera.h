@@ -334,7 +334,8 @@ struct camera {
 
         auto perlin_noise = leak(perlin());
 
-        auto const max_batch_size = size_t(image_width);
+        // prevent threads from getting hard lanes all by themselves
+        auto const max_batch_size = size_t(image_width) / thread_count;
         auto const max_rays_ppx = size_t(max_depth) * size_t(samples_per_pixel);
 
 #pragma omp parallel
@@ -387,11 +388,12 @@ struct camera {
                     auto const checker_counts_px = sample_mem.checkers;
                     auto const image_counts_px = sample_mem.images;
 
-                    auto const j = (lane_start + i) / image_width;
+                    auto const px_i = (lane_start + i) % image_width;
+                    auto const px_j = (lane_start + i) / image_width;
                     // Get a randomly-sampled camera ray for the pixel at
                     // location i,j,
                     // originating from the camera defocus disk.
-                    auto pixelCenter = getPixelCenter(float(i), float(j));
+                    auto pixelCenter = getPixelCenter(float(px_i), float(px_j));
 
                     sampleGeometryPixel(world, trq_mem, sreq, solid_count,
                                         texes, pixelCenter, checker_counts_px,
