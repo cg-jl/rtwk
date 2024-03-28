@@ -6,9 +6,7 @@
 #include "texture.h"
 #include "vec3.h"
 
-struct transform;
 
-using transform_set = std::span<transform const>;
 
 struct hit_record {
     struct geometry {

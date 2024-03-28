@@ -8,12 +8,10 @@
 #include "interval.h"
 #include "ray.h"
 
-struct transform;
-
 template <typename T>
 concept has_bb = requires(T const &t) {
-    { t.boundingBox() } -> std::same_as<aabb>;
-};
+                     { t.boundingBox() } -> std::same_as<aabb>;
+                 };
 
 template <typename T>
 concept is_geometry =

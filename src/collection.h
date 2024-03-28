@@ -4,6 +4,7 @@
 // for caching & type homogeneity benefits.
 
 #include "geometry.h"
+#include "transform.h"
 #include "hit_record.h"
 #include "interval.h"
 #include "ray.h"

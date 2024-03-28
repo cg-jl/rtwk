@@ -31,6 +31,7 @@ struct span_builder {
 
     std::vector<T>& current() { return spans.back(); }
 
+   protected:
     std::span<T const> finish() {
         std::span span = spans.back();
         spans.emplace_back();

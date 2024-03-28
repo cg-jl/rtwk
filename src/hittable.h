@@ -85,31 +85,26 @@ struct dyn_hittable final {
 
 template <typename T>
 struct transformed final {
-    std::span<transform const> transf;
+    transform_set transf;
     T object;
 
-    transformed(std::span<transform const> transf, T object)
+    transformed(transform_set transf, T object)
         : transf(transf), object(std::move(object)) {}
 
     [[nodiscard]] aabb boundingBox() const&
         requires(has_bb<T>)
     {
         aabb box = object.boundingBox();
-        for (auto const& tf : transf) {
-            tf.apply_to_bbox(box);
-        }
+        transf.apply_to_bbox(box);
         return box;
     }
 
-    ray transform_ray(ray const& orig, float time) const& {
+    ray transform_ray(ray r, float time) const& {
         ZoneScopedN("ray transform");
         ZoneValue(transf.size());
-        ray r_copy = orig;
 
-        for (auto const& tf : transf) {
-            tf.apply(r_copy, time);
-        }
-        return r_copy;
+        transf.apply(r, time);
+        return r;
     }
 
     void propagate(ray const& orig, hit_status& status, hit_record& rec,

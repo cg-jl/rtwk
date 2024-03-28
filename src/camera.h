@@ -291,7 +291,7 @@ struct camera {
             world.propagate(r, status, rec, xforms, time);
             if (!status.hit_anything) return false;
 
-            apply_reverse_transforms(xforms, rec.geom.p, time, rec.geom.normal);
+            xforms.apply_reverse_transforms(rec.geom.p, time, rec.geom.normal);
             texes.add(rec.tex, rec.geom.p, rec.u, rec.v);
 
             if (rec.mat.tag == material::kind::diffuse_light) return true;
