@@ -100,9 +100,6 @@ struct transformed final {
     }
 
     ray transform_ray(ray r, float time) const& {
-        ZoneScopedN("ray transform");
-        ZoneValue(transf.size());
-
         transf.apply(r, time);
         return r;
     }

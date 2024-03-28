@@ -65,8 +65,6 @@ struct transform_set {
 
 // TODO: integrate transforms into geometry_wrapper
 inline void y_rotation::apply(ray& r) const& {
-    ZoneScoped;
-    ZoneValue(int(this->tag));
     vec3 origin = r.origin;
     vec3 direction = r.direction;
 
@@ -92,30 +90,22 @@ inline void y_rotation::apply_reverse(point3& p, vec3& normal_target) const& {
     normal_target = inv_y_rotation(cos_theta, sin_theta, normal_target);
 }
 inline void y_rotation::apply_to_bbox(aabb& box) const& {
-    point3 min(infinity, infinity, infinity);
-    point3 max(-infinity, -infinity, -infinity);
+    aabb minmax;
 
+    // probe all minmax
     for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 2; j++) {
-            for (int k = 0; k < 2; k++) {
-                auto x = float(i) * box.x.max + float(1 - i) * box.x.min;
-                auto y = float(j) * box.y.max + float(1 - j) * box.y.min;
-                auto z = float(k) * box.z.max + float(1 - k) * box.z.min;
+        auto x = float(i) * box.x.max + float(1 - i) * box.x.min;
+        auto const new_min_x = x * sin_theta + cos_theta * box.z.min;
+        auto const new_min_z = -(cos_theta * x - sin_theta * box.z.min);
 
-                auto newx = cos_theta * x + sin_theta * z;
-                auto newz = -sin_theta * x + cos_theta * z;
+        float new_max_x = x * sin_theta + cos_theta * box.z.max;
+        float new_max_z = -(cos_theta * x - sin_theta * box.z.max);
 
-                vec3 tester(newx, y, newz);
-
-                for (int c = 0; c < 3; c++) {
-                    min[c] = std::fmin(min[c], tester[c]);
-                    max[c] = std::fmax(max[c], tester[c]);
-                }
-            }
-        }
+        minmax.x = interval(minmax.x, interval(new_min_x, new_max_x));
+        minmax.z = interval(minmax.z, interval(new_min_z, new_max_z));
     }
 
-    box = aabb(min, max);
+    box = minmax;
 }
 
 struct xform_builder {

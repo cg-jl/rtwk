@@ -38,19 +38,6 @@
 #include "vec3.h"
 #include "workq.h"
 
-#ifdef TRACY_ENABLE
-void* operator new(size_t size) {
-    void* ptr = malloc(size);
-    TracyAlloc(ptr, size);
-    return ptr;
-}
-
-void operator delete(void* ptr, size_t size) {
-    TracyFree(ptr);
-    free(ptr);
-}
-#endif
-
 struct camera {
    public:
     float aspect_ratio = 1.0;         // Ratio of image width over height

@@ -152,11 +152,6 @@ static vec3 inverse_rotate_y(vec3 v, float sin_theta, float cos_theta) {
             sin_theta * v.x() - cos_theta * v.z()};
 }
 
-static vec3 rotate_y(vec3 v, float sin_theta, float cos_theta) {
-    return {v.x() * cos_theta + sin_theta * v.z(), v.y(),
-            -(sin_theta * v.x() - cos_theta * v.z())};
-}
-
 // if |v| = |n|  = 1 => |reflect(v, n)| = 1
 static vec3 reflect(vec3 v, vec3 n) { return v - 2 * dot(v, n) * n; }
 

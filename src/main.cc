@@ -33,6 +33,20 @@
 #include "transform.h"
 #include "wrappers.h"
 
+
+#ifdef TRACY_ENABLE
+void* operator new(size_t size) {
+    void* ptr = malloc(size);
+    TracyAlloc(ptr, size);
+    return ptr;
+}
+
+void operator delete(void* ptr, size_t size) {
+    TracyFree(ptr);
+    free(ptr);
+}
+#endif
+
 static bool enable_progress = true;
 static constexpr auto num_threads = 12;
 
@@ -130,7 +144,8 @@ static void random_spheres() {
     cam.defocus_angle = 0.02;
     cam.focus_dist = 10.0;
 
-    cam.start(world, enable_progress, texes.view(), num_threads, bvh_builder.lock());
+    cam.start(world, enable_progress, texes.view(), num_threads,
+              bvh_builder.lock());
 }
 
 static void two_spheres() {
@@ -429,11 +444,22 @@ static void cornell_smoke() {
     cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
 }
 
-static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
-    struct timespec start;
+// owned data that we've got to pass from make_final_scene(), otherwise it will be freed.
+template <typename T>
+struct final_scene_data {
+    T world;
     tex_storage texes;
+    std::vector<box> boxes1;
+    bvh::builder bvh_builder;
+    list<constant_medium<sphere>> cms_builder;
+    list<tex_wrapper<sphere>> wrapped_spheres;
+    std::vector<sphere> box_of_spheres;
+};
 
-    clock_gettime(CLOCK_MONOTONIC, &start);
+static auto make_final_scene() {
+    // NOTE: scene occupies ~2MB.
+    ZoneScopedN("scene build");
+    tex_storage texes;
 
     std::vector<box> boxes1;
     auto ground_col = texes.solid(0.48, 0.83, 0.53);
@@ -499,7 +525,6 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
                     0.2, color(0.2, 0.4, 0.9), texes);
     cms_builder.add(sphere(point3(0, 0, 0), 5000), .0001, color(1), texes);
 
-    id_storage<rtw_image> images;
     auto emat = texes.image("earthmap.jpg");
     wrapped_spheres.add(sphere(point3(400, 200, 400), 100),
                         material::lambertian(), emat);
@@ -519,11 +544,10 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     auto white_spheres = transformed(
         xforms.finish(),
-        tex_wrapper(
-            bvh::over(bvh::must_split(std::span<sphere>(box_of_spheres),
+        tex_wrapper(bvh::over(bvh::must_split(std::span<sphere>(box_of_spheres),
                                               bvh_builder),
-                      std::span<sphere const>(box_of_spheres)),
-            material::lambertian(), white));
+                              std::span<sphere const>(box_of_spheres)),
+                    material::lambertian(), white));
 
     // FIXME: There's some bug in propagation that makes the spheres up there ^
     // appear before the perlin-textured sphere. Maybe it's something related to
@@ -540,17 +564,17 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         std::move(white_spheres), std::move(cms), std::move(moving_sphere),
         wrapped_spheres.finish(), std::move(ground), std::move(light));
 
-    struct timespec end;
-    clock_gettime(CLOCK_MONOTONIC, &end);
+    return final_scene_data{
+        std::move(world),         std::move(texes),
+        std::move(boxes1),        std::move(bvh_builder),
+        std::move(cms_builder),   std::move(wrapped_spheres),
+        std::move(box_of_spheres)};
+}
 
-    auto start_ns = start.tv_sec * 1000000000ll + start.tv_nsec;
-    auto end_ns = end.tv_sec * 1000000000ll + end.tv_nsec;
-    auto total_ns = end_ns - start_ns;
-
-    printf("Loading the scene took %lf us\n", double(total_ns) / 1000.0);
+static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
+    auto data = make_final_scene();
 
     camera cam;
-
     cam.aspect_ratio = 1.0;
     cam.image_width = image_width;
     cam.samples_per_pixel = samples_per_pixel;
@@ -564,7 +588,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     cam.defocus_angle = 0;
 
-    cam.start(world, enable_progress, texes.view(), num_threads, bvh_builder.lock());
+    cam.start(data.world, enable_progress, data.texes.view(), num_threads,
+              data.bvh_builder.lock());
 }
 
 int main(int argc, char const *argv[]) {
