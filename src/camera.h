@@ -23,6 +23,7 @@
 #include <tracy/Tracy.hpp>
 
 #include "collection.h"
+#include "collection/bvh.h"
 #include "color.h"
 #include "fixedvec.h"
 #include "hittable.h"
@@ -313,7 +314,7 @@ struct camera {
     // NOTE: may use dyn collection to avoid templating on collection?
     // Compile times don't seem too bad rn.
     void start(is_collection auto const& world, bool enable_progress,
-               tex_view texes, int thread_count) {
+               tex_view texes, int thread_count, bvh::builder::result bvh_res) {
         initialize();
 
         auto px_count = image_width * image_height;
@@ -352,6 +353,7 @@ struct camera {
 #pragma omp parallel
         {
             ZoneScopedN("worker thread");
+            bvh_res.initWorker();
             // We do one per thread.
             auto const checker_requests =
                 std::make_unique<checker_request[]>(max_rays_ppx);

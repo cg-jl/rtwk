@@ -139,49 +139,56 @@ struct state {
     float dist_to_split_plane;
 };
 
+namespace {
+static thread_local std::span<node const> s_all_nodes;
+static thread_local state* s_second_sides_ptr = nullptr;
+}  // namespace
+
+static void setThreadLocals(std::span<node const> all_nodes, int max_depth) {
+    s_all_nodes = all_nodes;
+    s_second_sides_ptr = new state[2ull * max_depth];
+}
+
+struct builder {
+    std::vector<node> nodes;
+    int max_depth = 0;
+
+    struct result {
+        std::span<node const> nodes{};
+        int max_depth{};
+
+        void initWorker() {
+            if (max_depth > 0) {
+                setThreadLocals(nodes, max_depth);
+            }
+        }
+    };
+
+    [[nodiscard]] result lock() const& { return result{nodes, max_depth}; }
+};
+
 // NOTE: currently assuming that partitions are always symmetric, meaning
 // that we can always compute the child spans from a parent span.
 struct tree final {
-    tree() = default;
+    constexpr tree() = default;
 
     int root_node;
-    int max_depth;
-    std::vector<node> inorder_nodes;
 
-    tree(int root_node, std::vector<node> inorder_nodes, int max_depth)
-        : root_node(root_node),
-          max_depth(max_depth),
-          inorder_nodes(std::move(inorder_nodes)) {}
+    explicit constexpr tree(int root_node) : root_node(root_node) {}
 
     [[nodiscard]] aabb boundingBox() const& {
-        return inorder_nodes[root_node].box;
+        return s_all_nodes[root_node].box;
     }
 
-    // NOTE: maybe it's better to change this to an iterator, so it doesn't
-    // have to be re-instanced.
-    template <typename Inner>
-    void filter(range initial, ray const& r, interval& ray_t,
-                Inner func) const& {
-        // TODO: Some passable structure like 'thread buffers' where I can tell
-        // the threads how much to allocate and pass it to this structure could
-        // be beneficial, and I can stick it to everyone and make it trivially
-        // removable via templates.
-        static thread_local state* second_sides_ptr = nullptr;
-        if (second_sides_ptr == nullptr) {
-            second_sides_ptr = new state[2ull * max_depth];
-        }
-        static thread_local vecview<state> second_sides(second_sides_ptr,
-                                                        2ull * max_depth);
-        // TODO: some pmr resource usage?
-
-        second_sides.emplace_back(initial, root_node, ray_t.min);
-
+    std::optional<range> nextRange(
+        ray const& r, interval ray_t,
+        uncapped_vecview<state>& second_sides) const {
         while (!second_sides.empty()) {
-            state curr = second_sides.pop();
+            auto curr = second_sides.pop();
 
             // Go left while we can
             while (curr.box_index != -1) {
-                node const& node = inorder_nodes[curr.box_index];
+                auto const& node = s_all_nodes[curr.box_index];
 
                 // We don't need to process the hit if the recorded distance
                 // can't be made better.
@@ -193,8 +200,8 @@ struct tree final {
                 auto space_mid = node.split_point;
                 auto axis = node.axis;
 
-                int first_child = node.left;
-                int second_child = node.right;
+                auto first_child = node.left;
+                auto second_child = node.right;
 
                 auto [first_span, second_span] =
                     curr.span.split(curr.span.size() / 2);
@@ -210,15 +217,36 @@ struct tree final {
                     std::swap(first_span, second_span);
                 }
 
-                // Push the other one
                 second_sides.emplace_back(second_span, second_child,
                                           dist_to_split_plane);
 
                 curr = {first_span, first_child, dist_to_split_plane};
             }
 
-            func(ray_t, curr.span);
+            return curr.span;
+
         pop_next:;
+        }
+        return {};
+    }
+
+    // NOTE: maybe it's better to change this to an iterator, so it doesn't
+    // have to be re-instanced.
+    void filter(range initial, ray const& r, interval& ray_t,
+                auto func) const& {
+        // TODO: Some passable structure like 'thread buffers' where I can tell
+        // the threads how much to allocate and pass it to this structure could
+        // be beneficial, and I can stick it to everyone and make it trivially
+        // removable via templates.
+        // TODO: some pmr resource usage?
+
+        uncapped_vecview<state> second_sides(s_second_sides_ptr);
+
+        second_sides.emplace_back(initial, root_node, ray_t.min);
+
+        for (auto next = nextRange(r, ray_t, second_sides); next;
+             next = nextRange(r, ray_t, second_sides)) {
+            func(ray_t, *next);
         }
     }
 };
@@ -351,19 +379,20 @@ template <has_bb T>
 }
 
 template <has_bb T>
-[[nodiscard]] static bvh::tree split(std::span<T> objects, int initial_split) {
-    std::vector<node> inorder_nodes;
-    int max_depth = 0;
-    auto root = split_tree(objects, max_depth, inorder_nodes, initial_split);
+[[nodiscard]] static bvh::tree split(std::span<T> objects, int initial_split,
+                                     bvh::builder& builder) {
+    auto root =
+        split_tree(objects, builder.max_depth, builder.nodes, initial_split);
 
-    return tree(root, std::move(inorder_nodes), max_depth);
+    return tree(root);
 }
 
 template <has_bb T>
-[[nodiscard]] static bvh::tree must_split(std::span<T> objects) {
+[[nodiscard]] static bvh::tree must_split(std::span<T> objects,
+                                          builder& builder) {
     auto initial_split = find_best_split(objects, 0);
     assert(bool(initial_split) && "Should be able to split this");
-    return split(objects, *initial_split);
+    return split(objects, *initial_split, builder);
 }
 
 }  // namespace bvh

@@ -103,10 +103,13 @@ static void random_spheres() {
     stationary_spheres.add(tex_wrapper(sphere(point3(4, 1, 0), 1.0), material3,
                                        texes.solid(0.7, .6, .5)));
 
-    auto stationary_bvh = bvh::over(bvh::must_split(stationary_spheres.span()),
-                                    stationary_spheres.finish());
-    auto moving_bvh = bvh::over(bvh::must_split(moving_spheres.span()),
-                                moving_spheres.finish());
+    bvh::builder bvh_builder;
+    auto stationary_bvh =
+        bvh::over(bvh::must_split(stationary_spheres.span(), bvh_builder),
+                  stationary_spheres.finish());
+    auto moving_bvh =
+        bvh::over(bvh::must_split(moving_spheres.span(), bvh_builder),
+                  moving_spheres.finish());
 
     auto world = tuple_wrapper<decltype(stationary_bvh), decltype(moving_bvh)>(
         std::move(stationary_bvh), std::move(moving_bvh));
@@ -127,7 +130,7 @@ static void random_spheres() {
     cam.defocus_angle = 0.02;
     cam.focus_dist = 10.0;
 
-    cam.start(world, enable_progress, texes.view(), num_threads);
+    cam.start(world, enable_progress, texes.view(), num_threads, bvh_builder.lock());
 }
 
 static void two_spheres() {
@@ -157,7 +160,7 @@ static void two_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
 }
 
 static void earth() {
@@ -190,7 +193,7 @@ static void earth() {
     cam.defocus_angle = 0;
 
     cam.start(time_wrapper(world.finish()), enable_progress, texes.view(),
-              num_threads);
+              num_threads, {});
 }
 
 static void two_perlin_spheres() {
@@ -218,7 +221,7 @@ static void two_perlin_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
 }
 
 static void quads() {
@@ -266,7 +269,7 @@ static void quads() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
 }
 
 static void simple_light() {
@@ -302,7 +305,7 @@ static void simple_light() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
 }
 
 static void cornell_box() {
@@ -364,7 +367,7 @@ static void cornell_box() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
 }
 
 static void cornell_smoke() {
@@ -423,7 +426,7 @@ static void cornell_smoke() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads);
+    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
 }
 
 static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
@@ -450,9 +453,12 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         }
     }
 
-    auto ground = tex_wrapper(bvh::over(bvh::must_split(std::span<box>(boxes1)),
-                                        std::span<box const>(boxes1)),
-                              material::lambertian(), ground_col);
+    bvh::builder bvh_builder;
+
+    auto ground = tex_wrapper(
+        bvh::over(bvh::must_split(std::span<box>(boxes1), bvh_builder),
+                  std::span<box const>(boxes1)),
+        material::lambertian(), ground_col);
 
     auto light_color = texes.solid(7, 7, 7);
 
@@ -514,7 +520,8 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto white_spheres = transformed(
         xforms.finish(),
         tex_wrapper(
-            bvh::over(bvh::must_split(std::span<sphere>(box_of_spheres)),
+            bvh::over(bvh::must_split(std::span<sphere>(box_of_spheres),
+                                              bvh_builder),
                       std::span<sphere const>(box_of_spheres)),
             material::lambertian(), white));
 
@@ -557,7 +564,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     cam.defocus_angle = 0;
 
-    cam.start(world, enable_progress, texes.view(), num_threads);
+    cam.start(world, enable_progress, texes.view(), num_threads, bvh_builder.lock());
 }
 
 int main(int argc, char const *argv[]) {
@@ -602,7 +609,7 @@ int main(int argc, char const *argv[]) {
             // bother adding more?
             final_scene(800, 4875, 40);
             break;
-        default:
+        case 0:
             /* final_scene(400, 250, 4); */
             final_scene(400, 250, 40);
             break;
