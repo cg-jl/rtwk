@@ -277,6 +277,7 @@ struct camera {
     // Returns whether it hits a light or not
     static bool simulate_ray(ray r, is_collection auto const& world, float time,
                              tex_request_queue& texes) {
+        ZoneScopedN("ray sim");
         transform_set xforms{};
         while (!texes.is_full()) {
             hit_record rec;

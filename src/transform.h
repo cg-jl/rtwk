@@ -80,6 +80,8 @@ static inline void apply_reverse_transforms(std::span<transform const> xforms,
 
 // TODO: integrate transforms into geometry_wrapper
 inline void transform::apply(ray& r, float time) const& {
+    ZoneScoped;
+    ZoneValue(int(this->tag));
     switch (tag) {
         case kind::translate:
             r.origin -= as.displacement;

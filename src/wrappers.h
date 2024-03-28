@@ -105,6 +105,9 @@ struct tuple_wrapper : soa::detail::type_indexable_tuple<Ts...> {
     static void propagate_choose(T const &t, ray const &r, hit_status &status,
                                  hit_record &rec, transform_set &xforms,
                                  float time) {
+        auto name = typeid(T).name();
+        ZoneNamed(scoped_zone, (std::is_same_v<T, transformed<tex_wrapper<bvh::over<sphere>>>>));
+
         if constexpr (is_hittable<T>) {
             status.hit_anything |= t.hit(r, status.ray_t, rec, xforms, time);
         } else if constexpr (is_collection<T>) {

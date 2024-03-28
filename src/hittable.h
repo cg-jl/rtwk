@@ -102,6 +102,8 @@ struct transformed final {
     }
 
     ray transform_ray(ray const& orig, float time) const& {
+        ZoneScopedN("ray transform");
+        ZoneValue(transf.size());
         ray r_copy = orig;
 
         for (auto const& tf : transf) {
@@ -114,6 +116,7 @@ struct transformed final {
                    transform_set& xforms, float time) const&
         requires(time_invariant_collection<T>)
     {
+        ZoneScopedN("transform propagate");
         auto r = transform_ray(orig, time);
 
         hit_status clean_status{status.ray_t};
@@ -127,6 +130,7 @@ struct transformed final {
              transform_set& xforms, float time) const&
         requires(time_invariant_hittable<T>)
     {
+        ZoneScopedN("transform hit");
         auto r = transform_ray(orig, time);
 
         auto did_hit = object.hit(r, ray_t, rec);
