@@ -139,32 +139,37 @@ struct state {
     float dist_to_split_plane;
 };
 
-namespace {
-static thread_local std::span<node const> s_all_nodes;
-static thread_local state* s_second_sides_ptr = nullptr;
-}  // namespace
+struct thread_buffers {
+    node const* nodes;
+    state* second_sides;
+};
 
-static void setThreadLocals(std::span<node const> all_nodes, int max_depth) {
-    s_all_nodes = all_nodes;
-    s_second_sides_ptr = new state[2ull * max_depth];
-}
+namespace {
+static thread_local thread_buffers s_bufs{};
+}  // namespace
 
 struct builder {
     std::vector<node> nodes;
     int max_depth = 0;
 
     struct result {
-        std::span<node const> nodes{};
+        node const* nodes;
         int max_depth{};
 
-        void initWorker() {
+        thread_buffers makeBuffers() const {
+            return {nodes, new state[2ull * max_depth]};
+        }
+
+        void initWorker() const {
             if (max_depth > 0) {
-                setThreadLocals(nodes, max_depth);
+                s_bufs = makeBuffers();
             }
         }
     };
 
-    [[nodiscard]] result lock() const& { return result{nodes, max_depth}; }
+    [[nodiscard]] result lock() const& {
+        return result{nodes.data(), max_depth};
+    }
 };
 
 // NOTE: currently assuming that partitions are always symmetric, meaning
@@ -177,18 +182,18 @@ struct tree final {
     explicit constexpr tree(int root_node) : root_node(root_node) {}
 
     [[nodiscard]] aabb boundingBox() const& {
-        return s_all_nodes[root_node].box;
+        return s_bufs.nodes[root_node].box;
     }
 
     std::optional<range> nextRange(
-        ray const& r, interval ray_t,
+        ray const& r, interval ray_t, node const* nodes,
         uncapped_vecview<state>& second_sides) const {
         while (!second_sides.empty()) {
             auto curr = second_sides.pop();
 
             // Go left while we can
             while (curr.box_index != -1) {
-                auto const& node = s_all_nodes[curr.box_index];
+                auto const& node = nodes[curr.box_index];
 
                 // We don't need to process the hit if the recorded distance
                 // can't be made better.
@@ -233,19 +238,13 @@ struct tree final {
     // NOTE: maybe it's better to change this to an iterator, so it doesn't
     // have to be re-instanced.
     void filter(range initial, ray const& r, interval& ray_t,
-                auto func) const& {
-        // TODO: Some passable structure like 'thread buffers' where I can tell
-        // the threads how much to allocate and pass it to this structure could
-        // be beneficial, and I can stick it to everyone and make it trivially
-        // removable via templates.
-        // TODO: some pmr resource usage?
-
-        uncapped_vecview<state> second_sides(s_second_sides_ptr);
+                thread_buffers bufs, auto func) const& {
+        uncapped_vecview<state> second_sides(bufs.second_sides);
 
         second_sides.emplace_back(initial, root_node, ray_t.min);
 
-        for (auto next = nextRange(r, ray_t, second_sides); next;
-             next = nextRange(r, ray_t, second_sides)) {
+        for (auto next = nextRange(r, ray_t, bufs.nodes, second_sides); next;
+             next = nextRange(r, ray_t, bufs.nodes, second_sides)) {
             func(ray_t, *next);
         }
     }
@@ -269,7 +268,7 @@ struct over final {
     {
         T const* best = nullptr;
         bvh.filter(
-            range{0, uint32_t(objects.size())}, r, ray_t,
+            range{0, uint32_t(objects.size())}, r, ray_t, s_bufs,
             [&r, &res, &best, &v = objects](interval& ray_t, range span) {
                 T const* next =
                     v.subspan(span.start, span.size()).hit(r, res, ray_t);
@@ -282,7 +281,7 @@ struct over final {
         requires(time_invariant_hittable<T>)
     {
         bvh.filter(
-            range{0, uint32_t(objects.size())}, r, status.ray_t,
+            range{0, uint32_t(objects.size())}, r, status.ray_t, s_bufs,
             [&r, &status, &rec, v = objects](interval& ray_t, range span) {
                 v.subspan(span.start, span.size()).propagate(r, status, rec);
             });
@@ -292,7 +291,7 @@ struct over final {
                    transform_set& xforms, float time) const&
         requires(is_hittable<T>)
     {
-        bvh.filter(range{0, uint32_t(objects.size())}, r, status.ray_t,
+        bvh.filter(range{0, uint32_t(objects.size())}, r, status.ray_t, s_bufs,
                    [&r, &status, &rec, v = objects, time, &xforms](
                        interval& ray_t, range span) {
                        v.subspan(span.start, span.size())

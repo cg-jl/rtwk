@@ -11,6 +11,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <cmath>
+#include <span>
 #include <utility>
 
 #include "color.h"
@@ -60,8 +62,8 @@ struct noise_texture {
 
     [[nodiscard]] float value(point3 const& p, perlin const* noise) const {
         auto s = scale * p;
-        auto wave = sin(s.z() + 10 * noise->turb(s));
-        auto grayscale = 0.5f * (1.f + wave);
+        auto waves = std::sin(s.z() + 10 * noise->turb(s));
+        auto grayscale = 0.5f * (1.f + waves);
         return grayscale;
     }
 
