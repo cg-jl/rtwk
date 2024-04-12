@@ -26,7 +26,7 @@ struct tex_wrapper final {
     }
 
     bool hit(ray const &r, interval &ray_t, hit_record &rec) const &
-        requires(is_geometry<T>)
+        requires(is_geometry<T> && has_uvs<T>)
     {
         auto did_hit = wrapped.hit(r, rec.geom, ray_t);
         if (did_hit) {
@@ -39,7 +39,7 @@ struct tex_wrapper final {
 
     void propagate(ray const &r, hit_status &status, hit_record &rec,
                    transform_set &xforms, float time) const &
-        requires(timed_geometry_collection<T> && has_xforms<typename T::Type>)
+        requires(timed_geometry_collection<T> && has_xforms<typename T::Type> && has_uvs<typename T::Type::Transformed>)
     {
         typename T::Type const *ptr =
             wrapped.hit(r, rec.geom, status.ray_t, time);
@@ -54,7 +54,7 @@ struct tex_wrapper final {
     }
 
     void propagate(ray const &r, hit_status &status, hit_record &rec) const &
-        requires(is_geometry_collection<T>)
+        requires(is_geometry_collection<T> && has_uvs<typename T::Type>)
     {
         typename T::Type const *ptr = wrapped.hit(r, rec.geom, status.ray_t);
         status.hit_anything |= ptr != nullptr;

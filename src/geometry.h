@@ -23,22 +23,20 @@ template <typename T>
 concept is_geometry = requires(T const &g, ray const &r,
                                hit_record::geometry &res, interval &ray_t) {
     { g.hit(r, res, ray_t) } -> std::same_as<bool>;
-} && has_bb<T> && has_uvs<T>;
+};
 
 template <typename Coll>
-concept is_geometry_collection =
-    requires(Coll const &gc, ray const &r, hit_record::geometry &res,
-             interval &ray_t) {
-        { gc.hit(r, res, ray_t) } -> std::same_as<typename Coll::Type const *>;
-    } &&
-    is_geometry<typename Coll::Type> && has_bb<Coll>;
+concept is_geometry_collection = requires(
+    Coll const &gc, ray const &r, hit_record::geometry &res, interval &ray_t) {
+    { gc.hit(r, res, ray_t) } -> std::same_as<typename Coll::Type const *>;
+};
 
 struct transform_set;
 template <typename Coll>
-concept timed_geometry_collection = requires(Coll const &gc, ray const &r,
-                                             hit_record::geometry &res,
-                                             interval &ray_t, float time) {
-    {
-        gc.hit(r, res, ray_t, time)
-    } -> std::same_as<typename Coll::Type const *>;
-} && has_bb<Coll>;
+concept timed_geometry_collection =
+    requires(Coll const &gc, ray const &r, hit_record::geometry &res,
+             interval &ray_t, float time) {
+        {
+            gc.hit(r, res, ray_t, time)
+        } -> std::same_as<typename Coll::Type const *>;
+    };

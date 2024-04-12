@@ -374,6 +374,9 @@ static void cornell_box() {
     auto world = tuple_wrapper<decltype(walls_and_light), decltype(boxes)>(
         std::move(walls_and_light), std::move(boxes));
 
+    static_assert(is_collection<decltype(walls_and_light)>);
+    static_assert(is_collection<decltype(boxes)>);
+
     camera cam;
 
     cam.aspect_ratio = 1.0;

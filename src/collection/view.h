@@ -67,8 +67,7 @@ struct view final {
     T const* hit(ray const& r, hit_record::geometry& res, interval& ray_t,
                  float time) const&
         requires(has_xforms<T> &&
-                 requires(T const& t, hit_record::geometry& res,
-                          interval& ray_t, float time) {
+                 requires(T const& t) {
                      { t.hit(r, res, ray_t, time) } -> std::same_as<bool>;
                  })
     {

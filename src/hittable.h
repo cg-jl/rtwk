@@ -85,13 +85,15 @@ struct dyn_hittable final {
 
 template <typename T>
 concept has_xforms = requires(T const& t) {
-    { t.transf } -> std::same_as<transform_set const&>;
-};
+                         { t.transf } -> std::same_as<transform_set const&>;
+                     };
 
 template <typename T>
 struct transformed final {
     transform_set transf;
     T object;
+
+    using Transformed = T;
 
     transformed(transform_set transf, T object)
         : transf(transf), object(std::move(object)) {}
