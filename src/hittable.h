@@ -84,6 +84,11 @@ struct dyn_hittable final {
 };
 
 template <typename T>
+concept has_xforms = requires(T const& t) {
+    { t.transf } -> std::same_as<transform_set const&>;
+};
+
+template <typename T>
 struct transformed final {
     transform_set transf;
     T object;
@@ -116,6 +121,14 @@ struct transformed final {
         if (clean_status.hit_anything) xforms = transf;
         status.hit_anything |= clean_status.hit_anything;
         status.ray_t = clean_status.ray_t;
+    }
+
+    bool hit(ray const& orig, hit_record::geometry& rec, interval& ray_t,
+             float time) const&
+        requires(is_geometry<T>)
+    {
+        auto r = transform_ray(orig, time);
+        return object.hit(r, rec, ray_t);
     }
 
     bool hit(ray const& orig, interval& ray_t, hit_record& rec,

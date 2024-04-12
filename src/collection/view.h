@@ -64,6 +64,21 @@ struct view final {
         return best;
     }
 
+    T const* hit(ray const& r, hit_record::geometry& res, interval& ray_t,
+                 float time) const&
+        requires(has_xforms<T> &&
+                 requires(T const& t, hit_record::geometry& res,
+                          interval& ray_t, float time) {
+                     { t.hit(r, res, ray_t, time) } -> std::same_as<bool>;
+                 })
+    {
+        T const* best = nullptr;
+        for (auto const& tf : objects) {
+            if (tf.hit(r, res, ray_t, time)) best = &tf;
+        }
+        return best;
+    }
+
     void propagate(ray const& r, hit_status& status, hit_record& rec) const&
         requires(time_invariant_hittable<T>)
     {
@@ -79,5 +94,3 @@ struct view final {
         return propagate(r, status, rec, xforms, objects, time);
     }
 };
-
-using poly_view = view<dyn_hittable>;

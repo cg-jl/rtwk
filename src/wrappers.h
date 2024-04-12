@@ -37,6 +37,22 @@ struct tex_wrapper final {
         return did_hit;
     }
 
+    void propagate(ray const &r, hit_status &status, hit_record &rec,
+                   transform_set &xforms, float time) const &
+        requires(timed_geometry_collection<T> && has_xforms<typename T::Type>)
+    {
+        typename T::Type const *ptr =
+            wrapped.hit(r, rec.geom, status.ray_t, time);
+        status.hit_anything |= ptr != nullptr;
+        if (ptr != nullptr) {
+            typename T::Type const &g = *ptr;
+            g.object.getUVs(rec.geom, rec.u, rec.v);
+            rec.tex = tex;
+            rec.mat = mat;
+            xforms = g.transf;
+        }
+    }
+
     void propagate(ray const &r, hit_status &status, hit_record &rec) const &
         requires(is_geometry_collection<T>)
     {
@@ -106,7 +122,9 @@ struct tuple_wrapper : soa::detail::type_indexable_tuple<Ts...> {
                                  hit_record &rec, transform_set &xforms,
                                  float time) {
         auto name = typeid(T).name();
-        ZoneNamed(scoped_zone, (std::is_same_v<T, transformed<tex_wrapper<bvh::over<sphere>>>>));
+        ZoneNamed(
+            scoped_zone,
+            (std::is_same_v<T, transformed<tex_wrapper<bvh::over<sphere>>>>));
 
         if constexpr (is_hittable<T>) {
             status.hit_anything |= t.hit(r, status.ray_t, rec, xforms, time);

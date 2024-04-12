@@ -33,7 +33,6 @@
 #include "transform.h"
 #include "wrappers.h"
 
-
 #ifdef TRACY_ENABLE
 void* operator new(size_t size) {
     void* ptr = malloc(size);
@@ -149,16 +148,14 @@ static void random_spheres() {
 }
 
 static void two_spheres() {
-    poly_list world;
+    list<sphere> world;
 
     tex_storage texes;
 
     auto checker = texes.checker(0.8, color(.2, .3, .1), color(.9, .9, .9));
 
-    world.add(leak(time_wrapper(tex_wrapper(sphere(point3(0, -10, 0), 10),
-                                            material::lambertian(), checker))));
-    world.add(leak(time_wrapper(tex_wrapper(sphere(point3(0, 10, 0), 10),
-                                            material::lambertian(), checker))));
+    world.add(sphere(point3(0, -10, 0), 10));
+    world.add(sphere(point3(0, 10, 0), 10));
 
     camera cam;
 
@@ -175,7 +172,9 @@ static void two_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
+    cam.start(time_wrapper(
+                  tex_wrapper(world.finish(), material::lambertian(), checker)),
+              enable_progress, texes.view(), num_threads, {});
 }
 
 static void earth() {
@@ -212,14 +211,12 @@ static void earth() {
 }
 
 static void two_perlin_spheres() {
-    poly_list world;
+    list<sphere> world;
     tex_storage texes;
 
     auto pertext = texes.noise(4);
-    world.add(leak(time_wrapper(tex_wrapper(sphere(point3(0, -1000, 0), 1000),
-                                            material::lambertian(), pertext))));
-    world.add(leak(time_wrapper(tex_wrapper(sphere(point3(0, 2, 0), 2),
-                                            material::lambertian(), pertext))));
+    world.add(sphere(point3(0, -1000, 0), 1000));
+    world.add(sphere(point3(0, 2, 0), 2));
 
     camera cam;
 
@@ -236,11 +233,13 @@ static void two_perlin_spheres() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
+    cam.start(time_wrapper(
+                  tex_wrapper(world.finish(), material::lambertian(), pertext)),
+              enable_progress, texes.view(), num_threads, {});
 }
 
 static void quads() {
-    poly_list world;
+    list<tex_wrapper<quad>> world;
     tex_storage texes;
 
     // Materials
@@ -253,21 +252,18 @@ static void quads() {
     auto all_mat = material::lambertian();
 
     // Quads
-    world.add(leak(time_wrapper(
+    world.add(
         tex_wrapper(quad(point3(-3, -2, 5), vec3(0, 0, -4), vec3(0, 4, 0)),
-                    all_mat, left_red))));
-    world.add(leak(time_wrapper(
-        tex_wrapper(quad(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0)),
-                    all_mat, back_green))));
-    world.add(leak(time_wrapper(
-        tex_wrapper(quad(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0)),
-                    all_mat, right_blue))));
-    world.add(leak(time_wrapper(
-        tex_wrapper(quad(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4)),
-                    all_mat, upper_orange))));
-    world.add(leak(time_wrapper(
+                    all_mat, left_red));
+    world.add(tex_wrapper(quad(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0)),
+                          all_mat, back_green));
+    world.add(tex_wrapper(quad(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0)),
+                          all_mat, right_blue));
+    world.add(tex_wrapper(quad(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4)),
+                          all_mat, upper_orange));
+    world.add(
         tex_wrapper(quad(point3(-2, -3, 5), vec3(4, 0, 0), vec3(0, 0, -4)),
-                    all_mat, lower_teal))));
+                    all_mat, lower_teal));
 
     camera cam;
 
@@ -284,26 +280,33 @@ static void quads() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
+    cam.start(time_wrapper(world.finish()), enable_progress, texes.view(),
+              num_threads, {});
 }
 
 static void simple_light() {
-    poly_list world;
+    list<sphere> perlin_spheres_geom;
     tex_storage texes;
 
     auto pertext = texes.noise(4);
-    world.add(leak(time_wrapper(tex_wrapper(sphere(point3(0, -1000, 0), 1000),
-                                            material::lambertian(), pertext))));
-    world.add(leak(time_wrapper(tex_wrapper(sphere(point3(0, 2, 0), 2),
-                                            material::lambertian(), pertext))));
+    perlin_spheres_geom.add(sphere(point3(0, -1000, 0), 1000));
+    perlin_spheres_geom.add(sphere(point3(0, 2, 0), 2));
+
+    auto perlin_spheres = tex_wrapper(perlin_spheres_geom.finish(),
+                                      material::lambertian(), pertext);
 
     auto difflight = material::diffuse_light();
     auto difflight_color = texes.solid(4, 4, 4);
-    world.add(leak(time_wrapper(
-        tex_wrapper(sphere(point3(0, 7, 0), 2), difflight, difflight_color))));
-    world.add(leak(time_wrapper(
+    auto light_sphere =
+        tex_wrapper(sphere(point3(0, 7, 0), 2), difflight, difflight_color);
+    auto light_quad =
         tex_wrapper(quad(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0)),
-                    difflight, difflight_color))));
+                    difflight, difflight_color);
+
+    auto world = tuple_wrapper<decltype(light_quad), decltype(light_sphere),
+                               decltype(perlin_spheres)>(
+        std::move(light_quad), std::move(light_sphere),
+        std::move(perlin_spheres));
 
     camera cam;
 
@@ -320,11 +323,10 @@ static void simple_light() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
+    cam.start(world, enable_progress, texes.view(), num_threads, {});
 }
 
 static void cornell_box() {
-    poly_list world;
     tex_storage texes;
 
     auto red = texes.solid(.65, .05, .05);
@@ -333,39 +335,44 @@ static void cornell_box() {
     auto light = material::diffuse_light();
     auto light_color = texes.solid(15, 15, 15);
 
-    world.add(leak(time_wrapper(
+    list<tex_wrapper<quad>> b_walls_and_light;
+
+    b_walls_and_light.add(
         tex_wrapper(quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
-                    material::lambertian(), green))));
-    world.add(leak(time_wrapper(
+                    material::lambertian(), green));
+    b_walls_and_light.add(
         tex_wrapper(quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
-                    material::lambertian(), red))));
-    world.add(leak(time_wrapper(tex_wrapper(
+                    material::lambertian(), red));
+    b_walls_and_light.add(tex_wrapper(
         quad(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105)), light,
-        light_color))));
-    world.add(leak(time_wrapper(
+        light_color));
+    b_walls_and_light.add(
         tex_wrapper(quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
-                    material::lambertian(), white))));
-    world.add(leak(time_wrapper(tex_wrapper(
+                    material::lambertian(), white));
+    b_walls_and_light.add(tex_wrapper(
         quad(point3(555, 555, 555), vec3(-555, 0, 0), vec3(0, 0, -555)),
-        material::lambertian(), white))));
-    world.add(leak(time_wrapper(
+        material::lambertian(), white));
+    b_walls_and_light.add(
         tex_wrapper(quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)),
-                    material::lambertian(), white))));
+                    material::lambertian(), white));
+
+    auto walls_and_light = time_wrapper(b_walls_and_light.finish());
+
+    list<transformed<box>> b_boxes;
 
     xform_builder xforms;
     xforms.translate(vec3(265, 0, 295)), xforms.rotate_y(15);
-    world.add(leak(transformed(xforms.finish(),
-                               tex_wrapper(
-
-                                   box(point3(0, 0, 0), point3(165, 330, 165)),
-                                   material::lambertian(), white))));
+    b_boxes.add(transformed(xforms.finish(),
+                            box(point3(0, 0, 0), point3(165, 330, 165))));
 
     xforms.translate(vec3(130, 0, 65)), xforms.rotate_y(-18);
-    world.add(leak(
+    b_boxes.add(transformed(xforms.finish(),
+                            box(point3(0, 0, 0), point3(165, 165, 165))));
 
-        transformed(xforms.finish(),
-                    tex_wrapper((box(point3(0, 0, 0), point3(165, 165, 165))),
-                                material::lambertian(), white))));
+    auto boxes = tex_wrapper(b_boxes.finish(), material::lambertian(), white);
+
+    auto world = tuple_wrapper<decltype(walls_and_light), decltype(boxes)>(
+        std::move(walls_and_light), std::move(boxes));
 
     camera cam;
 
@@ -382,11 +389,10 @@ static void cornell_box() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
+    cam.start(world, enable_progress, texes.view(), num_threads, {});
 }
 
 static void cornell_smoke() {
-    poly_list world;
     tex_storage texes;
 
     auto red = texes.solid(.65, .05, .05);
@@ -394,38 +400,44 @@ static void cornell_smoke() {
     auto green = texes.solid(.12, .45, .15);
     auto light = texes.solid(7, 7, 7);
 
-    world.add(leak(time_wrapper(
-        tex_wrapper(quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
-                    material::lambertian(), green))));
-    world.add(leak(time_wrapper(
-        tex_wrapper(quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
-                    material::lambertian(), red))));
-    world.add(leak(time_wrapper(tex_wrapper(
-        quad(point3(113, 554, 127), vec3(330, 0, 0), vec3(0, 0, 305)),
-        material::diffuse_light(), light))));
-    world.add(leak(time_wrapper(
-        tex_wrapper(quad(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
-                    material::lambertian(), white))));
-    world.add(leak(time_wrapper(
-        tex_wrapper(quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
-                    material::lambertian(), white))));
-    world.add(leak(time_wrapper(
-        tex_wrapper(quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)),
-                    material::lambertian(), white))));
+    list<tex_wrapper<quad>> quads;
 
+    quads.add(
+        tex_wrapper(quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
+                    material::lambertian(), green));
+    quads.add(
+        tex_wrapper(quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)),
+                    material::lambertian(), red));
+    quads.add(tex_wrapper(
+        quad(point3(113, 554, 127), vec3(330, 0, 0), vec3(0, 0, 305)),
+        material::diffuse_light(), light));
+    quads.add(
+        tex_wrapper(quad(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
+                    material::lambertian(), white));
+    quads.add(
+        tex_wrapper(quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)),
+                    material::lambertian(), white));
+    quads.add(
+        tex_wrapper(quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)),
+                    material::lambertian(), white));
+
+    list<transformed<constant_medium<box>>> cms;
     xform_builder xforms;
     xforms.translate(vec3(265, 0, 295)), xforms.rotate_y(15);
-    world.add(leak(
+    cms.add(
 
         transformed(xforms.finish(),
                     constant_medium(box(point3(0, 0, 0), point3(165, 330, 165)),
-                                    0.01, color(0, 0, 0), texes))));
+                                    0.01, color(0, 0, 0), texes)));
     xforms.translate(vec3(130, 0, 65)), xforms.rotate_y(-18);
-    world.add(leak(
+    cms.add(
         transformed(xforms.finish(),
                     constant_medium(box(point3(0, 0, 0), point3(165, 165, 165)),
-                                    0.01, color(1, 1, 1), texes))));
+                                    0.01, color(1, 1, 1), texes)));
 
+    auto world =
+        tuple_wrapper<decltype(cms.finish()), decltype(quads.finish())>(
+            cms.finish(), quads.finish());
     camera cam;
 
     cam.aspect_ratio = 1.0;
@@ -441,10 +453,11 @@ static void cornell_smoke() {
 
     cam.defocus_angle = 0;
 
-    cam.start(world.finish(), enable_progress, texes.view(), num_threads, {});
+    cam.start(world, enable_progress, texes.view(), num_threads, {});
 }
 
-// owned data that we've got to pass from make_final_scene(), otherwise it will be freed.
+// owned data that we've got to pass from make_final_scene(), otherwise it will
+// be freed.
 template <typename T>
 struct final_scene_data {
     T world;
@@ -592,7 +605,7 @@ static void final_scene(int image_width, int samples_per_pixel, int max_depth) {
               data.bvh_builder.lock());
 }
 
-int main(int argc, char const *argv[]) {
+int main(int argc, char const* argv[]) {
     for (int i = 0; i < argc; ++i) {
         if (strncmp(argv[i], "--disable-progress",
                     sizeof("--disable-progress") - 1) == 0) {
