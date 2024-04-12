@@ -185,9 +185,9 @@ struct tree final {
         return s_bufs.nodes[root_node].box;
     }
 
-    std::optional<range> nextRange(
+    static std::optional<range> nextRange(
         ray const& r, interval ray_t, node const* nodes,
-        uncapped_vecview<state>& second_sides) const {
+        uncapped_vecview<state>& second_sides) {
         while (!second_sides.empty()) {
             auto curr = second_sides.pop();
 
@@ -253,9 +253,9 @@ struct tree final {
 template <typename T>
 struct over final {
     constexpr over(tree bvh, view<T> view)
-        : bvh(std::move(bvh)), objects(std::move(view)) {}
+        : bvh(bvh), objects(std::move(view)) {}
     constexpr over(tree bvh, std::span<T const> view)
-        : bvh(std::move(bvh)), objects(view) {}
+        : bvh(bvh), objects(view) {}
     tree bvh;
     view<T> objects;
     using Type = T;
