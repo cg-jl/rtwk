@@ -370,14 +370,14 @@ struct camera {
 
             for (auto work = q->next(max_batch_size); work;
                  work = q->next(max_batch_size)) {
+                auto [lane_start, lane_size] = *work;
+
 #ifndef _OPENMP
                 // NOTE: doing this in MT will enable locks in I/O and
                 // synchronize the threads, which I don't want to :(
-                std::clog << "\rScanlines remaining: " << (image_height - j)
-                          << ' ' << std::flush;
+                std::clog << "\rScanlines remaining: "
+                          << (image_height - lane_start) << ' ' << std::flush;
 #endif
-                auto [lane_start, lane_size] = *work;
-
                 for (uint32_t i = 0; i < lane_size; ++i) {
                     // geometry
 
