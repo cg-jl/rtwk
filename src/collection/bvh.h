@@ -181,13 +181,12 @@ struct tree final {
 
     explicit constexpr tree(int root_node) : root_node(root_node) {}
 
-    [[nodiscard]] aabb boundingBox(node const *nodes) const& {
+    [[nodiscard]] aabb boundingBox(node const* nodes) const& {
         return nodes[root_node].box;
     }
 
-    static std::optional<range> nextRange(
-        ray const& r, interval ray_t, node const* nodes,
-        uncapped_vecview<state>& second_sides) {
+    static void nextRange(ray const& r, interval ray_t, node const* nodes,
+                          uncapped_vecview<state>& second_sides, auto func) {
         while (!second_sides.empty()) {
             auto curr = second_sides.pop();
 
@@ -228,11 +227,10 @@ struct tree final {
                 curr = {first_span, first_child, dist_to_split_plane};
             }
 
-            return curr.span;
+            func(ray_t, curr.span);
 
         pop_next:;
         }
-        return {};
     }
 
     // NOTE: maybe it's better to change this to an iterator, so it doesn't
@@ -243,10 +241,7 @@ struct tree final {
 
         second_sides.emplace_back(initial, root_node, ray_t.min);
 
-        for (auto next = nextRange(r, ray_t, bufs.nodes, second_sides); next;
-             next = nextRange(r, ray_t, bufs.nodes, second_sides)) {
-            func(ray_t, *next);
-        }
+        return nextRange(r, ray_t, bufs.nodes, second_sides, func);
     }
 };
 
@@ -260,7 +255,9 @@ struct over final {
     view<T> objects;
     using Type = T;
 
-    [[nodiscard]] aabb boundingBox() const& { return bvh.boundingBox(s_bufs.nodes); }
+    [[nodiscard]] aabb boundingBox() const& {
+        return bvh.boundingBox(s_bufs.nodes);
+    }
 
     T const* hit(ray const& r, hit_record::geometry& res,
                  interval& ray_t) const&
