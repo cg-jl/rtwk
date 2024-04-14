@@ -181,8 +181,8 @@ struct tree final {
 
     explicit constexpr tree(int root_node) : root_node(root_node) {}
 
-    [[nodiscard]] aabb boundingBox() const& {
-        return s_bufs.nodes[root_node].box;
+    [[nodiscard]] aabb boundingBox(node const *nodes) const& {
+        return nodes[root_node].box;
     }
 
     static std::optional<range> nextRange(
@@ -260,7 +260,7 @@ struct over final {
     view<T> objects;
     using Type = T;
 
-    [[nodiscard]] aabb boundingBox() const& { return bvh.boundingBox(); }
+    [[nodiscard]] aabb boundingBox() const& { return bvh.boundingBox(s_bufs.nodes); }
 
     T const* hit(ray const& r, hit_record::geometry& res,
                  interval& ray_t) const&
