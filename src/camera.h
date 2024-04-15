@@ -15,6 +15,7 @@
 #include "hittable.h"
 #include "material.h"
 #include "rtweekend.h"
+#include <fstream>
 
 class camera {
    public:
@@ -54,12 +55,14 @@ class camera {
 
         std::clog << "\r\x1b[2KWriting image...\n";
 
-        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+        std::ofstream imout("test.ppm");
+
+        imout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
         for (int i = 0; i < image_width * image_height; ++i) {
-            write_color(std::cout, pixels[i]);
+            write_color(imout, pixels[i]);
         }
 
-        std::clog << "Done.";
+        std::clog << "Done.\n";
     }
 
    private:
