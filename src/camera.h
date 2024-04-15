@@ -12,10 +12,16 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <linux/futex.h>
+
+#include <atomic>
+#include <condition_variable>
+#include <fstream>
+#include <thread>
+
 #include "hittable.h"
 #include "material.h"
 #include "rtweekend.h"
-#include <fstream>
 
 class camera {
    public:
@@ -40,18 +46,40 @@ class camera {
         auto pixels = std::make_unique<color[]>(size_t(image_width) *
                                                 size_t(image_height));
 
-        for (int j = 0; j < image_height; j++) {
-            std::clog << "\r\x1b[2KScanlines remaining: " << (image_height - j)
-                      << ' ' << std::flush;
-            for (int i = 0; i < image_width; i++) {
-                color pixel_color(0, 0, 0);
-                for (int sample = 0; sample < samples_per_pixel; sample++) {
-                    ray r = get_ray(i, j);
-                    pixel_color += ray_color(r, max_depth, world);
+        std::atomic<int> remain_scanlines{image_height};
+        std::condition_variable cv;
+        // lock progress mutex before launching the progress thread so we don't
+        // end in a deadlock.
+
+        auto progress_thread =
+            std::thread([limit = image_height, &remain_scanlines, &cv]() {
+                std::mutex progress_mux;
+                std::unique_lock<std::mutex> lock(progress_mux);
+                auto last_remain = limit;
+                while (true) {
+                    // wait till progress has been done.
+                    cv.wait(lock, [last_remain, &remain_scanlines] {
+                        return last_remain !=
+                               remain_scanlines.load(std::memory_order_acquire);
+                    });
+                    auto remain =
+                        remain_scanlines.load(std::memory_order_acquire);
+                    last_remain = remain;
+                    std::clog << "\r\x1b[2KScanlines remaining: " << remain
+                              << std::flush;
+                    if (remain == 0) break;
                 }
-                pixels[j * image_width + i] = pixel_samples_scale * pixel_color;
-            }
+                std::clog << "\r\x1b[2K" << std::flush;
+            });
+
+        // worker loop
+        for (int j = 0; j < image_height; j++) {
+            scanLine(world, j, pixels.get());
+            remain_scanlines.fetch_add(-1, std::memory_order_relaxed);
+            cv.notify_one();
         }
+
+        progress_thread.join();
 
         std::clog << "\r\x1b[2KWriting image...\n";
 
@@ -63,6 +91,17 @@ class camera {
         }
 
         std::clog << "Done.\n";
+    }
+
+    void scanLine(hittable const& world, int j, color* __restrict_arr pixels) {
+        for (int i = 0; i < image_width; i++) {
+            color pixel_color(0, 0, 0);
+            for (int sample = 0; sample < samples_per_pixel; sample++) {
+                ray r = get_ray(i, j);
+                pixel_color += ray_color(r, max_depth, world);
+            }
+            pixels[j * image_width + i] = pixel_samples_scale * pixel_color;
+        }
     }
 
    private:
