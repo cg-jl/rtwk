@@ -18,6 +18,7 @@
 #include <condition_variable>
 #include <fstream>
 #include <thread>
+#include <tracy/Tracy.hpp>
 
 #include "hittable.h"
 #include "material.h"
@@ -55,7 +56,7 @@ class camera {
             std::thread([limit = image_height, &remain_scanlines, &cv]() {
                 std::mutex progress_mux;
                 std::unique_lock<std::mutex> lock(progress_mux);
-                auto last_remain = limit;
+                auto last_remain = limit + 1;
                 while (true) {
                     // wait till progress has been done.
                     cv.wait(lock, [last_remain, &remain_scanlines] {
@@ -73,7 +74,9 @@ class camera {
             });
 
         // worker loop
+#pragma omp parallel for
         for (int j = 0; j < image_height; j++) {
+            ZoneScopedN("work loop");
             scanLine(world, j, pixels.get());
             remain_scanlines.fetch_add(-1, std::memory_order_relaxed);
             cv.notify_one();
@@ -94,6 +97,7 @@ class camera {
     }
 
     void scanLine(hittable const& world, int j, color* __restrict_arr pixels) {
+        ZoneScoped;
         for (int i = 0; i < image_width; i++) {
             color pixel_color(0, 0, 0);
             for (int sample = 0; sample < samples_per_pixel; sample++) {
@@ -196,6 +200,7 @@ class camera {
     }
 
     color ray_color(const ray& r, int depth, const hittable& world) const {
+        ZoneScoped;
         // If we've exceeded the ray bounce limit, no more light is gathered.
         if (depth <= 0) return color(0, 0, 0);
 
