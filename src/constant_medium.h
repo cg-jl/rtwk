@@ -19,17 +19,17 @@
 
 class constant_medium : public hittable {
    public:
-    constant_medium(shared_ptr<hittable> boundary, double density,
-                    shared_ptr<texture> tex)
+    constant_medium(hittable* boundary, double density,
+                    texture* tex)
         : boundary(boundary),
           neg_inv_density(-1 / density),
-          phase_function(make_shared<isotropic>(tex)) {}
+          phase_function(new isotropic(tex)) {}
 
-    constant_medium(shared_ptr<hittable> boundary, double density,
+    constant_medium(hittable* boundary, double density,
                     const color& albedo)
         : boundary(boundary),
           neg_inv_density(-1 / density),
-          phase_function(make_shared<isotropic>(albedo)) {}
+          phase_function(new isotropic(albedo)) {}
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
         // Print occasional samples when debugging. To enable, set enableDebug
@@ -79,9 +79,9 @@ class constant_medium : public hittable {
     aabb bounding_box() const override { return boundary->bounding_box(); }
 
    private:
-    shared_ptr<hittable> boundary;
+    hittable* boundary;
     double neg_inv_density;
-    shared_ptr<material> phase_function;
+    material* phase_function;
 };
 
 #endif

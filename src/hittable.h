@@ -21,7 +21,7 @@ class hit_record {
    public:
     point3 p;
     vec3 normal;
-    shared_ptr<material> mat;
+    material* mat;
     double t;
     double u;
     double v;
@@ -47,7 +47,7 @@ class hittable {
 
 class translate : public hittable {
    public:
-    translate(shared_ptr<hittable> object, const vec3& offset)
+    translate(hittable* object, const vec3& offset)
         : object(object), offset(offset) {
         bbox = object->bounding_box() + offset;
     }
@@ -69,14 +69,14 @@ class translate : public hittable {
     aabb bounding_box() const override { return bbox; }
 
    private:
-    shared_ptr<hittable> object;
+    hittable* object;
     vec3 offset;
     aabb bbox;
 };
 
 class rotate_y : public hittable {
    public:
-    rotate_y(shared_ptr<hittable> object, double angle) : object(object) {
+    rotate_y(hittable* object, double angle) : object(object) {
         auto radians = degrees_to_radians(angle);
         sin_theta = sin(radians);
         cos_theta = cos(radians);
@@ -146,7 +146,7 @@ class rotate_y : public hittable {
     aabb bounding_box() const override { return bbox; }
 
    private:
-    shared_ptr<hittable> object;
+    hittable* object;
     double sin_theta;
     double cos_theta;
     aabb bbox;

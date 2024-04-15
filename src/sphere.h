@@ -17,7 +17,7 @@
 class sphere : public hittable {
    public:
     // Stationary Sphere
-    sphere(const point3& center, double radius, shared_ptr<material> mat)
+    sphere(const point3& center, double radius, material* mat)
         : center1(center), radius(fmax(0, radius)), mat(mat), is_moving(false) {
         auto rvec = vec3(radius, radius, radius);
         bbox = aabb(center1 - rvec, center1 + rvec);
@@ -25,7 +25,7 @@ class sphere : public hittable {
 
     // Moving Sphere
     sphere(const point3& center1, const point3& center2, double radius,
-           shared_ptr<material> mat)
+           material* mat)
         : center1(center1), radius(fmax(0, radius)), mat(mat), is_moving(true) {
         auto rvec = vec3(radius, radius, radius);
         aabb box1(center1 - rvec, center1 + rvec);
@@ -69,7 +69,7 @@ class sphere : public hittable {
    private:
     point3 center1;
     double radius;
-    shared_ptr<material> mat;
+    material* mat;
     bool is_moving;
     vec3 center_vec;
     aabb bbox;

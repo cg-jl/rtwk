@@ -16,8 +16,7 @@
 
 class quad : public hittable {
    public:
-    quad(const point3& Q, const vec3& u, const vec3& v,
-         shared_ptr<material> mat)
+    quad(const point3& Q, const vec3& u, const vec3& v, material* mat)
         : Q(Q), u(u), v(v), mat(mat) {
         auto n = cross(u, v);
         normal = unit_vector(n);
@@ -84,18 +83,17 @@ class quad : public hittable {
     point3 Q;
     vec3 u, v;
     vec3 w;
-    shared_ptr<material> mat;
+    material* mat;
     aabb bbox;
     vec3 normal;
     double D;
 };
 
-inline shared_ptr<hittable_list> box(const point3& a, const point3& b,
-                                     shared_ptr<material> mat) {
+inline hittable_list* box(const point3& a, const point3& b, material* mat) {
     // Returns the 3D box (six sides) that contains the two opposite vertices a
     // & b.
 
-    auto sides = make_shared<hittable_list>();
+    auto sides = new hittable_list();
 
     // Construct the two opposite vertices with the minimum and maximum
     // coordinates.
@@ -108,18 +106,18 @@ inline shared_ptr<hittable_list> box(const point3& a, const point3& b,
     auto dy = vec3(0, max.y() - min.y(), 0);
     auto dz = vec3(0, 0, max.z() - min.z());
 
-    sides->add(make_shared<quad>(point3(min.x(), min.y(), max.z()), dx, dy,
-                                 mat));  // front
-    sides->add(make_shared<quad>(point3(max.x(), min.y(), max.z()), -dz, dy,
-                                 mat));  // right
-    sides->add(make_shared<quad>(point3(max.x(), min.y(), min.z()), -dx, dy,
-                                 mat));  // back
-    sides->add(make_shared<quad>(point3(min.x(), min.y(), min.z()), dz, dy,
-                                 mat));  // left
-    sides->add(make_shared<quad>(point3(min.x(), max.y(), max.z()), dx, -dz,
-                                 mat));  // top
-    sides->add(make_shared<quad>(point3(min.x(), min.y(), min.z()), dx, dz,
-                                 mat));  // bottom
+    sides->add(new quad(point3(min.x(), min.y(), max.z()), dx, dy,
+                        mat));  // front
+    sides->add(new quad(point3(max.x(), min.y(), max.z()), -dz, dy,
+                        mat));  // right
+    sides->add(new quad(point3(max.x(), min.y(), min.z()), -dx, dy,
+                        mat));  // back
+    sides->add(new quad(point3(min.x(), min.y(), min.z()), dz, dy,
+                        mat));  // left
+    sides->add(new quad(point3(min.x(), max.y(), max.z()), dx, -dz,
+                        mat));  // top
+    sides->add(new quad(point3(min.x(), min.y(), min.z()), dx, dz,
+                        mat));  // bottom
 
     return sides;
 }
