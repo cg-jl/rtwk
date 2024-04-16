@@ -35,7 +35,7 @@ void bouncing_spheres() {
                           b + 0.9 * random_double());
 
             if ((center - point3(4, 0.2, 0)).length() > 0.9) {
-                material* sphere_material;
+                material *sphere_material;
 
                 if (choose_mat < 0.8) {
                     // diffuse
@@ -254,12 +254,12 @@ void cornell_box() {
     world.add(
         new quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0), white));
 
-    hittable* box1 = box(point3(0, 0, 0), point3(165, 330, 165), white);
+    hittable *box1 = box(point3(0, 0, 0), point3(165, 330, 165), white);
     box1 = new rotate_y(box1, 15);
     box1 = new translate(box1, vec3(265, 0, 295));
     world.add(box1);
 
-    hittable* box2 = box(point3(0, 0, 0), point3(165, 165, 165), white);
+    hittable *box2 = box(point3(0, 0, 0), point3(165, 165, 165), white);
     box2 = new rotate_y(box2, -18);
     box2 = new translate(box2, vec3(130, 0, 65));
     world.add(box2);
@@ -302,11 +302,11 @@ void cornell_smoke() {
     world.add(
         new quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0), white));
 
-    hittable* box1 = box(point3(0, 0, 0), point3(165, 330, 165), white);
+    hittable *box1 = box(point3(0, 0, 0), point3(165, 330, 165), white);
     box1 = new rotate_y(box1, 15);
     box1 = new translate(box1, vec3(265, 0, 295));
 
-    hittable* box2 = box(point3(0, 0, 0), point3(165, 165, 165), white);
+    hittable *box2 = box(point3(0, 0, 0), point3(165, 165, 165), white);
     box2 = new rotate_y(box2, -18);
     box2 = new translate(box2, vec3(130, 0, 65));
 

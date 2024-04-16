@@ -21,12 +21,12 @@ class aabb {
     aabb() {
     }  // The default AABB is empty, since intervals are empty by default.
 
-    aabb(const interval& x, const interval& y, const interval& z)
+    aabb(interval const &x, interval const &y, interval const &z)
         : x(x), y(y), z(z) {
         pad_to_minimums();
     }
 
-    aabb(const point3& a, const point3& b) {
+    aabb(point3 const &a, point3 const &b) {
         // Treat the two points a and b as extrema for the bounding box, so we
         // don't require a particular minimum/maximum coordinate order.
 
@@ -37,25 +37,25 @@ class aabb {
         pad_to_minimums();
     }
 
-    aabb(const aabb& box0, const aabb& box1) {
+    aabb(aabb const &box0, aabb const &box1) {
         x = interval(box0.x, box1.x);
         y = interval(box0.y, box1.y);
         z = interval(box0.z, box1.z);
     }
 
-    const interval& axis_interval(int n) const {
+    interval const &axis_interval(int n) const {
         if (n == 1) return y;
         if (n == 2) return z;
         return x;
     }
 
-    bool hit(const ray& r, interval ray_t) const {
-        const point3& ray_orig = r.origin();
-        const vec3& ray_dir = r.direction();
+    bool hit(ray const &r, interval ray_t) const {
+        point3 const &ray_orig = r.origin();
+        vec3 const &ray_dir = r.direction();
 
         for (int axis = 0; axis < 3; axis++) {
-            const interval& ax = axis_interval(axis);
-            const double adinv = 1.0 / ray_dir[axis];
+            interval const &ax = axis_interval(axis);
+            double const adinv = 1.0 / ray_dir[axis];
 
             auto t0 = (ax.min - ray_orig[axis]) * adinv;
             auto t1 = (ax.max - ray_orig[axis]) * adinv;
@@ -101,10 +101,10 @@ const aabb aabb::empty =
 const aabb aabb::universe =
     aabb(interval::universe, interval::universe, interval::universe);
 
-aabb operator+(const aabb& bbox, const vec3& offset) {
+aabb operator+(aabb const &bbox, vec3 const &offset) {
     return aabb(bbox.x + offset.x(), bbox.y + offset.y(), bbox.z + offset.z());
 }
 
-aabb operator+(const vec3& offset, const aabb& bbox) { return bbox + offset; }
+aabb operator+(vec3 const &offset, aabb const &bbox) { return bbox + offset; }
 
 #endif

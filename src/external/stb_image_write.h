@@ -86,13 +86,13 @@ extern "C" {
 #endif
 
 extern int stbi_write_png(char const *filename, int w, int h, int comp,
-                          const void *data, int stride_in_bytes);
+                          void const *data, int stride_in_bytes);
 extern int stbi_write_bmp(char const *filename, int w, int h, int comp,
-                          const void *data);
+                          void const *data);
 extern int stbi_write_tga(char const *filename, int w, int h, int comp,
-                          const void *data);
+                          void const *data);
 extern int stbi_write_hdr(char const *filename, int w, int h, int comp,
-                          const float *data);
+                          float const *data);
 
 #ifdef __cplusplus
 }
@@ -133,7 +133,7 @@ extern int stbi_write_hdr(char const *filename, int w, int h, int comp,
 typedef unsigned int stbiw_uint32;
 typedef int stb_image_write_test[sizeof(stbiw_uint32) == 4 ? 1 : -1];
 
-static void writefv(FILE *f, const char *fmt, va_list v) {
+static void writefv(FILE *f, char const *fmt, va_list v) {
     while (*fmt) {
         switch (*fmt++) {
             case ' ':
@@ -223,7 +223,7 @@ static void write_pixels(FILE *f, int rgb_dir, int vdir, int x, int y, int comp,
 
 static int outfile(char const *filename, int rgb_dir, int vdir, int x, int y,
                    int comp, int expand_mono, void *data, int alpha, int pad,
-                   const char *fmt, ...) {
+                   char const *fmt, ...) {
     FILE *f;
     if (y < 0 || x < 0) return 0;
     f = fopen(filename, "wb");
@@ -240,7 +240,7 @@ static int outfile(char const *filename, int rgb_dir, int vdir, int x, int y,
 }
 
 int stbi_write_bmp(char const *filename, int x, int y, int comp,
-                   const void *data) {
+                   void const *data) {
     int pad = (-x * 3) & 3;
     return outfile(filename, -1, -1, x, y, comp, 1, (void *)data, 0, pad,
                    "11 4 22 4"
@@ -251,7 +251,7 @@ int stbi_write_bmp(char const *filename, int x, int y, int comp,
 }
 
 int stbi_write_tga(char const *filename, int x, int y, int comp,
-                   const void *data) {
+                   void const *data) {
     int has_alpha = (comp == 2 || comp == 4);
     int colorbytes = has_alpha ? comp - 1 : comp;
     int format =
@@ -301,7 +301,7 @@ void stbiw__write_dump_data(FILE *f, int length, unsigned char *data) {
 }
 
 void stbiw__write_hdr_scanline(FILE *f, int width, int comp,
-                               unsigned char *scratch, const float *scanline) {
+                               unsigned char *scratch, float const *scanline) {
     unsigned char scanlineheader[4] = {2, 2, 0, 0};
     unsigned char rgbe[4];
     float linear[3];
@@ -392,7 +392,7 @@ void stbiw__write_hdr_scanline(FILE *f, int width, int comp,
 }
 
 int stbi_write_hdr(char const *filename, int x, int y, int comp,
-                   const float *data) {
+                   float const *data) {
     int i;
     FILE *f;
     if (y <= 0 || x <= 0 || data == NULL) return 0;
@@ -789,7 +789,7 @@ unsigned char *stbi_write_png_to_mem(unsigned char *pixels, int stride_bytes,
 }
 
 int stbi_write_png(char const *filename, int x, int y, int comp,
-                   const void *data, int stride_bytes) {
+                   void const *data, int stride_bytes) {
     FILE *f;
     int len;
     unsigned char *png = stbi_write_png_to_mem((unsigned char *)data,

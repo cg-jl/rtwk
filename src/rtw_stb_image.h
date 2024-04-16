@@ -27,7 +27,7 @@ class rtw_image {
    public:
     rtw_image() {}
 
-    rtw_image(const char *image_filename) {
+    rtw_image(char const *image_filename) {
         // Loads image data from the specified file. If the RTW_IMAGES
         // environment variable is defined, looks only in that directory for the
         // image file. If the image was not found, searches for the specified
@@ -60,7 +60,7 @@ class rtw_image {
         STBI_FREE(fdata);
     }
 
-    bool load(const std::string &filename) {
+    bool load(std::string const &filename) {
         // Loads the linear (gamma=1) image data from the given file name.
         // Returns true if the load succeeded. The resulting data buffer
         // contains the three [0.0, 1.0] floating-point values for the first
@@ -82,7 +82,7 @@ class rtw_image {
     int width() const { return (fdata == nullptr) ? 0 : image_width; }
     int height() const { return (fdata == nullptr) ? 0 : image_height; }
 
-    const unsigned char *pixel_data(int x, int y) const {
+    unsigned char const *pixel_data(int x, int y) const {
         // Return the address of the three RGB bytes of the pixel at x,y. If
         // there is no image data, returns magenta.
         static unsigned char magenta[] = {255, 0, 255};
@@ -95,7 +95,7 @@ class rtw_image {
     }
 
    private:
-    const int bytes_per_pixel = 3;
+    int const bytes_per_pixel = 3;
     float *fdata = nullptr;          // Linear floating point pixel data
     unsigned char *bdata = nullptr;  // Linear 8-bit pixel data
     int image_width = 0;             // Loaded image width

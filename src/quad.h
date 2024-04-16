@@ -16,7 +16,7 @@
 
 class quad : public hittable {
    public:
-    quad(const point3& Q, const vec3& u, const vec3& v, material* mat)
+    quad(point3 const &Q, vec3 const &u, vec3 const &v, material *mat)
         : Q(Q), u(u), v(v), mat(mat) {
         auto n = cross(u, v);
         normal = unit_vector(n);
@@ -35,7 +35,7 @@ class quad : public hittable {
 
     aabb bounding_box() const override { return bbox; }
 
-    bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const override {
         auto denom = dot(normal, r.direction());
 
         // No hit if the ray is parallel to the plane.
@@ -65,7 +65,7 @@ class quad : public hittable {
         return true;
     }
 
-    virtual bool is_interior(double a, double b, hit_record& rec) const {
+    virtual bool is_interior(double a, double b, hit_record &rec) const {
         interval unit_interval = interval(0, 1);
         // Given the hit point in plane coordinates, return false if it is
         // outside the primitive, otherwise set the hit record UV coordinates
@@ -83,13 +83,13 @@ class quad : public hittable {
     point3 Q;
     vec3 u, v;
     vec3 w;
-    material* mat;
+    material *mat;
     aabb bbox;
     vec3 normal;
     double D;
 };
 
-inline hittable_list* box(const point3& a, const point3& b, material* mat) {
+inline hittable_list *box(point3 const &a, point3 const &b, material *mat) {
     // Returns the 3D box (six sides) that contains the two opposite vertices a
     // & b.
 

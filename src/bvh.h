@@ -30,7 +30,7 @@ class bvh_node : public hittable {
         // bounding volume hierarchy.
     }
 
-    bvh_node(std::vector<hittable*>& objects, size_t start, size_t end) {
+    bvh_node(std::vector<hittable *> &objects, size_t start, size_t end) {
         // Build the bounding box of the span of source objects.
         bbox = aabb::empty;
         for (size_t object_index = start; object_index < end; object_index++)
@@ -59,7 +59,7 @@ class bvh_node : public hittable {
         }
     }
 
-    bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const override {
         if (!bbox.hit(r, ray_t)) return false;
 
         bool hit_left = left->hit(r, ray_t, rec);
@@ -72,26 +72,26 @@ class bvh_node : public hittable {
     aabb bounding_box() const override { return bbox; }
 
    private:
-    hittable* left;
-    hittable* right;
+    hittable *left;
+    hittable *right;
     aabb bbox;
 
-    static bool box_compare(const hittable* a, const hittable* b,
+    static bool box_compare(hittable const *a, hittable const *b,
                             int axis_index) {
         auto a_axis_interval = a->bounding_box().axis_interval(axis_index);
         auto b_axis_interval = b->bounding_box().axis_interval(axis_index);
         return a_axis_interval.min < b_axis_interval.min;
     }
 
-    static bool box_x_compare(const hittable* a, const hittable* b) {
+    static bool box_x_compare(hittable const *a, hittable const *b) {
         return box_compare(a, b, 0);
     }
 
-    static bool box_y_compare(const hittable* a, const hittable* b) {
+    static bool box_y_compare(hittable const *a, hittable const *b) {
         return box_compare(a, b, 1);
     }
 
-    static bool box_z_compare(const hittable* a, const hittable* b) {
+    static bool box_z_compare(hittable const *a, hittable const *b) {
         return box_compare(a, b, 2);
     }
 };

@@ -484,7 +484,7 @@ STBIDEF int stbi_is_hdr_from_file(FILE *f);
 
 // get a VERY brief reason for failure
 // NOT THREADSAFE
-STBIDEF const char *stbi_failure_reason(void);
+STBIDEF char const *stbi_failure_reason(void);
 
 // free the loaded image -- this is just free()
 STBIDEF void stbi_image_free(void *retval_from_stbi_load);
@@ -517,21 +517,21 @@ STBIDEF void stbi_set_flip_vertically_on_load(int flag_true_if_should_flip);
 
 // ZLIB client - used by PNG, available for other purposes
 
-STBIDEF char *stbi_zlib_decode_malloc_guesssize(const char *buffer, int len,
+STBIDEF char *stbi_zlib_decode_malloc_guesssize(char const *buffer, int len,
                                                 int initial_size, int *outlen);
-STBIDEF char *stbi_zlib_decode_malloc_guesssize_headerflag(const char *buffer,
+STBIDEF char *stbi_zlib_decode_malloc_guesssize_headerflag(char const *buffer,
                                                            int len,
                                                            int initial_size,
                                                            int *outlen,
                                                            int parse_header);
-STBIDEF char *stbi_zlib_decode_malloc(const char *buffer, int len, int *outlen);
+STBIDEF char *stbi_zlib_decode_malloc(char const *buffer, int len, int *outlen);
 STBIDEF int stbi_zlib_decode_buffer(char *obuffer, int olen,
-                                    const char *ibuffer, int ilen);
+                                    char const *ibuffer, int ilen);
 
-STBIDEF char *stbi_zlib_decode_noheader_malloc(const char *buffer, int len,
+STBIDEF char *stbi_zlib_decode_noheader_malloc(char const *buffer, int len,
                                                int *outlen);
 STBIDEF int stbi_zlib_decode_noheader_buffer(char *obuffer, int olen,
-                                             const char *ibuffer, int ilen);
+                                             char const *ibuffer, int ilen);
 
 #ifdef __cplusplus
 }
@@ -896,11 +896,11 @@ static int stbi__pnm_info(stbi__context *s, int *x, int *y, int *comp);
 #endif
 
 // this is not threadsafe
-static const char *stbi__g_failure_reason;
+static char const *stbi__g_failure_reason;
 
-STBIDEF const char *stbi_failure_reason(void) { return stbi__g_failure_reason; }
+STBIDEF char const *stbi_failure_reason(void) { return stbi__g_failure_reason; }
 
-static int stbi__err(const char *str) {
+static int stbi__err(char const *str) {
     stbi__g_failure_reason = str;
     return 0;
 }
@@ -1359,20 +1359,17 @@ static unsigned char *stbi__convert_format(unsigned char *data, int img_n,
             CASE(2, 4) dest[0] = dest[1] = dest[2] = src[0], dest[3] = src[1];
             break;
             CASE(3, 4)
-            dest[0] = src[0],
-            dest[1] = src[1], dest[2] = src[2], dest[3] = 255;
+            dest[0] = src[0], dest[1] = src[1], dest[2] = src[2], dest[3] = 255;
             break;
             CASE(3, 1) dest[0] = stbi__compute_y(src[0], src[1], src[2]);
             break;
             CASE(3, 2)
-            dest[0] = stbi__compute_y(src[0], src[1], src[2]),
-            dest[1] = 255;
+            dest[0] = stbi__compute_y(src[0], src[1], src[2]), dest[1] = 255;
             break;
             CASE(4, 1) dest[0] = stbi__compute_y(src[0], src[1], src[2]);
             break;
             CASE(4, 2)
-            dest[0] = stbi__compute_y(src[0], src[1], src[2]),
-            dest[1] = src[3];
+            dest[0] = stbi__compute_y(src[0], src[1], src[2]), dest[1] = src[3];
             break;
             CASE(4, 3) dest[0] = src[0], dest[1] = src[1], dest[2] = src[2];
             break;
@@ -1529,8 +1526,8 @@ typedef struct {
 
     // kernels
     void (*idct_block_kernel)(stbi_uc *out, int out_stride, short data[64]);
-    void (*YCbCr_to_RGB_kernel)(stbi_uc *out, const stbi_uc *y,
-                                const stbi_uc *pcb, const stbi_uc *pcr,
+    void (*YCbCr_to_RGB_kernel)(stbi_uc *out, stbi_uc const *y,
+                                stbi_uc const *pcb, stbi_uc const *pcr,
                                 int count, int step);
     stbi_uc *(*resample_row_hv_2_kernel)(stbi_uc *out, stbi_uc *in_near,
                                          stbi_uc *in_far, int w, int hs);
@@ -2163,14 +2160,14 @@ static void stbi__idct_simd(stbi_uc *out, int out_stride, short data[64]) {
     __m128i bias_1 = _mm_set1_epi32(65536 + (128 << 17));
 
     // load
-    row0 = _mm_load_si128((const __m128i *)(data + 0 * 8));
-    row1 = _mm_load_si128((const __m128i *)(data + 1 * 8));
-    row2 = _mm_load_si128((const __m128i *)(data + 2 * 8));
-    row3 = _mm_load_si128((const __m128i *)(data + 3 * 8));
-    row4 = _mm_load_si128((const __m128i *)(data + 4 * 8));
-    row5 = _mm_load_si128((const __m128i *)(data + 5 * 8));
-    row6 = _mm_load_si128((const __m128i *)(data + 6 * 8));
-    row7 = _mm_load_si128((const __m128i *)(data + 7 * 8));
+    row0 = _mm_load_si128((__m128i const *)(data + 0 * 8));
+    row1 = _mm_load_si128((__m128i const *)(data + 1 * 8));
+    row2 = _mm_load_si128((__m128i const *)(data + 2 * 8));
+    row3 = _mm_load_si128((__m128i const *)(data + 3 * 8));
+    row4 = _mm_load_si128((__m128i const *)(data + 4 * 8));
+    row5 = _mm_load_si128((__m128i const *)(data + 5 * 8));
+    row6 = _mm_load_si128((__m128i const *)(data + 6 * 8));
+    row7 = _mm_load_si128((__m128i const *)(data + 7 * 8));
 
     // column pass
     dct_pass(bias_0, 10);
@@ -3208,8 +3205,8 @@ static stbi_uc *stbi__resample_row_generic(stbi_uc *out, stbi_uc *in_near,
 // this is the same YCbCr-to-RGB calculation that stb_image has used
 // historically before the algorithm changes in 1.49
 #define float2fixed(x) ((int)((x)*65536 + 0.5))
-static void stbi__YCbCr_to_RGB_row(stbi_uc *out, const stbi_uc *y,
-                                   const stbi_uc *pcb, const stbi_uc *pcr,
+static void stbi__YCbCr_to_RGB_row(stbi_uc *out, stbi_uc const *y,
+                                   stbi_uc const *pcb, stbi_uc const *pcr,
                                    int count, int step) {
     int i;
     for (i = 0; i < count; ++i) {
@@ -3252,8 +3249,8 @@ static void stbi__YCbCr_to_RGB_row(stbi_uc *out, const stbi_uc *y,
 // this is a reduced-precision calculation of YCbCr-to-RGB introduced
 // to make sure the code produces the same results in both SIMD and scalar
 #define float2fixed(x) (((int)((x)*4096.0f + 0.5f)) << 8)
-static void stbi__YCbCr_to_RGB_row(stbi_uc *out, const stbi_uc *y,
-                                   const stbi_uc *pcb, const stbi_uc *pcr,
+static void stbi__YCbCr_to_RGB_row(stbi_uc *out, stbi_uc const *y,
+                                   stbi_uc const *pcb, stbi_uc const *pcr,
                                    int count, int step) {
     int i;
     for (i = 0; i < count; ++i) {
@@ -4046,7 +4043,7 @@ static int stbi__do_zlib(stbi__zbuf *a, char *obuf, int olen, int exp,
     return stbi__parse_zlib(a, parse_header);
 }
 
-STBIDEF char *stbi_zlib_decode_malloc_guesssize(const char *buffer, int len,
+STBIDEF char *stbi_zlib_decode_malloc_guesssize(char const *buffer, int len,
                                                 int initial_size, int *outlen) {
     stbi__zbuf a;
     char *p = (char *)stbi__malloc(initial_size);
@@ -4067,7 +4064,7 @@ STBIDEF char *stbi_zlib_decode_malloc(char const *buffer, int len,
     return stbi_zlib_decode_malloc_guesssize(buffer, len, 16384, outlen);
 }
 
-STBIDEF char *stbi_zlib_decode_malloc_guesssize_headerflag(const char *buffer,
+STBIDEF char *stbi_zlib_decode_malloc_guesssize_headerflag(char const *buffer,
                                                            int len,
                                                            int initial_size,
                                                            int *outlen,
@@ -4114,7 +4111,7 @@ STBIDEF char *stbi_zlib_decode_noheader_malloc(char const *buffer, int len,
 }
 
 STBIDEF int stbi_zlib_decode_noheader_buffer(char *obuffer, int olen,
-                                             const char *ibuffer, int ilen) {
+                                             char const *ibuffer, int ilen) {
     stbi__zbuf a;
     a.zbuffer = (stbi_uc *)ibuffer;
     a.zbuffer_end = (stbi_uc *)ibuffer + ilen;
@@ -5596,7 +5593,7 @@ static stbi_uc *stbi__psd_load(stbi__context *s, int *x, int *y, int *comp,
 // See http://ozviz.wasp.uwa.edu.au/~pbourke/dataformats/softimagepic/
 
 #ifndef STBI_NO_PIC
-static int stbi__pic_is4(stbi__context *s, const char *str) {
+static int stbi__pic_is4(stbi__context *s, char const *str) {
     int i;
     for (i = 0; i < 4; ++i)
         if (stbi__get8(s) != (stbi_uc)str[i]) return 0;
@@ -5634,7 +5631,7 @@ static stbi_uc *stbi__readval(stbi__context *s, int channel, stbi_uc *dest) {
     return dest;
 }
 
-static void stbi__copyval(int channel, stbi_uc *dest, const stbi_uc *src) {
+static void stbi__copyval(int channel, stbi_uc *dest, stbi_uc const *src) {
     int mask = 0x80, i;
 
     for (i = 0; i < 4; ++i, mask >>= 1)
@@ -6157,7 +6154,7 @@ static int stbi__gif_info(stbi__context *s, int *x, int *y, int *comp) {
 // originally by Nicolas Schulz
 #ifndef STBI_NO_HDR
 static int stbi__hdr_test_core(stbi__context *s) {
-    const char *signature = "#?RADIANCE\n";
+    char const *signature = "#?RADIANCE\n";
     int i;
     for (i = 0; signature[i]; ++i)
         if (stbi__get8(s) != signature[i]) return 0;

@@ -34,7 +34,7 @@ class perlin {
         delete[] perm_z;
     }
 
-    double noise(const point3& p) const {
+    double noise(point3 const &p) const {
         auto u = p.x() - floor(p.x());
         auto v = p.y() - floor(p.y());
         auto w = p.z() - floor(p.z());
@@ -54,7 +54,7 @@ class perlin {
         return perlin_interp(c, u, v, w);
     }
 
-    double turb(const point3& p, int depth) const {
+    double turb(point3 const &p, int depth) const {
         auto accum = 0.0;
         auto temp_p = p;
         auto weight = 1.0;
@@ -69,13 +69,13 @@ class perlin {
     }
 
    private:
-    static const int point_count = 256;
-    vec3* randvec;
-    int* perm_x;
-    int* perm_y;
-    int* perm_z;
+    static int const point_count = 256;
+    vec3 *randvec;
+    int *perm_x;
+    int *perm_y;
+    int *perm_z;
 
-    static int* perlin_generate_perm() {
+    static int *perlin_generate_perm() {
         auto p = new int[point_count];
 
         for (int i = 0; i < point_count; i++) p[i] = i;
@@ -85,7 +85,7 @@ class perlin {
         return p;
     }
 
-    static void permute(int* p, int n) {
+    static void permute(int *p, int n) {
         for (int i = n - 1; i > 0; i--) {
             int target = random_int(0, i);
             int tmp = p[i];

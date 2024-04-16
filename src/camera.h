@@ -41,7 +41,7 @@ class camera {
     double focus_dist =
         10;  // Distance from camera lookfrom point to plane of perfect focus
 
-    void render(const hittable& world) {
+    void render(hittable const &world) {
         initialize();
 
         auto pixels = std::make_unique<color[]>(size_t(image_width) *
@@ -96,7 +96,7 @@ class camera {
         std::clog << "Done.\n";
     }
 
-    void scanLine(hittable const& world, int j, color* __restrict_arr pixels) {
+    void scanLine(hittable const &world, int j, color *__restrict_arr pixels) {
         ZoneScoped;
         for (int i = 0; i < image_width; i++) {
             color pixel_color(0, 0, 0);
@@ -199,7 +199,7 @@ class camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
-    color ray_color(const ray& r, int depth, const hittable& world) const {
+    color ray_color(ray const &r, int depth, hittable const &world) const {
         ZoneScoped;
         // If we've exceeded the ray bounce limit, no more light is gathered.
         if (depth <= 0) return color(0, 0, 0);

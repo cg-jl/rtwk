@@ -21,13 +21,13 @@ class hit_record {
    public:
     point3 p;
     vec3 normal;
-    material* mat;
+    material *mat;
     double t;
     double u;
     double v;
     bool front_face;
 
-    void set_face_normal(const ray& r, const vec3& outward_normal) {
+    void set_face_normal(ray const &r, vec3 const &outward_normal) {
         // Sets the hit record normal vector.
         // NOTE: the parameter `outward_normal` is assumed to have unit length.
 
@@ -40,19 +40,19 @@ class hittable {
    public:
     virtual ~hittable() = default;
 
-    virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const = 0;
+    virtual bool hit(ray const &r, interval ray_t, hit_record &rec) const = 0;
 
     virtual aabb bounding_box() const = 0;
 };
 
 class translate : public hittable {
    public:
-    translate(hittable* object, const vec3& offset)
+    translate(hittable *object, vec3 const &offset)
         : object(object), offset(offset) {
         bbox = object->bounding_box() + offset;
     }
 
-    bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const override {
         // Move the ray backwards by the offset
         ray offset_r(r.origin() - offset, r.direction(), r.time());
 
@@ -69,14 +69,14 @@ class translate : public hittable {
     aabb bounding_box() const override { return bbox; }
 
    private:
-    hittable* object;
+    hittable *object;
     vec3 offset;
     aabb bbox;
 };
 
 class rotate_y : public hittable {
    public:
-    rotate_y(hittable* object, double angle) : object(object) {
+    rotate_y(hittable *object, double angle) : object(object) {
         auto radians = degrees_to_radians(angle);
         sin_theta = sin(radians);
         cos_theta = cos(radians);
@@ -108,7 +108,7 @@ class rotate_y : public hittable {
         bbox = aabb(min, max);
     }
 
-    bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const override {
         // Change the ray from world space to object space
         auto origin = r.origin();
         auto direction = r.direction();
@@ -146,7 +146,7 @@ class rotate_y : public hittable {
     aabb bounding_box() const override { return bbox; }
 
    private:
-    hittable* object;
+    hittable *object;
     double sin_theta;
     double cos_theta;
     aabb bbox;

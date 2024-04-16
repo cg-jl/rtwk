@@ -17,15 +17,15 @@
 class sphere : public hittable {
    public:
     // Stationary Sphere
-    sphere(const point3& center, double radius, material* mat)
+    sphere(point3 const &center, double radius, material *mat)
         : center1(center), radius(fmax(0, radius)), mat(mat), is_moving(false) {
         auto rvec = vec3(radius, radius, radius);
         bbox = aabb(center1 - rvec, center1 + rvec);
     }
 
     // Moving Sphere
-    sphere(const point3& center1, const point3& center2, double radius,
-           material* mat)
+    sphere(point3 const &center1, point3 const &center2, double radius,
+           material *mat)
         : center1(center1), radius(fmax(0, radius)), mat(mat), is_moving(true) {
         auto rvec = vec3(radius, radius, radius);
         aabb box1(center1 - rvec, center1 + rvec);
@@ -35,7 +35,7 @@ class sphere : public hittable {
         center_vec = center2 - center1;
     }
 
-    bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const override {
         point3 center = is_moving ? sphere_center(r.time()) : center1;
         vec3 oc = center - r.origin();
         auto a = r.direction().length_squared();
@@ -69,7 +69,7 @@ class sphere : public hittable {
    private:
     point3 center1;
     double radius;
-    material* mat;
+    material *mat;
     bool is_moving;
     vec3 center_vec;
     aabb bbox;
@@ -80,7 +80,7 @@ class sphere : public hittable {
         return center1 + time * center_vec;
     }
 
-    static void get_sphere_uv(const point3& p, double& u, double& v) {
+    static void get_sphere_uv(point3 const &p, double &u, double &v) {
         // p: a given point on the sphere of radius one, centered at the origin.
         // u: returned value [0,1] of angle around the Y axis from X=-1.
         // v: returned value [0,1] of angle from Y=-1 to Y=+1.
