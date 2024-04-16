@@ -436,7 +436,7 @@ int main() {
             final_scene(800, 10000, 40);
             break;
         default:
-            final_scene(400, 250, 4);
+            final_scene(400, 250, 40);
             break;
     }
 }
