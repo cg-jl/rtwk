@@ -16,24 +16,20 @@
 
 class quad : public hittable {
    public:
-    quad(point3 const &Q, vec3 const &u, vec3 const &v, material *mat)
+    constexpr quad(point3 Q, vec3 u, vec3 v, material *mat)
         : Q(Q), u(u), v(v), mat(mat) {
         auto n = cross(u, v);
         normal = unit_vector(n);
         D = dot(normal, Q);
         w = n / dot(n, n);
-
-        set_bounding_box();
     }
 
-    virtual void set_bounding_box() {
+    aabb bounding_box() const final {
         // Compute the bounding box of all four vertices.
         auto bbox_diagonal1 = aabb(Q, Q + u + v);
         auto bbox_diagonal2 = aabb(Q + u, Q + v);
-        bbox = aabb(bbox_diagonal1, bbox_diagonal2);
+        return aabb(bbox_diagonal1, bbox_diagonal2);
     }
-
-    aabb bounding_box() const final { return bbox; }
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
         auto denom = dot(normal, r.direction());
@@ -65,7 +61,7 @@ class quad : public hittable {
         return true;
     }
 
-    virtual bool is_interior(double a, double b, hit_record &rec) const {
+    bool is_interior(double a, double b, hit_record &rec) const {
         interval unit_interval = interval(0, 1);
         // Given the hit point in plane coordinates, return false if it is
         // outside the primitive, otherwise set the hit record UV coordinates
@@ -83,10 +79,9 @@ class quad : public hittable {
     point3 Q;
     vec3 u, v;
     vec3 w;
-    material *mat;
-    aabb bbox;
     vec3 normal;
     double D;
+    material *mat;
 };
 
 inline hittable_list *box(point3 const &a, point3 const &b, material *mat) {

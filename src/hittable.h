@@ -47,10 +47,8 @@ class hittable {
 
 class translate : public hittable {
    public:
-    translate(hittable *object, vec3 const &offset)
-        : object(object), offset(offset) {
-        bbox = object->bounding_box() + offset;
-    }
+    constexpr translate(hittable *object, vec3 offset)
+        : object(object), offset(offset) {}
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
         // Move the ray backwards by the offset
@@ -66,12 +64,11 @@ class translate : public hittable {
         return true;
     }
 
-    aabb bounding_box() const final { return bbox; }
+    aabb bounding_box() const final { return object->bounding_box() + offset; }
 
    private:
     hittable *object;
     vec3 offset;
-    aabb bbox;
 };
 
 class rotate_y : public hittable {
@@ -80,32 +77,6 @@ class rotate_y : public hittable {
         auto radians = degrees_to_radians(angle);
         sin_theta = sin(radians);
         cos_theta = cos(radians);
-        bbox = object->bounding_box();
-
-        point3 min(infinity, infinity, infinity);
-        point3 max(-infinity, -infinity, -infinity);
-
-        for (int i = 0; i < 2; i++) {
-            for (int j = 0; j < 2; j++) {
-                for (int k = 0; k < 2; k++) {
-                    auto x = i * bbox.x.max + (1 - i) * bbox.x.min;
-                    auto y = j * bbox.y.max + (1 - j) * bbox.y.min;
-                    auto z = k * bbox.z.max + (1 - k) * bbox.z.min;
-
-                    auto newx = cos_theta * x + sin_theta * z;
-                    auto newz = -sin_theta * x + cos_theta * z;
-
-                    vec3 tester(newx, y, newz);
-
-                    for (int c = 0; c < 3; c++) {
-                        min[c] = fmin(min[c], tester[c]);
-                        max[c] = fmax(max[c], tester[c]);
-                    }
-                }
-            }
-        }
-
-        bbox = aabb(min, max);
     }
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
@@ -143,13 +114,40 @@ class rotate_y : public hittable {
         return true;
     }
 
-    aabb bounding_box() const final { return bbox; }
+    aabb bounding_box() const final {
+        auto bbox = object->bounding_box();
+
+        point3 min(infinity, infinity, infinity);
+        point3 max(-infinity, -infinity, -infinity);
+
+        for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < 2; j++) {
+                for (int k = 0; k < 2; k++) {
+                    auto x = i * bbox.x.max + (1 - i) * bbox.x.min;
+                    auto y = j * bbox.y.max + (1 - j) * bbox.y.min;
+                    auto z = k * bbox.z.max + (1 - k) * bbox.z.min;
+
+                    auto newx = cos_theta * x + sin_theta * z;
+                    auto newz = -sin_theta * x + cos_theta * z;
+
+                    vec3 tester(newx, y, newz);
+
+                    for (int c = 0; c < 3; c++) {
+                        min[c] = fmin(min[c], tester[c]);
+                        max[c] = fmax(max[c], tester[c]);
+                    }
+                }
+            }
+        }
+
+        bbox = aabb(min, max);
+        return bbox;
+    }
 
    private:
     hittable *object;
     double sin_theta;
     double cos_theta;
-    aabb bbox;
 };
 
 #endif
