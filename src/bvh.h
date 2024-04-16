@@ -13,6 +13,7 @@
 //==============================================================================================
 
 #include <algorithm>
+#include <span>
 
 #include "aabb.h"
 #include "hittable.h"
@@ -21,41 +22,34 @@
 
 class bvh_node : public hittable {
    public:
-    bvh_node(hittable_list list)
-        : bvh_node(list.objects, 0, list.objects.size()) {
-        // There's a C++ subtlety here. This constructor (without span indices)
-        // creates an implicit copy of the hittable list, which we will modify.
-        // The lifetime of the copied list only extends until this constructor
-        // exits. That's OK, because we only need to persist the resulting
-        // bounding volume hierarchy.
-    }
+    bvh_node(hittable_list &list) : bvh_node(list.objects) {}
 
-    bvh_node(std::vector<hittable *> &objects, size_t start, size_t end) {
+    bvh_node(std::span<hittable *> objects) {
         // Build the bounding box of the span of source objects.
         bbox = empty_aabb;
-        for (size_t object_index = start; object_index < end; object_index++)
-            bbox = aabb(bbox, objects[object_index]->bounding_box());
+        for (auto ob : objects) bbox = aabb(bbox, ob->bounding_box());
 
         int axis = bbox.longest_axis();
 
-        auto comparator = (axis == 0)   ? box_x_compare
-                          : (axis == 1) ? box_y_compare
-                                        : box_z_compare;
-
-        size_t object_span = end - start;
+        size_t object_span = objects.size();
 
         if (object_span == 1) {
-            left = right = objects[start];
+            left = right = objects[0];
         } else if (object_span == 2) {
-            left = objects[start];
-            right = objects[start + 1];
+            left = objects[0];
+            right = objects[0 + 1];
         } else {
-            std::sort(objects.begin() + start, objects.begin() + end,
-                      comparator);
+            std::sort(objects.begin(), objects.end(),
+                      [axis](hittable const *a, hittable const *b) {
+                          auto a_axis_interval =
+                              a->bounding_box().axis_interval(axis);
+                          auto b_axis_interval =
+                              b->bounding_box().axis_interval(axis);
+                          return a_axis_interval.min < b_axis_interval.min;
+                      });
 
-            auto mid = start + object_span / 2;
-            left = new bvh_node(objects, start, mid);
-            right = new bvh_node(objects, mid, end);
+            left = new bvh_node(objects.subspan(0, object_span / 2));
+            right = new bvh_node(objects.subspan(object_span / 2));
         }
     }
 
@@ -72,28 +66,9 @@ class bvh_node : public hittable {
     aabb bounding_box() const override { return bbox; }
 
    private:
+    aabb bbox;
     hittable *left;
     hittable *right;
-    aabb bbox;
-
-    static bool box_compare(hittable const *a, hittable const *b,
-                            int axis_index) {
-        auto a_axis_interval = a->bounding_box().axis_interval(axis_index);
-        auto b_axis_interval = b->bounding_box().axis_interval(axis_index);
-        return a_axis_interval.min < b_axis_interval.min;
-    }
-
-    static bool box_x_compare(hittable const *a, hittable const *b) {
-        return box_compare(a, b, 0);
-    }
-
-    static bool box_y_compare(hittable const *a, hittable const *b) {
-        return box_compare(a, b, 1);
-    }
-
-    static bool box_z_compare(hittable const *a, hittable const *b) {
-        return box_compare(a, b, 2);
-    }
 };
 
 #endif
