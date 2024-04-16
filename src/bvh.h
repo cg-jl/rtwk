@@ -72,4 +72,17 @@ class bvh_node : public hittable {
     hittable *right;
 };
 
+struct bvh_tree : public hittable {
+    bvh_node root;
+
+    bvh_tree(hittable_list &list) : root(list.objects) {}
+    bvh_tree(std::span<hittable *> objects) : root(objects) {}
+
+    aabb bounding_box() const final { return root.bounding_box(); }
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
+        ZoneScopedN("BVH toplevel hit");
+        return root.hit(r, ray_t, rec);
+    }
+};
+
 #endif

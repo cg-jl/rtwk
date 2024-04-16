@@ -68,7 +68,7 @@ void bouncing_spheres() {
     auto material3 = new metal(color(0.7, 0.6, 0.5), 0.0);
     world.add(new sphere(point3(4, 1, 0), 1.0, material3));
 
-    world = hittable_list(new bvh_node(world));
+    world = hittable_list(new bvh_tree(world));
 
     camera cam;
 
@@ -352,7 +352,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     hittable_list world;
 
-    world.add(new bvh_node(boxes1));
+    world.add(new bvh_tree(boxes1));
 
     auto light = new diffuse_light(color(7, 7, 7));
     world.add(new quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265),
@@ -385,7 +385,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         boxes2.add(new sphere(point3::random(0, 165), 10, white));
     }
 
-    world.add(new translate(new rotate_y(new bvh_node(boxes2), 15),
+    world.add(new translate(new rotate_y(new bvh_tree(boxes2), 15),
                             vec3(-100, 270, 395)));
 
     camera cam;
