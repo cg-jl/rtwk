@@ -210,27 +210,33 @@ class camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
-    color ray_color(ray const &r, int depth, hittable const &world) const {
-        ZoneScoped;
-        // If we've exceeded the ray bounce limit, no more light is gathered.
-        if (depth <= 0) return color(0, 0, 0);
+    color ray_color(ray r, int depth, hittable const &world) const {
+        color emit_acc = color(0, 0, 0);
+        color att_acc = color(1, 1, 1);
+        for (;;) {
+            ZoneScopedN("ray frame");
+            // If we've exceeded the ray bounce limit, no more light is
+            // gathered.
+            if (depth <= 0) return emit_acc + att_acc * color(0, 0, 0);
 
-        hit_record rec;
+            hit_record rec;
 
-        // If the ray hits nothing, return the background color.
-        if (!world.hit(r, interval(0.001, infinity), rec)) return background;
+            // If the ray hits nothing, return the background color.
+            if (!world.hit(r, interval(0.001, infinity), rec))
+                return emit_acc + att_acc * background;
 
-        ray scattered;
-        color attenuation;
-        color color_from_emission = rec.mat->emitted(rec.u, rec.v, rec.p);
+            ray scattered;
+            color attenuation;
+            color color_from_emission = rec.mat->emitted(rec.u, rec.v, rec.p);
 
-        if (!rec.mat->scatter(r, rec, attenuation, scattered))
-            return color_from_emission;
+            if (!rec.mat->scatter(r, rec, attenuation, scattered))
+                return emit_acc + att_acc * color_from_emission;
 
-        color color_from_scatter =
-            attenuation * ray_color(scattered, depth - 1, world);
-
-        return color_from_emission + color_from_scatter;
+            depth = depth - 1;
+            emit_acc = emit_acc + color_from_emission;
+            att_acc = att_acc * attenuation;
+            r = scattered;
+        }
     }
 };
 
