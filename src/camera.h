@@ -73,12 +73,24 @@ class camera {
         });
 
         // worker loop
-#pragma omp parallel for
-        for (int j = 0; j < image_height; j++) {
-            ZoneScopedN("work loop");
-            scanLine(world, j, pixels.get());
-            remain_scanlines.fetch_add(-1, std::memory_order_acq_rel);
-            cv.notify_one();
+#pragma omp parallel
+        {
+            for (;;) {
+                ZoneScopedN("work loop");
+                auto j = remain_scanlines.load(std::memory_order_acquire);
+
+                // contend for our j (CAS)
+                do {
+                    if (j == 0) goto finish_work;
+                } while (!remain_scanlines.compare_exchange_weak(
+                    j, j - 1, std::memory_order_acq_rel));
+                --j;
+
+                scanLine(world, j, pixels.get());
+
+                cv.notify_one();
+            }
+        finish_work:;
         }
 
         progress_thread.join();
