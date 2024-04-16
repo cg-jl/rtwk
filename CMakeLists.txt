@@ -51,6 +51,8 @@ endif ()
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL Debug)
     message(STATUS "Using debug build. OpenMP is disabled.")
+elseif(TRACY_ENABLE)
+    message(STATUS "Using tracing build. OpenMP is disabled to avoid big memory consumption.")
 else ()
     target_compile_options(rt PRIVATE
 
