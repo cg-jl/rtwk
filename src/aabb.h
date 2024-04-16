@@ -21,15 +21,14 @@ class aabb {
    public:
     interval x, y, z;
 
-    aabb() {
-    }  // The default AABB is empty, since intervals are empty by default.
+    // The default AABB is empty, since intervals are empty by default.
+    constexpr aabb() = default;
 
-    aabb(interval const &x, interval const &y, interval const &z)
-        : x(x), y(y), z(z) {
+    constexpr aabb(interval x, interval y, interval z) : x(x), y(y), z(z) {
         pad_to_minimums();
     }
 
-    aabb(point3 const &a, point3 const &b) {
+    constexpr aabb(point3 const &a, point3 const &b) {
         // Treat the two points a and b as extrema for the bounding box, so we
         // don't require a particular minimum/maximum coordinate order.
 
@@ -40,13 +39,10 @@ class aabb {
         pad_to_minimums();
     }
 
-    aabb(aabb const &box0, aabb const &box1) {
-        x = interval(box0.x, box1.x);
-        y = interval(box0.y, box1.y);
-        z = interval(box0.z, box1.z);
-    }
+    constexpr aabb(aabb const &box0, aabb const &box1)
+        : x(box0.x, box1.x), y(box0.y, box1.y), z(box0.z, box1.z) {}
 
-    interval const &axis_interval(int n) const {
+    constexpr interval const &axis_interval(int n) const {
         if (n == 1) return y;
         if (n == 2) return z;
         return x;
@@ -76,7 +72,7 @@ class aabb {
         return true;
     }
 
-    int longest_axis() const {
+    constexpr int longest_axis() const {
         // Returns the index of the longest axis of the bounding box.
 
         if (x.size() > y.size())
@@ -85,10 +81,8 @@ class aabb {
             return y.size() > z.size() ? 1 : 2;
     }
 
-    static const aabb empty, universe;
-
    private:
-    void pad_to_minimums() {
+    constexpr void pad_to_minimums() {
         // Adjust the AABB so that no side is narrower than some delta, padding
         // if necessary.
 
@@ -99,15 +93,15 @@ class aabb {
     }
 };
 
-const aabb aabb::empty =
-    aabb(interval::empty, interval::empty, interval::empty);
-const aabb aabb::universe =
-    aabb(interval::universe, interval::universe, interval::universe);
+static constexpr aabb empty_aabb =
+    aabb{empty_interval, empty_interval, empty_interval};
+static constexpr aabb universe_aabb =
+    aabb{universe_interval, universe_interval, universe_interval};
 
-aabb operator+(aabb const &bbox, vec3 const &offset) {
+constexpr aabb operator+(aabb bbox, vec3 offset) {
     return aabb(bbox.x + offset.x(), bbox.y + offset.y(), bbox.z + offset.z());
 }
 
-aabb operator+(vec3 const &offset, aabb const &bbox) { return bbox + offset; }
+constexpr aabb operator+(vec3 offset, aabb bbox) { return bbox + offset; }
 
 #endif

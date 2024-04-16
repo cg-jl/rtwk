@@ -10,49 +10,44 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <algorithm>
+
 #include "rtweekend.h"
 class interval {
    public:
     double min, max;
 
-    interval() : min(+infinity), max(-infinity) {}  // Default interval is empty
+    constexpr interval()
+        : min(+infinity), max(-infinity) {}  // Default interval is empty
 
-    interval(double min, double max) : min(min), max(max) {}
+    constexpr interval(double min, double max) : min(min), max(max) {}
 
-    interval(interval const &a, interval const &b) {
-        // Create the interval tightly enclosing the two input intervals.
-        min = a.min <= b.min ? a.min : b.min;
-        max = a.max >= b.max ? a.max : b.max;
-    }
+    // Create the interval tightly enclosing the two input intervals.
+    constexpr interval(interval const &a, interval const &b)
+        : min(std::min(a.min, b.min)), max(std::max(a.max, b.max)) {}
 
-    double size() const { return max - min; }
+    constexpr double size() const { return max - min; }
 
-    bool contains(double x) const { return min <= x && x <= max; }
+    constexpr bool contains(double x) const { return min <= x && x <= max; }
 
-    bool surrounds(double x) const { return min < x && x < max; }
+    constexpr bool surrounds(double x) const { return min < x && x < max; }
 
-    double clamp(double x) const {
-        if (x < min) return min;
-        if (x > max) return max;
-        return x;
-    }
+    constexpr double clamp(double x) const { return std::clamp(x, min, max); }
 
-    interval expand(double delta) const {
+    constexpr interval expand(double delta) const {
         auto padding = delta / 2;
         return interval(min - padding, max + padding);
     }
-
-    static const interval empty, universe;
 };
 
-const interval interval::empty = interval(+infinity, -infinity);
-const interval interval::universe = interval(-infinity, +infinity);
+static constexpr interval empty_interval = interval(+infinity, -infinity);
+static constexpr interval universe_interval = interval(-infinity, +infinity);
 
-interval operator+(interval const &ival, double displacement) {
+constexpr interval operator+(interval ival, double displacement) {
     return interval(ival.min + displacement, ival.max + displacement);
 }
 
-interval operator+(double displacement, interval const &ival) {
+constexpr interval operator+(double displacement, interval ival) {
     return ival + displacement;
 }
 

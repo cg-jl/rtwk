@@ -214,6 +214,8 @@ class camera {
         color emit_acc = color(0, 0, 0);
         color att_acc = color(1, 1, 1);
         for (;;) {
+            // NOTE: for some reason, one of these frames in the large BVH section
+            // is reporting enormous latency for hit_abb (~10ms!). What is happening?
             ZoneScopedN("ray frame");
             // If we've exceeded the ray bounce limit, no more light is
             // gathered.

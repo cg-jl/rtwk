@@ -37,7 +37,7 @@ class constant_medium : public hittable {
 
         hit_record rec1, rec2;
 
-        if (!boundary->hit(r, interval::universe, rec1)) return false;
+        if (!boundary->hit(r, universe_interval, rec1)) return false;
 
         if (!boundary->hit(r, interval(rec1.t + 0.0001, infinity), rec2))
             return false;
