@@ -52,33 +52,32 @@ class camera {
         // lock progress mutex before launching the progress thread so we don't
         // end in a deadlock.
 
-        auto progress_thread =
-            std::thread([limit = image_height, &remain_scanlines, &cv]() {
-                std::mutex progress_mux;
-                std::unique_lock<std::mutex> lock(progress_mux);
-                auto last_remain = limit + 1;
-                while (true) {
-                    // wait till progress has been done.
-                    cv.wait(lock, [last_remain, &remain_scanlines] {
-                        return last_remain !=
-                               remain_scanlines.load(std::memory_order_acquire);
-                    });
-                    auto remain =
-                        remain_scanlines.load(std::memory_order_acquire);
-                    last_remain = remain;
-                    std::clog << "\r\x1b[2KScanlines remaining: " << remain
-                              << std::flush;
-                    if (remain == 0) break;
-                }
-                std::clog << "\r\x1b[2K" << std::flush;
-            });
+        auto progress_thread = std::thread([limit = image_height,
+                                            &remain_scanlines, &cv]() {
+            std::mutex progress_mux;
+            std::unique_lock<std::mutex> lock(progress_mux);
+            auto last_remain = limit + 1;
+            while (true) {
+                // wait till progress has been done.
+                cv.wait(lock, [last_remain, &remain_scanlines] {
+                    return last_remain >
+                           remain_scanlines.load(std::memory_order_acquire);
+                });
+                auto remain = remain_scanlines.load(std::memory_order_acquire);
+                last_remain = remain;
+                std::clog << "\r\x1b[2K\x1b[?25lScanlines remaining: " << remain
+                          << "\x1b[?25h" << std::flush;
+                if (remain == 0) break;
+            }
+            std::clog << "\r\x1b[2K" << std::flush;
+        });
 
         // worker loop
 #pragma omp parallel for
         for (int j = 0; j < image_height; j++) {
             ZoneScopedN("work loop");
             scanLine(world, j, pixels.get());
-            remain_scanlines.fetch_add(-1, std::memory_order_relaxed);
+            remain_scanlines.fetch_add(-1, std::memory_order_acq_rel);
             cv.notify_one();
         }
 
