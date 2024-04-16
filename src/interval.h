@@ -10,6 +10,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include "rtweekend.h"
 class interval {
    public:
     double min, max;

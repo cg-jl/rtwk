@@ -12,7 +12,10 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include "interval.h"
+#include "ray.h"
 #include "rtweekend.h"
+#include "vec3.h"
 
 class aabb {
    public:

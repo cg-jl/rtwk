@@ -12,6 +12,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include "color.h"
 #include "perlin.h"
 #include "rtw_stb_image.h"
 #include "rtweekend.h"
