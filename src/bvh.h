@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <span>
+#include <tracy/Tracy.hpp>
 
 #include "aabb.h"
 #include "hittable.h"
@@ -53,7 +54,7 @@ class bvh_node : public hittable {
         }
     }
 
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const override {
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
         if (!bbox.hit(r, ray_t)) return false;
 
         bool hit_left = left->hit(r, ray_t, rec);
@@ -63,7 +64,7 @@ class bvh_node : public hittable {
         return hit_left || hit_right;
     }
 
-    aabb bounding_box() const override { return bbox; }
+    aabb bounding_box() const final { return bbox; }
 
    private:
     aabb bbox;

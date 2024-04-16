@@ -29,7 +29,7 @@ class constant_medium : public hittable {
           neg_inv_density(-1 / density),
           phase_function(new isotropic(albedo)) {}
 
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const override {
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
         // Print occasional samples when debugging. To enable, set enableDebug
         // true.
         bool const enableDebug = false;
@@ -74,7 +74,7 @@ class constant_medium : public hittable {
         return true;
     }
 
-    aabb bounding_box() const override { return boundary->bounding_box(); }
+    aabb bounding_box() const final { return boundary->bounding_box(); }
 
    private:
     hittable *boundary;

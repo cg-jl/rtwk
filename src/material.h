@@ -38,7 +38,7 @@ class lambertian : public material {
     lambertian(texture *tex) : tex(tex) {}
 
     bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
-                 ray &scattered) const override {
+                 ray &scattered) const final {
         auto scatter_direction = rec.normal + random_unit_vector();
 
         // Catch degenerate scatter direction
@@ -59,7 +59,7 @@ class metal : public material {
         : albedo(albedo), fuzz(fuzz < 1 ? fuzz : 1) {}
 
     bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
-                 ray &scattered) const override {
+                 ray &scattered) const final {
         vec3 reflected = reflect(r_in.direction(), rec.normal);
         reflected = unit_vector(reflected) + (fuzz * random_unit_vector());
         scattered = ray(rec.p, reflected, r_in.time());
@@ -77,7 +77,7 @@ class dielectric : public material {
     dielectric(double refraction_index) : refraction_index(refraction_index) {}
 
     bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
-                 ray &scattered) const override {
+                 ray &scattered) const final {
         attenuation = color(1.0, 1.0, 1.0);
         double ri =
             rec.front_face ? (1.0 / refraction_index) : refraction_index;
@@ -116,7 +116,7 @@ class diffuse_light : public material {
     diffuse_light(texture *tex) : tex(tex) {}
     diffuse_light(color const &emit) : tex(new solid_color(emit)) {}
 
-    color emitted(double u, double v, point3 const &p) const override {
+    color emitted(double u, double v, point3 const &p) const final {
         return tex->value(u, v, p);
     }
 
@@ -130,7 +130,7 @@ class isotropic : public material {
     isotropic(texture *tex) : tex(tex) {}
 
     bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
-                 ray &scattered) const override {
+                 ray &scattered) const final {
         scattered = ray(rec.p, random_unit_vector(), r_in.time());
         attenuation = tex->value(rec.u, rec.v, rec.p);
         return true;

@@ -33,9 +33,9 @@ class quad : public hittable {
         bbox = aabb(bbox_diagonal1, bbox_diagonal2);
     }
 
-    aabb bounding_box() const override { return bbox; }
+    aabb bounding_box() const final { return bbox; }
 
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const override {
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
         auto denom = dot(normal, r.direction());
 
         // No hit if the ray is parallel to the plane.

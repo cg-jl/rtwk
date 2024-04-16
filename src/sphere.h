@@ -35,7 +35,7 @@ class sphere : public hittable {
         center_vec = center2 - center1;
     }
 
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const override {
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
         point3 center = is_moving ? sphere_center(r.time()) : center1;
         vec3 oc = center - r.origin();
         auto a = r.direction().length_squared();
@@ -64,7 +64,7 @@ class sphere : public hittable {
         return true;
     }
 
-    aabb bounding_box() const override { return bbox; }
+    aabb bounding_box() const final { return bbox; }
 
    private:
     point3 center1;

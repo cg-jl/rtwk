@@ -31,7 +31,7 @@ class solid_color : public texture {
     solid_color(double red, double green, double blue)
         : solid_color(color(red, green, blue)) {}
 
-    color value(double u, double v, point3 const &p) const override {
+    color value(double u, double v, point3 const &p) const final {
         return albedo;
     }
 
@@ -49,7 +49,7 @@ class checker_texture : public texture {
           even(new solid_color(c1)),
           odd(new solid_color(c2)) {}
 
-    color value(double u, double v, point3 const &p) const override {
+    color value(double u, double v, point3 const &p) const final {
         auto xInteger = int(std::floor(inv_scale * p.x()));
         auto yInteger = int(std::floor(inv_scale * p.y()));
         auto zInteger = int(std::floor(inv_scale * p.z()));
@@ -69,7 +69,7 @@ class image_texture : public texture {
    public:
     image_texture(char const *filename) : image(filename) {}
 
-    color value(double u, double v, point3 const &p) const override {
+    color value(double u, double v, point3 const &p) const final {
         // If we have no texture data, then return solid cyan as a debugging
         // aid.
         if (image.height() <= 0) return color(0, 1, 1);
@@ -97,7 +97,7 @@ class noise_texture : public texture {
 
     noise_texture(double scale) : scale(scale) {}
 
-    color value(double u, double v, point3 const &p) const override {
+    color value(double u, double v, point3 const &p) const final {
         return color(.5, .5, .5) *
                (1 + sin(scale * p.z() + 10 * noise.turb(p, 7)));
     }

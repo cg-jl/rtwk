@@ -52,7 +52,7 @@ class translate : public hittable {
         bbox = object->bounding_box() + offset;
     }
 
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const override {
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
         // Move the ray backwards by the offset
         ray offset_r(r.origin() - offset, r.direction(), r.time());
 
@@ -66,7 +66,7 @@ class translate : public hittable {
         return true;
     }
 
-    aabb bounding_box() const override { return bbox; }
+    aabb bounding_box() const final { return bbox; }
 
    private:
     hittable *object;
@@ -108,7 +108,7 @@ class rotate_y : public hittable {
         bbox = aabb(min, max);
     }
 
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const override {
+    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
         // Change the ray from world space to object space
         auto origin = r.origin();
         auto direction = r.direction();
@@ -143,7 +143,7 @@ class rotate_y : public hittable {
         return true;
     }
 
-    aabb bounding_box() const override { return bbox; }
+    aabb bounding_box() const final { return bbox; }
 
    private:
     hittable *object;
