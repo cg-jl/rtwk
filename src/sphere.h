@@ -12,31 +12,26 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <tracy/Tracy.hpp>
+
 #include "hittable.h"
 
 class sphere : public hittable {
    public:
     // Stationary Sphere
     sphere(point3 const &center, double radius, material *mat)
-        : center1(center), radius(fmax(0, radius)), mat(mat), is_moving(false) {
-        auto rvec = vec3(radius, radius, radius);
-        bbox = aabb(center1 - rvec, center1 + rvec);
-    }
+        : center1(center), radius(fmax(0, radius)), mat(mat) {}
 
     // Moving Sphere
     sphere(point3 const &center1, point3 const &center2, double radius,
            material *mat)
-        : center1(center1), radius(fmax(0, radius)), mat(mat), is_moving(true) {
-        auto rvec = vec3(radius, radius, radius);
-        aabb box1(center1 - rvec, center1 + rvec);
-        aabb box2(center2 - rvec, center2 + rvec);
-        bbox = aabb(box1, box2);
-
+        : center1(center1), radius(fmax(0, radius)), mat(mat) {
         center_vec = center2 - center1;
     }
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
-        point3 center = is_moving ? sphere_center(r.time()) : center1;
+        ZoneScopedN("sphere hit");
+        point3 center = sphere_center(r.time());
         vec3 oc = center - r.origin();
         auto a = r.direction().length_squared();
         auto h = dot(r.direction(), oc);
@@ -45,7 +40,7 @@ class sphere : public hittable {
         auto discriminant = h * h - a * c;
         if (discriminant < 0) return false;
 
-        auto sqrtd = sqrt(discriminant);
+        auto sqrtd = std::sqrt(discriminant);
 
         // Find the nearest root that lies in the acceptable range.
         auto root = (h - sqrtd) / a;
@@ -64,15 +59,19 @@ class sphere : public hittable {
         return true;
     }
 
-    aabb bounding_box() const final { return bbox; }
+    aabb bounding_box() const final {
+        auto rvec = vec3(radius, radius, radius);
+        auto center2 = center1 + center_vec;
+        aabb box1(center1 - rvec, center1 + rvec);
+        aabb box2(center2 - rvec, center2 + rvec);
+        return aabb(box1, box2);
+    }
 
    private:
     point3 center1;
     double radius;
-    material *mat;
-    bool is_moving;
     vec3 center_vec;
-    aabb bbox;
+    material *mat;
 
     point3 sphere_center(double time) const {
         // Linearly interpolate from center1 to center2 according to time, where
@@ -88,8 +87,8 @@ class sphere : public hittable {
         //     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
         //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
 
-        auto theta = acos(-p.y());
-        auto phi = atan2(-p.z(), p.x()) + pi;
+        auto theta = std::acos(-p.y());
+        auto phi = std::atan2(-p.z(), p.x()) + pi;
 
         u = phi / (2 * pi);
         v = theta / pi;

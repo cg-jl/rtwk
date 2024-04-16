@@ -76,7 +76,6 @@ class camera {
 #pragma omp parallel
         {
             for (;;) {
-                ZoneScopedN("work loop");
                 auto j = remain_scanlines.load(std::memory_order_acquire);
 
                 // contend for our j (CAS)
@@ -108,7 +107,6 @@ class camera {
     }
 
     void scanLine(hittable const &world, int j, color *__restrict_arr pixels) {
-        ZoneScoped;
         for (int i = 0; i < image_width; i++) {
             color pixel_color(0, 0, 0);
             for (int sample = 0; sample < samples_per_pixel; sample++) {
@@ -216,7 +214,6 @@ class camera {
         for (;;) {
             // NOTE: for some reason, one of these frames in the large BVH section
             // is reporting enormous latency for hit_abb (~10ms!). What is happening?
-            ZoneScopedN("ray frame");
             // If we've exceeded the ray bounce limit, no more light is
             // gathered.
             if (depth <= 0) return emit_acc + att_acc * color(0, 0, 0);
