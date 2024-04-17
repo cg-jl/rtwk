@@ -12,6 +12,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <tracy/Tracy.hpp>
+
 #include "aabb.h"
 #include "rtweekend.h"
 
@@ -45,12 +47,17 @@ class hittable {
     virtual aabb bounding_box() const = 0;
 };
 
+// NOTE: maybe some sort of infra to have a hittable hit() and also restore()
+// prepare(), end() as well to prepare a ray?
+// We should end in a geometry anyway.
+
 class translate : public hittable {
    public:
     constexpr translate(hittable *object, vec3 offset)
         : object(object), offset(offset) {}
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
+        ZoneScopedN("translate hit");
         // Move the ray backwards by the offset
         ray offset_r(r.origin() - offset, r.direction(), r.time());
 
@@ -80,6 +87,7 @@ class rotate_y : public hittable {
     }
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
+        ZoneScopedN("rotate_y hit");
         // Change the ray from world space to object space
         auto origin = r.origin();
         auto direction = r.direction();

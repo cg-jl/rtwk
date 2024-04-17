@@ -80,7 +80,7 @@ struct bvh_tree : public hittable {
 
     aabb bounding_box() const final { return root.bounding_box(); }
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
-        ZoneScopedN("BVH toplevel hit");
+        ZoneScopedN("bvh_tree hit");
         return root.hit(r, ray_t, rec);
     }
 };

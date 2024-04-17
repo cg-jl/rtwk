@@ -30,6 +30,7 @@ class constant_medium : public hittable {
           phase_function(new isotropic(albedo)) {}
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
+        ZoneScopedN("constant_medium hit");
         // Print occasional samples when debugging. To enable, set enableDebug
         // true.
         bool const enableDebug = false;

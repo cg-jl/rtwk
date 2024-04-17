@@ -32,6 +32,7 @@ class quad : public hittable {
     }
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
+        ZoneScopedN("quad hit");
         auto denom = dot(normal, r.direction());
 
         // No hit if the ray is parallel to the plane.

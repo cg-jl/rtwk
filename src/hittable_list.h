@@ -33,6 +33,7 @@ class hittable_list : public hittable {
     }
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
+        ZoneScopedN("hittable_list hit");
         hit_record temp_rec;
         bool hit_anything = false;
         auto closest_so_far = ray_t.max;

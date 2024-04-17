@@ -52,6 +52,11 @@ class camera {
         // lock progress mutex before launching the progress thread so we don't
         // end in a deadlock.
 
+#if TRACY_ENABLE
+        static constexpr int stop_at = 390;
+#else
+        static constexpr int stop_at = 0;
+#endif
         auto progress_thread = std::thread([limit = image_height,
                                             &remain_scanlines, &cv]() {
             std::mutex progress_mux;
@@ -67,10 +72,11 @@ class camera {
                 last_remain = remain;
                 std::clog << "\r\x1b[2K\x1b[?25lScanlines remaining: " << remain
                           << "\x1b[?25h" << std::flush;
-                if (remain == 0) break;
+                if (remain == stop_at) break;
             }
             std::clog << "\r\x1b[2K" << std::flush;
         });
+
 
         // worker loop
 #pragma omp parallel
@@ -80,7 +86,7 @@ class camera {
 
                 // contend for our j (CAS)
                 do {
-                    if (j == 0) goto finish_work;
+                    if (j == stop_at) goto finish_work;
                 } while (!remain_scanlines.compare_exchange_weak(
                     j, j - 1, std::memory_order_acq_rel));
                 --j;
@@ -213,10 +219,6 @@ class camera {
         color att_acc = color(1, 1, 1);
         for (;;) {
             ZoneScopedN("ray frame");
-            // NOTE: for some reason, one of these frames in the large BVH section
-            // is reporting enormous latency for hit_abb (~10ms!). What is happening?
-            // If we've exceeded the ray bounce limit, no more light is
-            // gathered.
             if (depth <= 0) return emit_acc + att_acc * color(0, 0, 0);
 
             hit_record rec;
