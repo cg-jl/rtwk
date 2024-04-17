@@ -36,9 +36,8 @@ inline double degrees_to_radians(double degrees) {
 }
 
 inline double random_double() {
-    static thread_local std::mt19937 rng;
-    static thread_local std::uniform_real_distribution<double> dist;
-    return dist(rng);
+    static thread_local unsigned int seed;
+    return double(rand_r(&seed)) / (double(RAND_MAX) + 1);
 }
 
 inline double random_double(double min, double max) {
