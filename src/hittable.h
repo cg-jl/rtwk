@@ -12,6 +12,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <span>
 #include <tracy/Tracy.hpp>
 
 #include "aabb.h"
@@ -157,5 +158,25 @@ class rotate_y : public hittable {
     double sin_theta;
     double cos_theta;
 };
+
+static bool hitSpan(std::span<hittable *const> objects, ray const &r,
+                    interval ray_t, hit_record &rec) {
+    ZoneScoped;
+    ZoneValue(objects.size());
+
+    hit_record temp_rec;
+    bool hit_anything = false;
+    auto closest_so_far = ray_t.max;
+
+    for (auto const &object : objects) {
+        if (object->hit(r, interval(ray_t.min, closest_so_far), temp_rec)) {
+            hit_anything = true;
+            closest_so_far = temp_rec.t;
+            rec = temp_rec;
+        }
+    }
+
+    return hit_anything;
+}
 
 #endif

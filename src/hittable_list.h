@@ -33,20 +33,8 @@ class hittable_list : public hittable {
     }
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
-        ZoneScopedN("hittable_list hit");
-        hit_record temp_rec;
-        bool hit_anything = false;
-        auto closest_so_far = ray_t.max;
-
-        for (auto const &object : objects) {
-            if (object->hit(r, interval(ray_t.min, closest_so_far), temp_rec)) {
-                hit_anything = true;
-                closest_so_far = temp_rec.t;
-                rec = temp_rec;
-            }
-        }
-
-        return hit_anything;
+        std::span sp(objects);
+        return hitSpan(sp, r, ray_t, rec);
     }
 
     aabb bounding_box() const final { return bbox; }
