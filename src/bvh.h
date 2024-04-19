@@ -70,14 +70,14 @@ class bvh_node : public hittable_selector {
     hittable_selector *right;
 };
 
-struct bvh_tree : public hittable_selector {
+struct bvh_tree {
     bvh_node root;
 
     bvh_tree(std::span<hittable *> objects) : root(objects) {}
 
-    aabb bounding_box() const final { return root.bounding_box(); }
+    aabb bounding_box() const { return root.bounding_box(); }
     hittable const *hitSelect(ray const &r, interval ray_t,
-                              hit_record &rec) const final {
+                              hit_record &rec) const {
         ZoneScopedN("bvh_tree hit");
         return root.hitSelect(r, ray_t, rec);
     }

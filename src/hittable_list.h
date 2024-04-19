@@ -19,7 +19,7 @@
 #include "hittable.h"
 #include "rtweekend.h"
 
-class hittable_list : public hittable_selector {
+class hittable_list {
    public:
     std::vector<hittable *> objects;
     // TODO: make BVH tree not own their spans.
@@ -33,10 +33,7 @@ class hittable_list : public hittable_selector {
 
     void clear() { objects.clear(); }
 
-    void add(hittable *object) {
-        objects.push_back(object);
-        bbox = aabb(bbox, object->bounding_box());
-    }
+    void add(hittable *object) { objects.push_back(object); }
 
     std::span<hittable *> from(size_t start) {
         std::span sp(objects);
@@ -50,7 +47,7 @@ class hittable_list : public hittable_selector {
     }
 
     hittable const *hitSelect(ray const &r, interval ray_t,
-                              hit_record &rec) const final {
+                              hit_record &rec) const {
         ZoneScopedN("hittable_list hit");
 
         hittable const *best = nullptr;
@@ -77,11 +74,6 @@ class hittable_list : public hittable_selector {
 
         return best;
     }
-
-    aabb bounding_box() const final { return bbox; }
-
-   private:
-    aabb bbox;
 };
 
 #endif

@@ -21,6 +21,7 @@
 #include <tracy/Tracy.hpp>
 
 #include "hittable.h"
+#include "hittable_list.h"
 #include "material.h"
 #include "rtweekend.h"
 
@@ -41,7 +42,7 @@ class camera {
     double focus_dist =
         10;  // Distance from camera lookfrom point to plane of perfect focus
 
-    void render(hittable_selector const &world) {
+    void render(hittable_list const &world) {
         initialize();
 
         auto pixels = std::make_unique<color[]>(size_t(image_width) *
@@ -111,7 +112,7 @@ class camera {
         std::clog << "Done.\n";
     }
 
-    void scanLine(hittable_selector const &world, int j,
+    void scanLine(hittable_list const &world, int j,
                   color *__restrict_arr pixels) {
         for (int i = 0; i < image_width; i++) {
             color pixel_color(0, 0, 0);
@@ -214,7 +215,7 @@ class camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
-    color ray_color(ray r, int depth, hittable_selector const &world) const {
+    color ray_color(ray r, int depth, hittable_list const &world) const {
         color emit_acc = color(0, 0, 0);
         color att_acc = color(1, 1, 1);
         for (;;) {
