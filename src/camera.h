@@ -41,7 +41,7 @@ class camera {
     double focus_dist =
         10;  // Distance from camera lookfrom point to plane of perfect focus
 
-    void render(hittable const &world) {
+    void render(hittable_selector const &world) {
         initialize();
 
         auto pixels = std::make_unique<color[]>(size_t(image_width) *
@@ -77,7 +77,6 @@ class camera {
             std::clog << "\r\x1b[2K" << std::flush;
         });
 
-
         // worker loop
 #pragma omp parallel
         {
@@ -112,7 +111,8 @@ class camera {
         std::clog << "Done.\n";
     }
 
-    void scanLine(hittable const &world, int j, color *__restrict_arr pixels) {
+    void scanLine(hittable_selector const &world, int j,
+                  color *__restrict_arr pixels) {
         for (int i = 0; i < image_width; i++) {
             color pixel_color(0, 0, 0);
             for (int sample = 0; sample < samples_per_pixel; sample++) {
@@ -214,7 +214,7 @@ class camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
-    color ray_color(ray r, int depth, hittable const &world) const {
+    color ray_color(ray r, int depth, hittable_selector const &world) const {
         color emit_acc = color(0, 0, 0);
         color att_acc = color(1, 1, 1);
         for (;;) {
@@ -224,14 +224,14 @@ class camera {
             hit_record rec;
 
             // If the ray hits nothing, return the background color.
-            if (!world.hit(r, interval(0.001, infinity), rec))
-                return emit_acc + att_acc * background;
+            auto res = world.hitSelect(r, interval(0.001, infinity), rec);
+            if (!res) return emit_acc + att_acc * background;
 
             ray scattered;
             color attenuation;
-            color color_from_emission = rec.mat->emitted(rec.u, rec.v, rec.p);
+            color color_from_emission = res->mat->emitted(rec.u, rec.v, rec.p);
 
-            if (!rec.mat->scatter(r, rec, attenuation, scattered))
+            if (!res->mat->scatter(r, rec, attenuation, scattered))
                 return emit_acc + att_acc * color_from_emission;
 
             depth = depth - 1;

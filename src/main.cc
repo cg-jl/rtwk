@@ -68,7 +68,8 @@ void bouncing_spheres() {
     auto material3 = new metal(color(0.7, 0.6, 0.5), 0.0);
     world.add(new sphere(point3(4, 1, 0), 1.0, material3));
 
-    world = hittable_list(new bvh_tree(world));
+    hittable_list bvhd_world;
+    bvhd_world.trees.emplace_back(world.objects);
 
     camera cam;
 
@@ -86,7 +87,7 @@ void bouncing_spheres() {
     cam.defocus_angle = 0.6;
     cam.focus_dist = 10.0;
 
-    cam.render(world);
+    cam.render(bvhd_world);
 }
 
 void checkered_spheres() {
@@ -254,15 +255,21 @@ void cornell_box() {
     world.add(
         new quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0), white));
 
-    hittable *box1 = box(point3(0, 0, 0), point3(165, 330, 165), white);
-    box1 = new rotate_y(box1, 15);
-    box1 = new translate(box1, vec3(265, 0, 295));
-    world.add(box1);
+    auto box1 = world.with([white](auto &world) {
+        box(point3(0, 0, 0), point3(165, 330, 165), white, world);
+    });
+    for (auto &b : box1) {
+        b = new rotate_y(b, 15);
+        b = new translate(b, vec3(265, 0, 295));
+    }
 
-    hittable *box2 = box(point3(0, 0, 0), point3(165, 165, 165), white);
-    box2 = new rotate_y(box2, -18);
-    box2 = new translate(box2, vec3(130, 0, 65));
-    world.add(box2);
+    auto box2 = world.with([white](auto &world) {
+        box(point3(0, 0, 0), point3(165, 165, 165), white, world);
+    });
+    for (auto &b : box2) {
+        b = new rotate_y(b, -18);
+        b = new translate(b, vec3(130, 0, 65));
+    }
 
     camera cam;
 
@@ -302,16 +309,24 @@ void cornell_smoke() {
     world.add(
         new quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0), white));
 
-    hittable *box1 = box(point3(0, 0, 0), point3(165, 330, 165), white);
-    box1 = new rotate_y(box1, 15);
-    box1 = new translate(box1, vec3(265, 0, 295));
+    auto box1 = world.with([white](auto &world) {
+        box(point3(0, 0, 0), point3(165, 330, 165), white, world);
+    });
+    for (auto &b : box1) {
+        b = new rotate_y(b, 15);
+        b = new translate(b, vec3(265, 0, 295));
+        b = new constant_medium(b, 0.01, color(0, 0, 0));
+    }
 
-    hittable *box2 = box(point3(0, 0, 0), point3(165, 165, 165), white);
-    box2 = new rotate_y(box2, -18);
-    box2 = new translate(box2, vec3(130, 0, 65));
+    auto box2 = world.with([white](auto &world) {
+        box(point3(0, 0, 0), point3(165, 165, 165), white, world);
+    });
 
-    world.add(new constant_medium(box1, 0.01, color(0, 0, 0)));
-    world.add(new constant_medium(box2, 0.01, color(1, 1, 1)));
+    for (auto &b : box2) {
+        b = new rotate_y(b, -18);
+        b = new translate(b, vec3(130, 0, 65));
+        b = new constant_medium(b, 0.01, color(1, 1, 1));
+    }
 
     camera cam;
 
@@ -346,13 +361,13 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto y1 = random_double(1, 101);
             auto z1 = z0 + w;
 
-            boxes1.add(box(point3(x0, y0, z0), point3(x1, y1, z1), ground));
+            box(point3(x0, y0, z0), point3(x1, y1, z1), ground, boxes1);
         }
     }
 
     hittable_list world;
 
-    world.add(new bvh_tree(boxes1));
+    world.trees.emplace_back(boxes1.objects);
 
     auto light = new diffuse_light(color(7, 7, 7));
     world.add(new quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265),
@@ -385,8 +400,11 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         boxes2.add(new sphere(point3::random(0, 165), 10, white));
     }
 
-    world.add(new translate(new rotate_y(new bvh_tree(boxes2), 15),
-                            vec3(-100, 270, 395)));
+    for (auto &b : boxes2.objects) {
+        b = new translate(new rotate_y(b, 15), vec3(-100, 270, 395));
+    }
+
+    world.trees.emplace_back(boxes2.objects);
 
     camera cam;
 

@@ -50,4 +50,8 @@ inline int random_int(int min, int max) {
     return int(random_double(min, max + 1));
 }
 
+struct range {
+    uint32_t start, end;
+};
+
 #endif

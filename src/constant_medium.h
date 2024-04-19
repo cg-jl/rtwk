@@ -20,14 +20,14 @@
 class constant_medium : public hittable {
    public:
     constant_medium(hittable *boundary, double density, texture *tex)
-        : boundary(boundary),
-          neg_inv_density(-1 / density),
-          phase_function(new isotropic(tex)) {}
+        : hittable(new isotropic(tex)),
+          boundary(boundary),
+          neg_inv_density(-1 / density) {}
 
     constant_medium(hittable *boundary, double density, color const &albedo)
-        : boundary(boundary),
-          neg_inv_density(-1 / density),
-          phase_function(new isotropic(albedo)) {}
+        : hittable(new isotropic(albedo)),
+          boundary(boundary),
+          neg_inv_density(-1 / density) {}
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
         ZoneScopedN("constant_medium hit");
@@ -61,7 +61,6 @@ class constant_medium : public hittable {
 
         rec.normal = vec3(1, 0, 0);  // arbitrary
         rec.front_face = true;       // also arbitrary
-        rec.mat = phase_function;
 
         return true;
     }
@@ -71,7 +70,6 @@ class constant_medium : public hittable {
    private:
     hittable *boundary;
     double neg_inv_density;
-    material *phase_function;
 };
 
 #endif

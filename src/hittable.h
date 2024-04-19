@@ -24,7 +24,6 @@ class hit_record {
    public:
     point3 p;
     vec3 normal;
-    material *mat;
     double t;
     double u;
     double v;
@@ -39,23 +38,42 @@ class hit_record {
     }
 };
 
-class hittable {
-   public:
+struct spatially_bounded {
+    virtual aabb bounding_box() const = 0;
+};
+
+struct hittable;
+struct hittable_selector : public spatially_bounded {
+    virtual ~hittable_selector() = default;
+    virtual hittable const *hitSelect(ray const &r, interval ray_t,
+                                      hit_record &rec) const = 0;
+    virtual aabb bounding_box() const = 0;
+};
+
+struct hittable : public hittable_selector {
+    material *mat;
     virtual ~hittable() = default;
 
-    virtual bool hit(ray const &r, interval ray_t, hit_record &rec) const = 0;
+    constexpr explicit hittable(material *mat) : mat(mat) {}
 
-    virtual aabb bounding_box() const = 0;
+    virtual bool hit(ray const &r, interval ray_t, hit_record &rec) const = 0;
+    virtual hittable const *hitSelect(ray const &r, interval ray_t,
+                                      hit_record &rec) const final {
+        return this->hit(r, ray_t, rec) ? this : nullptr;
+    }
 };
 
 // NOTE: maybe some sort of infra to have a hittable hit() and also restore()
 // prepare(), end() as well to prepare a ray?
 // We should end in a geometry anyway.
 
+// TODO: this is not a hittable (no material) nor a selector. Transforms
+// should be in the hittable class itself, and hit() separated into
+// internalHit() (assumes transform) and hit()
 class translate : public hittable {
    public:
     constexpr translate(hittable *object, vec3 offset)
-        : object(object), offset(offset) {}
+        : hittable(object->mat), object(object), offset(offset) {}
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
         ZoneScopedN("translate hit");
@@ -79,9 +97,13 @@ class translate : public hittable {
     vec3 offset;
 };
 
+// TODO: this is not a hittable (no material) nor a selector. Transforms
+// should be in the hittable class itself, and hit() separated into
+// internalHit() (assumes transform) and hit()
 class rotate_y : public hittable {
    public:
-    rotate_y(hittable *object, double angle) : object(object) {
+    rotate_y(hittable *object, double angle)
+        : hittable(object->mat), object(object) {
         auto radians = degrees_to_radians(angle);
         sin_theta = sin(radians);
         cos_theta = cos(radians);
@@ -159,24 +181,24 @@ class rotate_y : public hittable {
     double cos_theta;
 };
 
-static bool hitSpan(std::span<hittable *const> objects, ray const &r,
-                    interval ray_t, hit_record &rec) {
+static hittable const *hitSpan(std::span<hittable *const> objects, ray const &r,
+                               interval ray_t, hit_record &rec) {
     ZoneScoped;
     ZoneValue(objects.size());
 
     hit_record temp_rec;
-    bool hit_anything = false;
+    hittable const *best = nullptr;
     auto closest_so_far = ray_t.max;
 
-    for (auto const &object : objects) {
+    for (auto const *object : objects) {
         if (object->hit(r, interval(ray_t.min, closest_so_far), temp_rec)) {
-            hit_anything = true;
+            best = object;
             closest_so_far = temp_rec.t;
             rec = temp_rec;
         }
     }
 
-    return hit_anything;
+    return best;
 }
 
 #endif

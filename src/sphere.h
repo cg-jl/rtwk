@@ -16,16 +16,20 @@
 
 #include "hittable.h"
 
+// TODO: To instantiate spheres, I should separate instantiatable things
+// and add a thread-private 'instantiate' buffer per worker thread where I can
+// push any transformations. When separating list-of-ptrs into tagged arrays,
+// these 'instantiate buffers' must also be separated.
 class sphere : public hittable {
    public:
     // Stationary Sphere
     sphere(point3 const &center, double radius, material *mat)
-        : center1(center), radius(fmax(0, radius)), mat(mat) {}
+        : hittable(mat), center1(center), radius(fmax(0, radius)) {}
 
     // Moving Sphere
     sphere(point3 const &center1, point3 const &center2, double radius,
            material *mat)
-        : center1(center1), radius(fmax(0, radius)), mat(mat) {
+        : hittable(mat), center1(center1), radius(fmax(0, radius)) {
         center_vec = center2 - center1;
     }
 
@@ -54,7 +58,6 @@ class sphere : public hittable {
         vec3 outward_normal = (rec.p - center) / radius;
         rec.set_face_normal(r, outward_normal);
         get_sphere_uv(outward_normal, rec.u, rec.v);
-        rec.mat = mat;
 
         return true;
     }
@@ -71,7 +74,6 @@ class sphere : public hittable {
     point3 center1;
     double radius;
     vec3 center_vec;
-    material *mat;
 
     point3 sphere_center(double time) const {
         // Linearly interpolate from center1 to center2 according to time, where

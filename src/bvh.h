@@ -18,13 +18,10 @@
 
 #include "aabb.h"
 #include "hittable.h"
-#include "hittable_list.h"
 #include "rtweekend.h"
 
-class bvh_node : public hittable {
+class bvh_node : public hittable_selector {
    public:
-    bvh_node(hittable_list &list) : bvh_node(list.objects) {}
-
     bvh_node(std::span<hittable *> objects) {
         // Build the bounding box of the span of source objects.
         bbox = empty_aabb;
@@ -54,34 +51,35 @@ class bvh_node : public hittable {
         }
     }
 
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
-        if (!bbox.hit(r, ray_t)) return false;
+    hittable const *hitSelect(ray const &r, interval ray_t,
+                              hit_record &rec) const final {
+        if (!bbox.hit(r, ray_t)) return nullptr;
 
-        bool hit_left = left->hit(r, ray_t, rec);
-        bool hit_right = right->hit(
+        auto hit_left = left->hitSelect(r, ray_t, rec);
+        auto hit_right = right->hitSelect(
             r, interval(ray_t.min, hit_left ? rec.t : ray_t.max), rec);
 
-        return hit_left || hit_right;
+        return hit_left ?: hit_right;
     }
 
     aabb bounding_box() const final { return bbox; }
 
    private:
     aabb bbox;
-    hittable *left;
-    hittable *right;
+    hittable_selector *left;
+    hittable_selector *right;
 };
 
-struct bvh_tree : public hittable {
+struct bvh_tree : public hittable_selector {
     bvh_node root;
 
-    bvh_tree(hittable_list &list) : root(list.objects) {}
     bvh_tree(std::span<hittable *> objects) : root(objects) {}
 
     aabb bounding_box() const final { return root.bounding_box(); }
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
+    hittable const *hitSelect(ray const &r, interval ray_t,
+                              hit_record &rec) const final {
         ZoneScopedN("bvh_tree hit");
-        return root.hit(r, ray_t, rec);
+        return root.hitSelect(r, ray_t, rec);
     }
 };
 
