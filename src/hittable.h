@@ -42,25 +42,13 @@ struct spatially_bounded {
     virtual aabb bounding_box() const = 0;
 };
 
-struct hittable;
-struct hittable_selector : public spatially_bounded {
-    virtual ~hittable_selector() = default;
-    virtual hittable const *hitSelect(ray const &r, interval ray_t,
-                                      hit_record &rec) const = 0;
-    virtual aabb bounding_box() const = 0;
-};
-
-struct hittable : public hittable_selector {
+struct hittable : public spatially_bounded {
     material *mat;
     virtual ~hittable() = default;
 
     constexpr explicit hittable(material *mat) : mat(mat) {}
 
     virtual bool hit(ray const &r, interval ray_t, hit_record &rec) const = 0;
-    virtual hittable const *hitSelect(ray const &r, interval ray_t,
-                                      hit_record &rec) const final {
-        return this->hit(r, ray_t, rec) ? this : nullptr;
-    }
 };
 
 // NOTE: maybe some sort of infra to have a hittable hit() and also restore()
