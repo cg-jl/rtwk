@@ -31,7 +31,7 @@ class hit_record {
         // Sets the hit record normal vector.
         // NOTE: the parameter `outward_normal` is assumed to have unit length.
 
-        front_face = dot(r.direction(), outward_normal) < 0;
+        front_face = dot(r.dir, outward_normal) < 0;
         geom.normal = front_face ? outward_normal : -outward_normal;
     }
 };
@@ -66,7 +66,7 @@ class translate : public hittable {
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("translate hit");
         // Move the ray backwards by the offset
-        ray offset_r(r.origin() - offset, r.direction(), r.time());
+        ray offset_r(r.orig - offset, r.dir, r.time);
 
         // Determine whether an intersection exists along the offset ray (and if
         // so, where)
@@ -107,18 +107,18 @@ class rotate_y : public hittable {
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("rotate_y hit");
         // Change the ray from world space to object space
-        auto origin = r.origin();
-        auto direction = r.direction();
+        auto origin = r.orig;
+        auto direction = r.dir;
 
-        origin[0] = cos_theta * r.origin()[0] - sin_theta * r.origin()[2];
-        origin[2] = sin_theta * r.origin()[0] + cos_theta * r.origin()[2];
+        origin[0] = cos_theta * r.orig[0] - sin_theta * r.orig[2];
+        origin[2] = sin_theta * r.orig[0] + cos_theta * r.orig[2];
 
         direction[0] =
-            cos_theta * r.direction()[0] - sin_theta * r.direction()[2];
+            cos_theta * r.dir[0] - sin_theta * r.dir[2];
         direction[2] =
-            sin_theta * r.direction()[0] + cos_theta * r.direction()[2];
+            sin_theta * r.dir[0] + cos_theta * r.dir[2];
 
-        ray rotated_r(origin, direction, r.time());
+        ray rotated_r(origin, direction, r.time);
 
         // Determine whether an intersection exists in object space (and if so,
         // where)

@@ -235,13 +235,13 @@ class camera {
             color attenuation;
             color color_from_emission = res->mat->emitted(rec.uv, rec.geom.p);
 
-            if (!res->mat->scatter(r.direction(), rec, attenuation, scattered))
+            if (!res->mat->scatter(r.dir, rec, attenuation, scattered))
                 return emit_acc + att_acc * color_from_emission;
 
             depth = depth - 1;
             emit_acc = emit_acc + color_from_emission;
             att_acc = att_acc * attenuation;
-            r = ray(rec.geom.p, scattered, r.time());
+            r = ray(rec.geom.p, scattered, r.time);
         }
     }
 };

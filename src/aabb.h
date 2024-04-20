@@ -49,8 +49,8 @@ class aabb {
     }
 
     bool hit(ray const &r, interval ray_t) const {
-        point3 const &ray_orig = r.origin();
-        vec3 const &ray_dir = r.direction();
+        point3 const &ray_orig = r.orig;
+        vec3 const &ray_dir = r.dir;
 
         for (int axis = 0; axis < 3; axis++) {
             interval const &ax = axis_interval(axis);

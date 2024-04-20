@@ -38,10 +38,10 @@ class sphere : public hittable {
         ZoneScopedN("sphere hit");
         ZoneText("moving ?: ", sizeof("moving ?: ") - 1);
         ZoneValue(center_vec.near_zero());
-        point3 center = sphere_center(r.time());
-        vec3 oc = center - r.origin();
-        auto a = r.direction().length_squared();
-        auto h = dot(r.direction(), oc);
+        point3 center = sphere_center(r.time);
+        vec3 oc = center - r.orig;
+        auto a = r.dir.length_squared();
+        auto h = dot(r.dir, oc);
         auto c = oc.length_squared() - radius * radius;
 
         auto discriminant = h * h - a * c;

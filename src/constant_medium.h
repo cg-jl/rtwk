@@ -53,7 +53,7 @@ class constant_medium : public hittable {
 
         if (rec1.t < 0) rec1.t = 0;
 
-        auto ray_length = r.direction().length();
+        auto ray_length = r.dir.length();
         auto distance_inside_boundary = (rec2.t - rec1.t) * ray_length;
         auto hit_distance = neg_inv_density * log(random_double());
 

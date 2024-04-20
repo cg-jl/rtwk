@@ -14,27 +14,16 @@
 
 #include "vec3.h"
 
-class ray {
-   public:
-    ray() {}
-
-    ray(point3 const &origin, vec3 const &direction)
-        : orig(origin), dir(direction), tm(0) {}
-
-    ray(point3 const &origin, vec3 const &direction, double time)
-        : orig(origin), dir(direction), tm(time) {}
-
-    point3 const &origin() const { return orig; }
-    vec3 const &direction() const { return dir; }
-
-    double time() const { return tm; }
+struct ray {
+    constexpr ray() = default;
+    constexpr ray(point3 orig, vec3 dir, double time)
+        : orig(orig), dir(dir), time(time) {}
 
     point3 at(double t) const { return orig + t * dir; }
 
-   private:
     point3 orig;
     vec3 dir;
-    double tm;
+    double time;
 };
 
 #endif

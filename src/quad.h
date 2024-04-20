@@ -34,14 +34,14 @@ class quad : public hittable {
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("quad hit");
-        auto denom = dot(normal, r.direction());
+        auto denom = dot(normal, r.dir);
 
         // No hit if the ray is parallel to the plane.
         if (fabs(denom) < 1e-8) return false;
 
         // Return false if the hit point parameter t is outside the ray
         // interval.
-        auto t = (D - dot(normal, r.origin())) / denom;
+        auto t = (D - dot(normal, r.orig)) / denom;
         if (!ray_t.contains(t)) return false;
 
         // Determine the hit point lies within the planar shape using its plane
