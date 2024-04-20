@@ -133,6 +133,7 @@ class camera {
         for (int i = 0; i < image_width; i++) {
             color pixel_color(0, 0, 0);
             for (int sample = 0; sample < samples_per_pixel; sample++) {
+                ZoneScopedN("pixel sample");
                 ray r = get_ray(i, j);
 
                 attenuations.clear();

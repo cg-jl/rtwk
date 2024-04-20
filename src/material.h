@@ -78,7 +78,7 @@ struct dielectric : public material {
 
     bool scatter(vec3 in_dir, hit_record const &rec,
                  vec3 &scattered) const final {
-        ZoneScopedN("metal scatter");
+        ZoneScopedN("dielectric scatter");
         double ri =
             rec.front_face ? (1.0 / refraction_index) : refraction_index;
 
@@ -122,7 +122,7 @@ struct isotropic : public material {
 
     bool scatter(vec3 in_dir, hit_record const &rec,
                  vec3 &scattered) const final {
-        ZoneScopedN("metal scatter");
+        ZoneScopedN("isotropic scatter");
         scattered = random_unit_vector();
         return true;
     }

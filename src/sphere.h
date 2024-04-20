@@ -36,23 +36,23 @@ class sphere : public hittable {
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("sphere hit");
-        ZoneText("moving ?: ", sizeof("moving ?: ") - 1);
-        ZoneValue(center_vec.near_zero());
         point3 center = sphere_center(r.time);
         vec3 oc = center - r.orig;
         auto a = r.dir.length_squared();
-        auto h = dot(r.dir, oc);
+        // Distance from ray origin to sphere center parallel to the ray
+        // direction
+        auto oc_alongside_ray = dot(r.dir, oc);
         auto c = oc.length_squared() - radius * radius;
 
-        auto discriminant = h * h - a * c;
+        auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
         if (discriminant < 0) return false;
 
         auto sqrtd = std::sqrt(discriminant);
 
         // Find the nearest root that lies in the acceptable range.
-        auto root = (h - sqrtd) / a;
+        auto root = (oc_alongside_ray - sqrtd) / a;
         if (!ray_t.surrounds(root)) {
-            root = (h + sqrtd) / a;
+            root = (oc_alongside_ray + sqrtd) / a;
             if (!ray_t.surrounds(root)) return false;
         }
 
