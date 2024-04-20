@@ -35,6 +35,8 @@ class sphere : public hittable {
 
     bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
         ZoneScopedN("sphere hit");
+        ZoneText("moving ?: ", sizeof("moving ?: ") - 1);
+        ZoneValue(center_vec.near_zero());
         point3 center = sphere_center(r.time());
         vec3 oc = center - r.origin();
         auto a = r.direction().length_squared();
