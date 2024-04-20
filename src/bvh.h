@@ -18,6 +18,7 @@
 #include <tracy/Tracy.hpp>
 
 #include "aabb.h"
+#include "geometry.h"
 #include "hittable.h"
 #include "rtweekend.h"
 
@@ -58,8 +59,8 @@ class bvh_node {
 };
 
 namespace bvh {
-static hittable const *hitNode(ray const &r, interval ray_t, hit_record &rec,
-                               bvh_node const *n,
+static hittable const *hitNode(ray const &r, interval ray_t,
+                               geometry_record &rec, bvh_node const *n,
                                std::span<hittable *> objects) {
     if (n == nullptr) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
@@ -88,7 +89,7 @@ struct bvh_tree {
 
     aabb bounding_box() const { return root.bbox; }
     hittable const *hitSelect(ray const &r, interval ray_t,
-                              hit_record &rec) const {
+                              geometry_record &rec) const {
         ZoneScopedN("bvh_tree hit");
         return bvh::hitNode(r, ray_t, rec, &root, objects);
     }

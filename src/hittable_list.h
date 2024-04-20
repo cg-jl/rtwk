@@ -16,6 +16,7 @@
 
 #include "aabb.h"
 #include "bvh.h"
+#include "geometry.h"
 #include "hittable.h"
 #include "rtweekend.h"
 
@@ -47,7 +48,7 @@ class hittable_list {
     }
 
     hittable const *hitSelect(ray const &r, interval ray_t,
-                              hit_record &rec) const {
+                              geometry_record &rec) const {
         ZoneScopedN("hittable_list hit");
 
         hittable const *best = nullptr;

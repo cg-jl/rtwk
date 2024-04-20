@@ -23,9 +23,7 @@ class material;
 
 class hit_record {
    public:
-    point3 p;
-    vec3 normal;
-    double t;
+    geometry_record geom;
     uvs uv;
     bool front_face;
 
@@ -34,7 +32,7 @@ class hit_record {
         // NOTE: the parameter `outward_normal` is assumed to have unit length.
 
         front_face = dot(r.direction(), outward_normal) < 0;
-        normal = front_face ? outward_normal : -outward_normal;
+        geom.normal = front_face ? outward_normal : -outward_normal;
     }
 };
 
@@ -48,7 +46,8 @@ struct hittable : public spatially_bounded {
 
     constexpr explicit hittable(material *mat) : mat(mat) {}
 
-    virtual bool hit(ray const &r, interval ray_t, hit_record &rec) const = 0;
+    virtual bool hit(ray const &r, interval ray_t,
+                     geometry_record &rec) const = 0;
     virtual void getUVs(uvs &uv, point3 intersection, vec3 normal) const = 0;
 };
 
@@ -64,7 +63,7 @@ class translate : public hittable {
     constexpr translate(hittable *object, vec3 offset)
         : hittable(object->mat), object(object), offset(offset) {}
 
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
+    bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("translate hit");
         // Move the ray backwards by the offset
         ray offset_r(r.origin() - offset, r.direction(), r.time());
@@ -105,7 +104,7 @@ class rotate_y : public hittable {
         cos_theta = cos(radians);
     }
 
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
+    bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("rotate_y hit");
         // Change the ray from world space to object space
         auto origin = r.origin();
@@ -184,18 +183,17 @@ class rotate_y : public hittable {
 };
 
 static hittable const *hitSpan(std::span<hittable *const> objects, ray const &r,
-                               interval ray_t, hit_record &rec) {
+                               interval ray_t, geometry_record &rec) {
     ZoneScoped;
     ZoneValue(objects.size());
 
-    hit_record temp_rec;
+    geometry_record temp_rec;
     hittable const *best = nullptr;
     auto closest_so_far = ray_t.max;
 
     for (auto const *object : objects) {
-        if (object->hit(r, interval(ray_t.min, closest_so_far), temp_rec)) {
+        if (object->hit(r, interval(ray_t.min, closest_so_far), rec)) {
             best = object;
-            closest_so_far = temp_rec.t;
             rec = temp_rec;
         }
     }

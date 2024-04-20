@@ -225,15 +225,15 @@ class camera {
             hit_record rec;
 
             // If the ray hits nothing, return the background color.
-            auto res = world.hitSelect(r, interval(0.001, infinity), rec);
+            auto res = world.hitSelect(r, interval(0.001, infinity), rec.geom);
             if (!res) return emit_acc + att_acc * background;
 
-            rec.set_face_normal(r, rec.normal);
-            res->getUVs(rec.uv, rec.p, rec.normal);
+            rec.set_face_normal(r, rec.geom.normal);
+            res->getUVs(rec.uv, rec.geom.p, rec.geom.normal);
 
             ray scattered;
             color attenuation;
-            color color_from_emission = res->mat->emitted(rec.uv, rec.p);
+            color color_from_emission = res->mat->emitted(rec.uv, rec.geom.p);
 
             if (!res->mat->scatter(r, rec, attenuation, scattered))
                 return emit_acc + att_acc * color_from_emission;

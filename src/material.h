@@ -40,13 +40,13 @@ class lambertian : public material {
     bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
                  ray &scattered) const final {
         ZoneScopedN("lambertian scatter");
-        auto scatter_direction = rec.normal + random_unit_vector();
+        auto scatter_direction = rec.geom.normal + random_unit_vector();
 
         // Catch degenerate scatter direction
-        if (scatter_direction.near_zero()) scatter_direction = rec.normal;
+        if (scatter_direction.near_zero()) scatter_direction = rec.geom.normal;
 
-        scattered = ray(rec.p, scatter_direction, r_in.time());
-        attenuation = tex->value(rec.uv, rec.p);
+        scattered = ray(rec.geom.p, scatter_direction, r_in.time());
+        attenuation = tex->value(rec.uv, rec.geom.p);
         return true;
     }
 
@@ -61,11 +61,11 @@ class metal : public material {
 
     bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
                  ray &scattered) const final {
-        vec3 reflected = reflect(r_in.direction(), rec.normal);
+        vec3 reflected = reflect(r_in.direction(), rec.geom.normal);
         reflected = unit_vector(reflected) + (fuzz * random_unit_vector());
-        scattered = ray(rec.p, reflected, r_in.time());
+        scattered = ray(rec.geom.p, reflected, r_in.time());
         attenuation = albedo;
-        return (dot(scattered.direction(), rec.normal) > 0);
+        return (dot(scattered.direction(), rec.geom.normal) > 0);
     }
 
    private:
@@ -84,18 +84,18 @@ class dielectric : public material {
             rec.front_face ? (1.0 / refraction_index) : refraction_index;
 
         vec3 unit_direction = unit_vector(r_in.direction());
-        double cos_theta = fmin(dot(-unit_direction, rec.normal), 1.0);
+        double cos_theta = fmin(dot(-unit_direction, rec.geom.normal), 1.0);
         double sin_theta = sqrt(1.0 - cos_theta * cos_theta);
 
         bool cannot_refract = ri * sin_theta > 1.0;
         vec3 direction;
 
         if (cannot_refract || reflectance(cos_theta, ri) > random_double())
-            direction = reflect(unit_direction, rec.normal);
+            direction = reflect(unit_direction, rec.geom.normal);
         else
-            direction = refract(unit_direction, rec.normal, ri);
+            direction = refract(unit_direction, rec.geom.normal, ri);
 
-        scattered = ray(rec.p, direction, r_in.time());
+        scattered = ray(rec.geom.p, direction, r_in.time());
         return true;
     }
 
@@ -132,8 +132,8 @@ class isotropic : public material {
 
     bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
                  ray &scattered) const final {
-        scattered = ray(rec.p, random_unit_vector(), r_in.time());
-        attenuation = tex->value(rec.uv, rec.p);
+        scattered = ray(rec.geom.p, random_unit_vector(), r_in.time());
+        attenuation = tex->value(rec.uv, rec.geom.p);
         return true;
     }
 

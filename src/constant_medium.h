@@ -12,6 +12,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include "geometry.h"
 #include "hittable.h"
 #include "material.h"
 #include "rtweekend.h"
@@ -31,14 +32,14 @@ class constant_medium : public hittable {
           boundary(boundary),
           neg_inv_density(-1 / density) {}
 
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
+    bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("constant_medium hit");
         // Print occasional samples when debugging. To enable, set enableDebug
         // true.
         bool const enableDebug = false;
         bool const debugging = enableDebug && random_double() < 0.00001;
 
-        hit_record rec1, rec2;
+        geometry_record rec1, rec2;
 
         if (!boundary->hit(r, universe_interval, rec1)) return false;
 
@@ -62,7 +63,6 @@ class constant_medium : public hittable {
         rec.p = r.at(rec.t);
 
         rec.normal = vec3(1, 0, 0);  // arbitrary
-        rec.front_face = true;       // also arbitrary
 
         return true;
     }

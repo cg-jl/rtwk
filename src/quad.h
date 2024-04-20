@@ -32,7 +32,7 @@ class quad : public hittable {
         return aabb(bbox_diagonal1, bbox_diagonal2);
     }
 
-    bool hit(ray const &r, interval ray_t, hit_record &rec) const final {
+    bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("quad hit");
         auto denom = dot(normal, r.direction());
 
