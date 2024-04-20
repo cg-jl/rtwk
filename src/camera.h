@@ -24,6 +24,7 @@
 #include "hittable_list.h"
 #include "material.h"
 #include "rtweekend.h"
+#include "texture.h"
 
 class camera {
    public:
@@ -81,6 +82,8 @@ class camera {
         // worker loop
 #pragma omp parallel
         {
+            std::vector<sample_request> attenuations;
+            auto samples = std::make_unique<color[]>(size_t(samples_per_pixel));
             for (;;) {
                 auto j = remain_scanlines.load(std::memory_order_acquire);
 
@@ -91,7 +94,7 @@ class camera {
                     j, j - 1, std::memory_order_acq_rel));
                 --j;
 
-                scanLine(world, j, pixels.get());
+                scanLine(world, j, pixels.get(), attenuations, samples.get());
 
                 cv.notify_one();
             }
@@ -111,15 +114,37 @@ class camera {
 
         std::clog << "Done.\n";
     }
+    struct sample_request {
+        texture const *tex;
+        uvs uv;
+        point3 p;
+
+        constexpr sample_request() = default;
+        constexpr sample_request(texture const *tex, uvs uv, point3 p)
+            : tex(tex), uv(uv), p(p) {}
+
+        color sample() const { return tex->value(uv, p); }
+    };
 
     void scanLine(hittable_list const &world, int j,
-                  color *__restrict_arr pixels) {
+                  color *__restrict_arr pixels,
+                  std::vector<sample_request> &attenuations,
+                  color *__restrict_arr samples) {
         for (int i = 0; i < image_width; i++) {
             color pixel_color(0, 0, 0);
             for (int sample = 0; sample < samples_per_pixel; sample++) {
                 ray r = get_ray(i, j);
-                pixel_color += ray_color(r, max_depth, world);
+
+                attenuations.clear();
+
+                auto bg = geometrySim(r, max_depth, world, attenuations);
+                samples[sample] = multiplySamples(attenuations, bg);
             }
+
+            for (int sample = 0; sample < samples_per_pixel; ++sample) {
+                pixel_color += samples[sample];
+            }
+
             pixels[j * image_width + i] = pixel_samples_scale * pixel_color;
         }
     }
@@ -215,32 +240,45 @@ class camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
-    color ray_color(ray r, int depth, hittable_list const &world) const {
-        color emit_acc = color(0, 0, 0);
-        color att_acc = color(1, 1, 1);
+    static color multiplySamples(std::span<sample_request const> samples,
+                                 color initial) {
+        color acc = initial;
+        for (auto const &s : samples) acc = acc * s.sample();
+        return acc;
+    }
+
+    // Fills the `attenuations` vector and returns the background color
+    color geometrySim(ray r, int depth, hittable_list const &world,
+                      std::vector<sample_request> &attenuations) const {
         for (;;) {
-            if (depth <= 0) return emit_acc + att_acc;
+            if (depth <= 0) return color(1, 1, 1);
             ZoneScopedN("ray frame");
 
             hit_record rec;
 
             // If the ray hits nothing, return the background color.
             auto res = world.hitSelect(r, interval(0.001, infinity), rec.geom);
-            if (!res) return emit_acc + att_acc * background;
+            if (!res) return background;
 
             rec.set_face_normal(r, rec.geom.normal);
             res->getUVs(rec.uv, rec.geom.p, rec.geom.normal);
 
             vec3 scattered;
             color attenuation;
-            color color_from_emission = res->mat->emitted(rec.uv, rec.geom.p);
 
-            if (!res->mat->scatter(r.dir, rec, attenuation, scattered))
-                return emit_acc + att_acc * color_from_emission;
+            // here we'll have to use the emit value as the 'attenuation' value.
+            if (res->mat->emits) {
+                attenuations.emplace_back(res->mat->tex, rec.uv, rec.geom.p);
+                return color(1, 1, 1);
+            }
+
+            if (!res->mat->scatter(r.dir, rec, scattered)) {
+                attenuations.clear();
+                return color(0, 0, 0);
+            }
 
             depth = depth - 1;
-            emit_acc = emit_acc + color_from_emission;
-            att_acc = att_acc * attenuation;
+            attenuations.emplace_back(res->mat->tex, rec.uv, rec.geom.p);
             r = ray(rec.geom.p, scattered, r.time);
         }
     }

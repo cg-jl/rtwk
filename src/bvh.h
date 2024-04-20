@@ -63,6 +63,9 @@ static hittable const *hitNode(ray const &r, interval ray_t,
                                geometry_record &rec, bvh_node const *n,
                                std::span<hittable *> objects) {
     if (n == nullptr) {
+        // TODO: don't construct nodes on empty object lists? Why does it do
+        // that????
+        if (objects.size() == 0) return nullptr;
         // TODO: With something like SAH (Surface Area Heuristic), we should see
         // improving times by hitting multiple in one go. Since I'm tracing each
         // kind of intersection, it will be interesting to bake statistics of

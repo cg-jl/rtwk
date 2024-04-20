@@ -27,11 +27,10 @@ class texture {
     virtual color value(uvs uv, point3 const &p) const = 0;
 };
 
-class solid_color : public texture {
-   public:
-    solid_color(color const &albedo) : albedo(albedo) {}
+struct solid_color : public texture {
+    constexpr solid_color(color const &albedo) : albedo(albedo) {}
 
-    solid_color(double red, double green, double blue)
+    constexpr solid_color(double red, double green, double blue)
         : solid_color(color(red, green, blue)) {}
 
     color value(uvs uv, point3 const &p) const final {
@@ -39,7 +38,6 @@ class solid_color : public texture {
         return albedo;
     }
 
-   private:
     color albedo;
 };
 

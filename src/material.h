@@ -18,28 +18,32 @@
 #include "rtweekend.h"
 #include "texture.h"
 
-class hit_record;
+namespace detail {
+static solid_color black(color(0, 0, 0));
+static solid_color white(color(1, 1, 1));
+}  // namespace detail
 
-class material {
-   public:
+struct hit_record;
+
+struct material {
+    texture *tex;
+    bool emits;
+
+    constexpr material(texture *tex, bool emits) : tex(tex), emits(emits) {}
+
     virtual ~material() = default;
 
-    virtual color emitted(uvs uv, point3 const &p) const {
-        return color(0, 0, 0);
-    }
-
-    virtual bool scatter(vec3 in_dir, hit_record const &rec, color &attenuation,
+    virtual bool scatter(vec3 in_dir, hit_record const &rec,
                          vec3 &scattered) const {
         return false;
     }
 };
 
-class lambertian : public material {
-   public:
-    lambertian(color const &albedo) : tex(new solid_color(albedo)) {}
-    lambertian(texture *tex) : tex(tex) {}
+struct lambertian : public material {
+    lambertian(color const &albedo) : lambertian(new solid_color(albedo)) {}
+    constexpr lambertian(texture *tex) : material(tex, false) {}
 
-    bool scatter(vec3 in_dir, hit_record const &rec, color &attenuation,
+    bool scatter(vec3 in_dir, hit_record const &rec,
                  vec3 &scattered) const final {
         ZoneScopedN("lambertian scatter");
         auto scatter_direction = rec.geom.normal + random_unit_vector();
@@ -48,42 +52,33 @@ class lambertian : public material {
         if (scatter_direction.near_zero()) scatter_direction = rec.geom.normal;
 
         scattered = scatter_direction;
-        attenuation = tex->value(rec.uv, rec.geom.p);
         return true;
     }
-
-   private:
-    texture *tex;
 };
 
-class metal : public material {
-   public:
+struct metal : public material {
     metal(color const &albedo, double fuzz)
-        : albedo(albedo), fuzz(fuzz < 1 ? fuzz : 1) {}
+        : material(new solid_color(albedo), false), fuzz(fuzz < 1 ? fuzz : 1) {}
 
-    bool scatter(vec3 in_dir, hit_record const &rec, color &attenuation,
+    bool scatter(vec3 in_dir, hit_record const &rec,
                  vec3 &scattered) const final {
         ZoneScopedN("metal scatter");
         vec3 reflected = reflect(in_dir, rec.geom.normal);
         reflected = unit_vector(reflected) + (fuzz * random_unit_vector());
         scattered = reflected;
-        attenuation = albedo;
         return (dot(scattered, rec.geom.normal) > 0);
     }
 
-   private:
-    color albedo;
     double fuzz;
 };
 
-class dielectric : public material {
-   public:
-    dielectric(double refraction_index) : refraction_index(refraction_index) {}
+struct dielectric : public material {
+    dielectric(double refraction_index)
+        : material(&detail::white, false), refraction_index(refraction_index) {}
 
-    bool scatter(vec3 in_dir, hit_record const &rec, color &attenuation,
+    bool scatter(vec3 in_dir, hit_record const &rec,
                  vec3 &scattered) const final {
         ZoneScopedN("metal scatter");
-        attenuation = color(1.0, 1.0, 1.0);
         double ri =
             rec.front_face ? (1.0 / refraction_index) : refraction_index;
 
@@ -103,7 +98,6 @@ class dielectric : public material {
         return true;
     }
 
-   private:
     // Refractive index in vacuum or air, or the ratio of the material's
     // refractive index over the refractive index of the enclosing media
     double refraction_index;
@@ -116,34 +110,22 @@ class dielectric : public material {
     }
 };
 
-class diffuse_light : public material {
-   public:
-    diffuse_light(texture *tex) : tex(tex) {}
-    diffuse_light(color const &emit) : tex(new solid_color(emit)) {}
-
-    color emitted(uvs uv, point3 const &p) const final {
-        return tex->value(uv, p);
-    }
-
-   private:
-    texture *tex;
+struct diffuse_light : public material {
+    constexpr diffuse_light(texture *tex) : material(tex, true) {}
+    constexpr diffuse_light(color const &emit)
+        : diffuse_light(new solid_color(emit)) {}
 };
 
-class isotropic : public material {
-   public:
-    isotropic(color const &albedo) : tex(new solid_color(albedo)) {}
-    isotropic(texture *tex) : tex(tex) {}
+struct isotropic : public material {
+    isotropic(color const &albedo) : isotropic(new solid_color(albedo)) {}
+    constexpr isotropic(texture *tex) : material(tex, false) {}
 
-    bool scatter(vec3 in_dir, hit_record const &rec, color &attenuation,
+    bool scatter(vec3 in_dir, hit_record const &rec,
                  vec3 &scattered) const final {
         ZoneScopedN("metal scatter");
         scattered = random_unit_vector();
-        attenuation = tex->value(rec.uv, rec.geom.p);
         return true;
     }
-
-   private:
-    texture *tex;
 };
 
 #endif
