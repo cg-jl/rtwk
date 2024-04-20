@@ -28,8 +28,8 @@ class material {
         return color(0, 0, 0);
     }
 
-    virtual bool scatter(ray const &r_in, hit_record const &rec,
-                         color &attenuation, ray &scattered) const {
+    virtual bool scatter(vec3 in_dir, hit_record const &rec, color &attenuation,
+                         vec3 &scattered) const {
         return false;
     }
 };
@@ -39,15 +39,15 @@ class lambertian : public material {
     lambertian(color const &albedo) : tex(new solid_color(albedo)) {}
     lambertian(texture *tex) : tex(tex) {}
 
-    bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
-                 ray &scattered) const final {
+    bool scatter(vec3 in_dir, hit_record const &rec, color &attenuation,
+                 vec3 &scattered) const final {
         ZoneScopedN("lambertian scatter");
         auto scatter_direction = rec.geom.normal + random_unit_vector();
 
         // Catch degenerate scatter direction
         if (scatter_direction.near_zero()) scatter_direction = rec.geom.normal;
 
-        scattered = ray(rec.geom.p, scatter_direction, r_in.time());
+        scattered = scatter_direction;
         attenuation = tex->value(rec.uv, rec.geom.p);
         return true;
     }
@@ -61,14 +61,14 @@ class metal : public material {
     metal(color const &albedo, double fuzz)
         : albedo(albedo), fuzz(fuzz < 1 ? fuzz : 1) {}
 
-    bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
-                 ray &scattered) const final {
+    bool scatter(vec3 in_dir, hit_record const &rec, color &attenuation,
+                 vec3 &scattered) const final {
         ZoneScopedN("metal scatter");
-        vec3 reflected = reflect(r_in.direction(), rec.geom.normal);
+        vec3 reflected = reflect(in_dir, rec.geom.normal);
         reflected = unit_vector(reflected) + (fuzz * random_unit_vector());
-        scattered = ray(rec.geom.p, reflected, r_in.time());
+        scattered = reflected;
         attenuation = albedo;
-        return (dot(scattered.direction(), rec.geom.normal) > 0);
+        return (dot(scattered, rec.geom.normal) > 0);
     }
 
    private:
@@ -80,14 +80,14 @@ class dielectric : public material {
    public:
     dielectric(double refraction_index) : refraction_index(refraction_index) {}
 
-    bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
-                 ray &scattered) const final {
+    bool scatter(vec3 in_dir, hit_record const &rec, color &attenuation,
+                 vec3 &scattered) const final {
         ZoneScopedN("metal scatter");
         attenuation = color(1.0, 1.0, 1.0);
         double ri =
             rec.front_face ? (1.0 / refraction_index) : refraction_index;
 
-        vec3 unit_direction = unit_vector(r_in.direction());
+        vec3 unit_direction = unit_vector(in_dir);
         double cos_theta = fmin(dot(-unit_direction, rec.geom.normal), 1.0);
         double sin_theta = sqrt(1.0 - cos_theta * cos_theta);
 
@@ -99,7 +99,7 @@ class dielectric : public material {
         else
             direction = refract(unit_direction, rec.geom.normal, ri);
 
-        scattered = ray(rec.geom.p, direction, r_in.time());
+        scattered = direction;
         return true;
     }
 
@@ -134,10 +134,10 @@ class isotropic : public material {
     isotropic(color const &albedo) : tex(new solid_color(albedo)) {}
     isotropic(texture *tex) : tex(tex) {}
 
-    bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
-                 ray &scattered) const final {
+    bool scatter(vec3 in_dir, hit_record const &rec, color &attenuation,
+                 vec3 &scattered) const final {
         ZoneScopedN("metal scatter");
-        scattered = ray(rec.geom.p, random_unit_vector(), r_in.time());
+        scattered = random_unit_vector();
         attenuation = tex->value(rec.uv, rec.geom.p);
         return true;
     }

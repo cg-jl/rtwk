@@ -231,17 +231,17 @@ class camera {
             rec.set_face_normal(r, rec.geom.normal);
             res->getUVs(rec.uv, rec.geom.p, rec.geom.normal);
 
-            ray scattered;
+            vec3 scattered;
             color attenuation;
             color color_from_emission = res->mat->emitted(rec.uv, rec.geom.p);
 
-            if (!res->mat->scatter(r, rec, attenuation, scattered))
+            if (!res->mat->scatter(r.direction(), rec, attenuation, scattered))
                 return emit_acc + att_acc * color_from_emission;
 
             depth = depth - 1;
             emit_acc = emit_acc + color_from_emission;
             att_acc = att_acc * attenuation;
-            r = scattered;
+            r = ray(rec.geom.p, scattered, r.time());
         }
     }
 };
