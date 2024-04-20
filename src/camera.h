@@ -219,8 +219,8 @@ class camera {
         color emit_acc = color(0, 0, 0);
         color att_acc = color(1, 1, 1);
         for (;;) {
+            if (depth <= 0) return emit_acc + att_acc;
             ZoneScopedN("ray frame");
-            if (depth <= 0) return emit_acc + att_acc * color(0, 0, 0);
 
             hit_record rec;
 
@@ -228,9 +228,12 @@ class camera {
             auto res = world.hitSelect(r, interval(0.001, infinity), rec);
             if (!res) return emit_acc + att_acc * background;
 
+            rec.set_face_normal(r, rec.normal);
+            res->getUVs(rec.uv, rec.p, rec.normal);
+
             ray scattered;
             color attenuation;
-            color color_from_emission = res->mat->emitted(rec.u, rec.v, rec.p);
+            color color_from_emission = res->mat->emitted(rec.uv, rec.p);
 
             if (!res->mat->scatter(r, rec, attenuation, scattered))
                 return emit_acc + att_acc * color_from_emission;

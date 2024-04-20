@@ -22,7 +22,7 @@ class material {
    public:
     virtual ~material() = default;
 
-    virtual color emitted(double u, double v, point3 const &p) const {
+    virtual color emitted(uvs uv, point3 const &p) const {
         return color(0, 0, 0);
     }
 
@@ -46,7 +46,7 @@ class lambertian : public material {
         if (scatter_direction.near_zero()) scatter_direction = rec.normal;
 
         scattered = ray(rec.p, scatter_direction, r_in.time());
-        attenuation = tex->value(rec.u, rec.v, rec.p);
+        attenuation = tex->value(rec.uv, rec.p);
         return true;
     }
 
@@ -117,8 +117,8 @@ class diffuse_light : public material {
     diffuse_light(texture *tex) : tex(tex) {}
     diffuse_light(color const &emit) : tex(new solid_color(emit)) {}
 
-    color emitted(double u, double v, point3 const &p) const final {
-        return tex->value(u, v, p);
+    color emitted(uvs uv, point3 const &p) const final {
+        return tex->value(uv, p);
     }
 
    private:
@@ -133,7 +133,7 @@ class isotropic : public material {
     bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
                  ray &scattered) const final {
         scattered = ray(rec.p, random_unit_vector(), r_in.time());
-        attenuation = tex->value(rec.u, rec.v, rec.p);
+        attenuation = tex->value(rec.uv, rec.p);
         return true;
     }
 

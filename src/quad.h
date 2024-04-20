@@ -10,6 +10,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include "geometry.h"
 #include "hittable.h"
 #include "hittable_list.h"
 #include "rtweekend.h"
@@ -50,29 +51,30 @@ class quad : public hittable {
         auto alpha = dot(w, cross(planar_hitpt_vector, v));
         auto beta = dot(w, cross(u, planar_hitpt_vector));
 
-        if (!is_interior(alpha, beta, rec)) return false;
+        if (!is_interior(alpha, beta)) return false;
 
         // Ray hits the 2D shape; set the rest of the hit record and return
         // true.
         rec.t = t;
         rec.p = intersection;
-        rec.set_face_normal(r, normal);
+        rec.normal = normal;
 
         return true;
     }
 
-    bool is_interior(double a, double b, hit_record &rec) const {
-        interval unit_interval = interval(0, 1);
+    void getUVs(uvs &uv, point3 intersection, vec3 normal) const final {
+        vec3 planar_hitpt_vector = intersection - Q;
+        uv.u = dot(w, cross(planar_hitpt_vector, v));
+        uv.v = dot(w, cross(u, planar_hitpt_vector));
+    }
+
+    bool is_interior(double a, double b) const {
+        static constexpr interval unit_interval = interval(0, 1);
         // Given the hit point in plane coordinates, return false if it is
         // outside the primitive, otherwise set the hit record UV coordinates
         // and return true.
 
-        if (!unit_interval.contains(a) || !unit_interval.contains(b))
-            return false;
-
-        rec.u = a;
-        rec.v = b;
-        return true;
+        return unit_interval.contains(a) && unit_interval.contains(b);
     }
 
    private:

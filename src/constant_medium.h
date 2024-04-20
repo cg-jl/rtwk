@@ -17,6 +17,8 @@
 #include "rtweekend.h"
 #include "texture.h"
 
+// TODO: This is another candidate to make a separate array of, since
+// its behavior with materials is pretty specific.
 class constant_medium : public hittable {
    public:
     constant_medium(hittable *boundary, double density, texture *tex)
@@ -64,6 +66,10 @@ class constant_medium : public hittable {
 
         return true;
     }
+
+    // The normal is assigned arbitrarily, and the material is isotropic.
+    // We don't care about its value.
+    void getUVs(uvs &_uv, point3 _p, vec3 _normal) const final {}
 
     aabb bounding_box() const final { return boundary->bounding_box(); }
 

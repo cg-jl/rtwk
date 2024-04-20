@@ -16,6 +16,7 @@
 #include <tracy/Tracy.hpp>
 
 #include "aabb.h"
+#include "geometry.h"
 #include "rtweekend.h"
 
 class material;
@@ -25,8 +26,7 @@ class hit_record {
     point3 p;
     vec3 normal;
     double t;
-    double u;
-    double v;
+    uvs uv;
     bool front_face;
 
     void set_face_normal(ray const &r, vec3 const &outward_normal) {
@@ -49,6 +49,7 @@ struct hittable : public spatially_bounded {
     constexpr explicit hittable(material *mat) : mat(mat) {}
 
     virtual bool hit(ray const &r, interval ray_t, hit_record &rec) const = 0;
+    virtual void getUVs(uvs &uv, point3 intersection, vec3 normal) const = 0;
 };
 
 // NOTE: maybe some sort of infra to have a hittable hit() and also restore()
@@ -76,6 +77,13 @@ class translate : public hittable {
         rec.p += offset;
 
         return true;
+    }
+
+    // NOTE: Since the point and the normals have been already been changed
+    // (otherwise the material would have a wrong normal to process), transforms
+    // pass the baton to their wrapped object.
+    void getUVs(uvs &uv, point3 p, vec3 normal) const final {
+        return object->getUVs(uv, p, normal);
     }
 
     aabb bounding_box() const final { return object->bounding_box() + offset; }
@@ -131,6 +139,12 @@ class rotate_y : public hittable {
         rec.normal = normal;
 
         return true;
+    }
+    // NOTE: Since the point and the normals have been already been changed
+    // (otherwise the material would have a wrong normal to process), transforms
+    // pass the baton to their wrapped object.
+    void getUVs(uvs &uv, point3 p, vec3 normal) const final {
+        return object->getUVs(uv, p, normal);
     }
 
     aabb bounding_box() const final {

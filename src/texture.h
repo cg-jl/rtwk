@@ -13,6 +13,7 @@
 //==============================================================================================
 
 #include "color.h"
+#include "geometry.h"
 #include "perlin.h"
 #include "rtw_stb_image.h"
 #include "rtweekend.h"
@@ -21,7 +22,7 @@ class texture {
    public:
     virtual ~texture() = default;
 
-    virtual color value(double u, double v, point3 const &p) const = 0;
+    virtual color value(uvs uv, point3 const &p) const = 0;
 };
 
 class solid_color : public texture {
@@ -31,9 +32,7 @@ class solid_color : public texture {
     solid_color(double red, double green, double blue)
         : solid_color(color(red, green, blue)) {}
 
-    color value(double u, double v, point3 const &p) const final {
-        return albedo;
-    }
+    color value(uvs uv, point3 const &p) const final { return albedo; }
 
    private:
     color albedo;
@@ -49,14 +48,14 @@ class checker_texture : public texture {
           even(new solid_color(c1)),
           odd(new solid_color(c2)) {}
 
-    color value(double u, double v, point3 const &p) const final {
+    color value(uvs uv, point3 const &p) const final {
         auto xInteger = int(std::floor(inv_scale * p.x()));
         auto yInteger = int(std::floor(inv_scale * p.y()));
         auto zInteger = int(std::floor(inv_scale * p.z()));
 
         bool isEven = (xInteger + yInteger + zInteger) % 2 == 0;
 
-        return isEven ? even->value(u, v, p) : odd->value(u, v, p);
+        return isEven ? even->value(uv, p) : odd->value(uv, p);
     }
 
    private:
@@ -69,17 +68,17 @@ class image_texture : public texture {
    public:
     image_texture(char const *filename) : image(filename) {}
 
-    color value(double u, double v, point3 const &p) const final {
+    color value(uvs uv, point3 const &p) const final {
         // If we have no texture data, then return solid cyan as a debugging
         // aid.
         if (image.height() <= 0) return color(0, 1, 1);
 
         // Clamp input texture coordinates to [0,1] x [1,0]
-        u = interval(0, 1).clamp(u);
-        v = 1.0 - interval(0, 1).clamp(v);  // Flip V to image coordinates
+        uv.u = interval(0, 1).clamp(uv.u);
+        uv.v = 1.0 - interval(0, 1).clamp(uv.v);  // Flip V to image coordinates
 
-        auto i = int(u * image.width());
-        auto j = int(v * image.height());
+        auto i = int(uv.u * image.width());
+        auto j = int(uv.v * image.height());
         auto pixel = image.pixel_data(i, j);
 
         auto color_scale = 1.0 / 255.0;
@@ -97,7 +96,7 @@ class noise_texture : public texture {
 
     noise_texture(double scale) : scale(scale) {}
 
-    color value(double u, double v, point3 const &p) const final {
+    color value(uvs _uv, point3 const &p) const final {
         return color(.5, .5, .5) *
                (1 + sin(scale * p.z() + 10 * noise.turb(p, 7)));
     }

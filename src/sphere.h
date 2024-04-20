@@ -14,6 +14,7 @@
 
 #include <tracy/Tracy.hpp>
 
+#include "geometry.h"
 #include "hittable.h"
 
 // TODO: To instantiate spheres, I should separate instantiatable things
@@ -58,10 +59,12 @@ class sphere : public hittable {
         rec.t = root;
         rec.p = r.at(rec.t);
         vec3 outward_normal = (rec.p - center) / radius;
-        rec.set_face_normal(r, outward_normal);
-        get_sphere_uv(outward_normal, rec.u, rec.v);
+        rec.normal = outward_normal;
 
         return true;
+    }
+    void getUVs(uvs &uv, point3 _p, vec3 normal) const final {
+        get_sphere_uv(normal, uv.u, uv.v);
     }
 
     aabb bounding_box() const final {
