@@ -12,6 +12,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <tracy/Tracy.hpp>
+
 #include "color.h"
 #include "geometry.h"
 #include "perlin.h"
@@ -32,7 +34,10 @@ class solid_color : public texture {
     solid_color(double red, double green, double blue)
         : solid_color(color(red, green, blue)) {}
 
-    color value(uvs uv, point3 const &p) const final { return albedo; }
+    color value(uvs uv, point3 const &p) const final {
+        ZoneScopedN("solid_color sample");
+        return albedo;
+    }
 
    private:
     color albedo;
@@ -49,6 +54,8 @@ class checker_texture : public texture {
           odd(new solid_color(c2)) {}
 
     color value(uvs uv, point3 const &p) const final {
+        ZoneScopedN("checker_texture sample");
+
         auto xInteger = int(std::floor(inv_scale * p.x()));
         auto yInteger = int(std::floor(inv_scale * p.y()));
         auto zInteger = int(std::floor(inv_scale * p.z()));
@@ -69,6 +76,8 @@ class image_texture : public texture {
     image_texture(char const *filename) : image(filename) {}
 
     color value(uvs uv, point3 const &p) const final {
+        ZoneScopedN("image_texture sample");
+
         // If we have no texture data, then return solid cyan as a debugging
         // aid.
         if (image.height() <= 0) return color(0, 1, 1);
@@ -97,6 +106,8 @@ class noise_texture : public texture {
     noise_texture(double scale) : scale(scale) {}
 
     color value(uvs _uv, point3 const &p) const final {
+        ZoneScopedN("noise_texture sample");
+
         return color(.5, .5, .5) *
                (1 + sin(scale * p.z() + 10 * noise.turb(p, 7)));
     }

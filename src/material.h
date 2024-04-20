@@ -12,6 +12,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <tracy/Tracy.hpp>
+
 #include "hittable.h"
 #include "rtweekend.h"
 #include "texture.h"
@@ -61,6 +63,7 @@ class metal : public material {
 
     bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
                  ray &scattered) const final {
+        ZoneScopedN("metal scatter");
         vec3 reflected = reflect(r_in.direction(), rec.geom.normal);
         reflected = unit_vector(reflected) + (fuzz * random_unit_vector());
         scattered = ray(rec.geom.p, reflected, r_in.time());
@@ -79,6 +82,7 @@ class dielectric : public material {
 
     bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
                  ray &scattered) const final {
+        ZoneScopedN("metal scatter");
         attenuation = color(1.0, 1.0, 1.0);
         double ri =
             rec.front_face ? (1.0 / refraction_index) : refraction_index;
@@ -132,6 +136,7 @@ class isotropic : public material {
 
     bool scatter(ray const &r_in, hit_record const &rec, color &attenuation,
                  ray &scattered) const final {
+        ZoneScopedN("metal scatter");
         scattered = ray(rec.geom.p, random_unit_vector(), r_in.time());
         attenuation = tex->value(rec.uv, rec.geom.p);
         return true;
