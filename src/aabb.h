@@ -12,6 +12,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <tracy/Tracy.hpp>
+
 #include "interval.h"
 #include "ray.h"
 #include "rtweekend.h"
@@ -49,8 +51,9 @@ class aabb {
     }
 
     bool hit(ray const &r, interval ray_t) const {
-        point3 const &ray_orig = r.orig;
-        vec3 const &ray_dir = r.dir;
+        ZoneScopedN("AABB hit");
+        point3 ray_orig = r.orig;
+        vec3 ray_dir = r.dir;
 
         for (int axis = 0; axis < 3; axis++) {
             interval const &ax = axis_interval(axis);
@@ -59,13 +62,10 @@ class aabb {
             auto t0 = (ax.min - ray_orig[axis]) * adinv;
             auto t1 = (ax.max - ray_orig[axis]) * adinv;
 
-            if (t0 < t1) {
-                if (t0 > ray_t.min) ray_t.min = t0;
-                if (t1 < ray_t.max) ray_t.max = t1;
-            } else {
-                if (t1 > ray_t.min) ray_t.min = t1;
-                if (t0 < ray_t.max) ray_t.max = t0;
-            }
+            if (adinv < 0) std::swap(t0, t1);
+
+            if (t0 > ray_t.min) ray_t.min = t0;
+            if (t1 < ray_t.max) ray_t.max = t1;
 
             if (ray_t.max <= ray_t.min) return false;
         }
