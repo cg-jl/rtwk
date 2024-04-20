@@ -63,7 +63,9 @@ class sphere : public hittable {
 
         return true;
     }
-    void getUVs(uvs &uv, point3 _p, vec3 normal) const final {
+    // NOTE: right now sphere can't calculate its normal because it requires the
+    // time instantiation parameter.
+    void getUVs(uvs &uv, point3 p, vec3 normal) const final {
         get_sphere_uv(normal, uv.u, uv.v);
     }
 

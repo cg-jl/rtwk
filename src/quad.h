@@ -18,12 +18,7 @@
 class quad : public hittable {
    public:
     constexpr quad(point3 Q, vec3 u, vec3 v, material *mat)
-        : hittable(mat), Q(Q), u(u), v(v) {
-        auto n = cross(u, v);
-        normal = unit_vector(n);
-        D = dot(normal, Q);
-        w = n / dot(n, n);
-    }
+        : hittable(mat), Q(Q), u(u), v(v) {}
 
     aabb bounding_box() const final {
         // Compute the bounding box of all four vertices.
@@ -34,6 +29,9 @@ class quad : public hittable {
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("quad hit");
+        auto n = cross(u, v);
+        auto normal = unit_vector(n);
+        auto D = dot(normal, Q);
         auto denom = dot(normal, r.dir);
 
         // No hit if the ray is parallel to the plane.
@@ -47,11 +45,11 @@ class quad : public hittable {
         // Determine the hit point lies within the planar shape using its plane
         // coordinates.
         auto intersection = r.at(t);
-        vec3 planar_hitpt_vector = intersection - Q;
-        auto alpha = dot(w, cross(planar_hitpt_vector, v));
-        auto beta = dot(w, cross(u, planar_hitpt_vector));
+        uvs uv;
+        // NOTE: normal argument is not needed.
+        getUVs(uv, intersection, vec3());
 
-        if (!is_interior(alpha, beta)) return false;
+        if (!is_interior(uv.u, uv.v)) return false;
 
         // Ray hits the 2D shape; set the rest of the hit record and return
         // true.
@@ -62,10 +60,17 @@ class quad : public hittable {
         return true;
     }
 
-    void getUVs(uvs &uv, point3 intersection, vec3 normal) const final {
-        vec3 planar_hitpt_vector = intersection - Q;
-        uv.u = dot(w, cross(planar_hitpt_vector, v));
-        uv.v = dot(w, cross(u, planar_hitpt_vector));
+    void getUVs(uvs &uv, point3 intersection, vec3 _normal) const final {
+        vec3 pq = intersection - Q;
+        auto v_squared = v.length_squared();
+        auto u_squared = u.length_squared();
+        auto dot_uv = dot(u, v);
+        auto cross_uv_lensq = u_squared * v_squared - dot_uv * dot_uv;
+        auto dot_uq = dot(u, pq);
+        auto dot_vq = dot(v, pq);
+        // (a×b)⋅(c×d) = (a⋅c)(b⋅d) - (a⋅d)(b⋅c)
+        uv.u = (dot_uq * v_squared - dot_uv * dot_vq) / cross_uv_lensq;
+        uv.v = (u_squared * dot_vq - dot_uq * dot_uv) / cross_uv_lensq;
     }
 
     bool is_interior(double a, double b) const {
@@ -80,10 +85,6 @@ class quad : public hittable {
    private:
     point3 Q;
     vec3 u, v;
-    vec3 w;
-    vec3 normal;
-    double D;
-    material *mat;
 };
 
 inline void box(point3 const &a, point3 const &b, material *mat,
