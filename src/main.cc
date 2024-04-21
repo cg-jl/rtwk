@@ -10,6 +10,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include "aaquad.h"
 #include "bvh.h"
 #include "camera.h"
 #include "constant_medium.h"

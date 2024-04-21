@@ -87,8 +87,8 @@ class quad : public hittable {
     vec3 u, v;
 };
 
-inline void box(point3 const &a, point3 const &b, material *mat,
-                hittable_list &sides) {
+inline void box_unaligned(point3 const &a, point3 const &b, material *mat,
+                          hittable_list &sides) {
     // Returns the 3D box (six sides) that contains the two opposite vertices a
     // & b.
 
