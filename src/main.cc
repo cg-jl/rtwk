@@ -11,6 +11,7 @@
 //==============================================================================================
 
 #include "aaquad.h"
+#include "box.h"
 #include "bvh.h"
 #include "camera.h"
 #include "constant_medium.h"
@@ -257,7 +258,7 @@ void cornell_box() {
         new quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0), white));
 
     auto box1 = world.with([white](auto &world) {
-        box(point3(0, 0, 0), point3(165, 330, 165), white, world);
+        world.add(new box(point3(0, 0, 0), point3(165, 330, 165), white));
     });
     for (auto &b : box1) {
         b = new rotate_y(b, 15);
@@ -265,7 +266,7 @@ void cornell_box() {
     }
 
     auto box2 = world.with([white](auto &world) {
-        box(point3(0, 0, 0), point3(165, 165, 165), white, world);
+        world.add(new box(point3(0, 0, 0), point3(165, 165, 165), white));
     });
     for (auto &b : box2) {
         b = new rotate_y(b, -18);
@@ -311,7 +312,7 @@ void cornell_smoke() {
         new quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0), white));
 
     auto box1 = world.with([white](auto &world) {
-        box(point3(0, 0, 0), point3(165, 330, 165), white, world);
+        world.add(new box(point3(0, 0, 0), point3(165, 330, 165), white));
     });
     for (auto &b : box1) {
         b = new rotate_y(b, 15);
@@ -320,7 +321,7 @@ void cornell_smoke() {
     }
 
     auto box2 = world.with([white](auto &world) {
-        box(point3(0, 0, 0), point3(165, 165, 165), white, world);
+        world.add(new box(point3(0, 0, 0), point3(165, 165, 165), white));
     });
 
     for (auto &b : box2) {
@@ -362,7 +363,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto y1 = random_double(1, 101);
             auto z1 = z0 + w;
 
-            box(point3(x0, y0, z0), point3(x1, y1, z1), ground, boxes1);
+            boxes1.add(new box(point3(x0, y0, z0), point3(x1, y1, z1), ground));
         }
     }
 

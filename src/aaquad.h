@@ -10,6 +10,8 @@ struct aaquad final : public hittable {
     double u, v;
     int axis;
 
+    constexpr aaquad() : hittable(nullptr) {}
+
     constexpr aaquad(point3 Q, int axis, double u, double v, material *mat)
         : hittable(mat), Q(Q), axis(axis), u(u), v(v) {}
 
@@ -61,39 +63,8 @@ struct aaquad final : public hittable {
         uv.v = pq[vaxis()] / v;
     }
 
-    bool is_interior(double a, double b) const {
+    static bool is_interior(double a, double b) {
         static constexpr interval unit_interval = interval(0, 1);
         return unit_interval.contains(a) && unit_interval.contains(b);
     }
 };
-
-inline void box(point3 const &a, point3 const &b, material *mat,
-                hittable_list &sides) {
-    // Returns the 3D box (six sides) that contains the two opposite vertices a
-    // & b.
-
-    // Construct the two opposite vertices with the minimum and maximum
-    // coordinates.
-    auto min =
-        point3(fmin(a.x(), b.x()), fmin(a.y(), b.y()), fmin(a.z(), b.z()));
-    auto max =
-        point3(fmax(a.x(), b.x()), fmax(a.y(), b.y()), fmax(a.z(), b.z()));
-
-    auto dx = max.x() - min.x();
-    auto dy = max.y() - min.y();
-    auto dz = max.z() - min.z();
-
-    // TODO: watch for u, v coordinates being correct!
-    sides.add(new aaquad(point3(min.x(), min.y(), max.z()), 2, dx, dy,
-                         mat));  // front
-    sides.add(new aaquad(point3(max.x(), min.y(), max.z()), 0, dy, -dz,
-                         mat));  // right
-    sides.add(new aaquad(point3(min.x(), max.y(), max.z()), 1, -dz, dx,
-                         mat));  // top
-    sides.add(new aaquad(point3(max.x(), min.y(), min.z()), 2, -dx, dy,
-                         mat));  // back
-    sides.add(new aaquad(point3(min.x(), min.y(), min.z()), 0, dy, dz,
-                         mat));  // left
-    sides.add(new aaquad(point3(min.x(), min.y(), min.z()), 1, dz, dx,
-                         mat));  // bottom
-}
