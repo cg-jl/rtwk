@@ -22,50 +22,44 @@
 #include "hittable.h"
 #include "rtweekend.h"
 
-class bvh_node {
-   public:
-    bvh_node(std::span<hittable *> objects) {
-        // Build the bounding box of the span of source objects.
-        bbox = empty_aabb;
-        for (auto ob : objects) bbox = aabb(bbox, ob->geom->bounding_box());
-
-        int axis = bbox.longest_axis();
-
-        size_t object_span = objects.size();
-
-        if (object_span == 1) {
-            left = right = nullptr;
-        } else if (object_span == 2) {
-            left = nullptr;
-            right = nullptr;
-        } else {
-            std::sort(objects.begin(), objects.end(),
-                      [axis](hittable const *a, hittable const *b) {
-                          auto a_axis_interval =
-                              a->geom->bounding_box().axis_interval(axis);
-                          auto b_axis_interval =
-                              b->geom->bounding_box().axis_interval(axis);
-                          return a_axis_interval.min < b_axis_interval.min;
-                      });
-
-            left = new bvh_node(objects.subspan(0, object_span / 2));
-            right = new bvh_node(objects.subspan(object_span / 2));
-        }
-    }
-
+struct bvh_node {
     aabb bbox;
     bvh_node *left;
     bvh_node *right;
 };
 
 namespace bvh {
+static bvh_node *buildBVHNode(std::span<hittable *> objects) {
+    assert(objects.size() != 0);
+    // Build the bounding box of the span of source objects.
+    aabb bbox = empty_aabb;
+    for (auto ob : objects) bbox = aabb(bbox, ob->geom->bounding_box());
+
+    int axis = bbox.longest_axis();
+
+    size_t object_span = objects.size();
+
+    if (object_span == 1) {
+        return nullptr;
+    } else {
+        std::sort(objects.begin(), objects.end(),
+                  [axis](hittable const *a, hittable const *b) {
+                      auto a_axis_interval =
+                          a->geom->bounding_box().axis_interval(axis);
+                      auto b_axis_interval =
+                          b->geom->bounding_box().axis_interval(axis);
+                      return a_axis_interval.min < b_axis_interval.min;
+                  });
+
+        auto left = buildBVHNode(objects.subspan(0, object_span / 2));
+        auto right = buildBVHNode(objects.subspan(object_span / 2));
+        return new bvh_node{bbox, left, right};
+    }
+}
 static hittable const *hitNode(ray const &r, interval ray_t,
                                geometry_record &rec, bvh_node const *n,
                                std::span<hittable *> objects) {
     if (n == nullptr) {
-        // TODO: don't construct nodes on empty object lists? Why does it do
-        // that????
-        if (objects.size() == 0) return nullptr;
         // TODO: With something like SAH (Surface Area Heuristic), we should see
         // improving times by hitting multiple in one go. Since I'm tracing each
         // kind of intersection, it will be interesting to bake statistics of
@@ -85,16 +79,17 @@ static hittable const *hitNode(ray const &r, interval ray_t,
 }  // namespace bvh
 
 struct bvh_tree {
-    bvh_node root;
+    bvh_node *root;
     std::span<hittable *> objects;
 
-    bvh_tree(std::span<hittable *> objects) : root(objects), objects(objects) {}
+    bvh_tree(std::span<hittable *> objects)
+        : root(bvh::buildBVHNode(objects)), objects(objects) {}
 
-    aabb bounding_box() const { return root.bbox; }
+    aabb bounding_box() const { return root->bbox; }
     hittable const *hitSelect(ray const &r, interval ray_t,
                               geometry_record &rec) const {
         ZoneScopedN("bvh_tree hit");
-        return bvh::hitNode(r, ray_t, rec, &root, objects);
+        return bvh::hitNode(r, ray_t, rec, root, objects);
     }
 };
 
