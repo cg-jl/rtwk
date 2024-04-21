@@ -22,14 +22,12 @@
 // its behavior with materials is pretty specific.
 class constant_medium : public hittable {
    public:
-    constant_medium(hittable *boundary, double density, texture *tex)
-        : hittable(new isotropic(tex)),
-          boundary(boundary),
+    constant_medium(geometry *boundary, double density, texture *tex)
+        : hittable(new isotropic(tex), boundary),
           neg_inv_density(-1 / density) {}
 
-    constant_medium(hittable *boundary, double density, color const &albedo)
-        : hittable(new isotropic(albedo)),
-          boundary(boundary),
+    constant_medium(geometry *boundary, double density, color const &albedo)
+        : hittable(new isotropic(albedo), boundary),
           neg_inv_density(-1 / density) {}
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
@@ -40,6 +38,8 @@ class constant_medium : public hittable {
         bool const debugging = enableDebug && random_double() < 0.00001;
 
         geometry_record rec1, rec2;
+
+        auto boundary = geom;
 
         if (!boundary->hit(r, universe_interval, rec1)) return false;
 
@@ -71,10 +71,7 @@ class constant_medium : public hittable {
     // We don't care about its value.
     void getUVs(uvs &_uv, point3 _p, vec3 _normal) const final {}
 
-    aabb bounding_box() const final { return boundary->bounding_box(); }
-
    private:
-    hittable *boundary;
     double neg_inv_density;
 };
 

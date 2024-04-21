@@ -18,6 +18,7 @@
 #include "aabb.h"
 #include "geometry.h"
 #include "rtweekend.h"
+#include "vec3.h"
 
 class material;
 
@@ -36,19 +37,26 @@ class hit_record {
     }
 };
 
-struct spatially_bounded {
-    virtual aabb bounding_box() const = 0;
-};
-
-struct hittable : public spatially_bounded {
+struct hittable {
     material *mat;
+    geometry *geom;
     virtual ~hittable() = default;
 
-    constexpr explicit hittable(material *mat) : mat(mat) {}
+    constexpr explicit hittable(material *mat, geometry *geom)
+        : mat(mat), geom(geom) {}
 
-    virtual bool hit(ray const &r, interval ray_t,
-                     geometry_record &rec) const = 0;
-    virtual void getUVs(uvs &uv, point3 intersection, vec3 normal) const = 0;
+    // NOTE: by default it's a single hit, but must make it overridable
+    // for `constant_medium`, since it must do two hits.
+    virtual bool hit(ray const &r, interval ray_t, geometry_record &rec) const {
+        return geom->hit(r, ray_t, rec);
+    }
+
+    // NOTE: by default it should be the geometry, but `constant_medium`
+    // sets a specific normal regardless of what was stated by the bounding
+    // geometry.
+    virtual void getUVs(uvs &uv, point3 p, vec3 normal) const {
+        return geom->getUVs(uv, p, normal);
+    }
 };
 
 // NOTE: maybe some sort of infra to have a hittable hit() and also restore()
@@ -58,10 +66,10 @@ struct hittable : public spatially_bounded {
 // TODO: this is not a hittable (no material) nor a selector. Transforms
 // should be in the hittable class itself, and hit() separated into
 // internalHit() (assumes transform) and hit()
-class translate : public hittable {
+class translate final : public geometry {
    public:
-    constexpr translate(hittable *object, vec3 offset)
-        : hittable(object->mat), object(object), offset(offset) {}
+    constexpr translate(geometry *object, vec3 offset)
+        : object(object), offset(offset) {}
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("translate hit");
@@ -88,17 +96,16 @@ class translate : public hittable {
     aabb bounding_box() const final { return object->bounding_box() + offset; }
 
    private:
-    hittable *object;
+    geometry *object;
     vec3 offset;
 };
 
 // TODO: this is not a hittable (no material) nor a selector. Transforms
 // should be in the hittable class itself, and hit() separated into
 // internalHit() (assumes transform) and hit()
-class rotate_y : public hittable {
+class rotate_y final : public geometry {
    public:
-    rotate_y(hittable *object, double angle)
-        : hittable(object->mat), object(object) {
+    rotate_y(geometry *object, double angle) : object(object) {
         auto radians = degrees_to_radians(angle);
         sin_theta = sin(radians);
         cos_theta = cos(radians);
@@ -113,10 +120,8 @@ class rotate_y : public hittable {
         origin[0] = cos_theta * r.orig[0] - sin_theta * r.orig[2];
         origin[2] = sin_theta * r.orig[0] + cos_theta * r.orig[2];
 
-        direction[0] =
-            cos_theta * r.dir[0] - sin_theta * r.dir[2];
-        direction[2] =
-            sin_theta * r.dir[0] + cos_theta * r.dir[2];
+        direction[0] = cos_theta * r.dir[0] - sin_theta * r.dir[2];
+        direction[2] = sin_theta * r.dir[0] + cos_theta * r.dir[2];
 
         ray rotated_r(origin, direction, r.time);
 
@@ -177,7 +182,7 @@ class rotate_y : public hittable {
     }
 
    private:
-    hittable *object;
+    geometry *object;
     double sin_theta;
     double cos_theta;
 };

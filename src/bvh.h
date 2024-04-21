@@ -27,7 +27,7 @@ class bvh_node {
     bvh_node(std::span<hittable *> objects) {
         // Build the bounding box of the span of source objects.
         bbox = empty_aabb;
-        for (auto ob : objects) bbox = aabb(bbox, ob->bounding_box());
+        for (auto ob : objects) bbox = aabb(bbox, ob->geom->bounding_box());
 
         int axis = bbox.longest_axis();
 
@@ -42,9 +42,9 @@ class bvh_node {
             std::sort(objects.begin(), objects.end(),
                       [axis](hittable const *a, hittable const *b) {
                           auto a_axis_interval =
-                              a->bounding_box().axis_interval(axis);
+                              a->geom->bounding_box().axis_interval(axis);
                           auto b_axis_interval =
-                              b->bounding_box().axis_interval(axis);
+                              b->geom->bounding_box().axis_interval(axis);
                           return a_axis_interval.min < b_axis_interval.min;
                       });
 

@@ -15,10 +15,9 @@
 #include "hittable_list.h"
 #include "rtweekend.h"
 
-class quad : public hittable {
+class quad : public geometry {
    public:
-    constexpr quad(point3 Q, vec3 u, vec3 v, material *mat)
-        : hittable(mat), Q(Q), u(u), v(v) {}
+    constexpr quad(point3 Q, vec3 u, vec3 v) : Q(Q), u(u), v(v) {}
 
     aabb bounding_box() const final {
         // Compute the bounding box of all four vertices.
@@ -86,35 +85,5 @@ class quad : public hittable {
     point3 Q;
     vec3 u, v;
 };
-
-inline void box_unaligned(point3 const &a, point3 const &b, material *mat,
-                          hittable_list &sides) {
-    // Returns the 3D box (six sides) that contains the two opposite vertices a
-    // & b.
-
-    // Construct the two opposite vertices with the minimum and maximum
-    // coordinates.
-    auto min =
-        point3(fmin(a.x(), b.x()), fmin(a.y(), b.y()), fmin(a.z(), b.z()));
-    auto max =
-        point3(fmax(a.x(), b.x()), fmax(a.y(), b.y()), fmax(a.z(), b.z()));
-
-    auto dx = vec3(max.x() - min.x(), 0, 0);
-    auto dy = vec3(0, max.y() - min.y(), 0);
-    auto dz = vec3(0, 0, max.z() - min.z());
-
-    sides.add(new quad(point3(min.x(), min.y(), max.z()), dx, dy,
-                       mat));  // front
-    sides.add(new quad(point3(max.x(), min.y(), max.z()), -dz, dy,
-                       mat));  // right
-    sides.add(new quad(point3(max.x(), min.y(), min.z()), -dx, dy,
-                       mat));  // back
-    sides.add(new quad(point3(min.x(), min.y(), min.z()), dz, dy,
-                       mat));  // left
-    sides.add(new quad(point3(min.x(), max.y(), max.z()), dx, -dz,
-                       mat));  // top
-    sides.add(new quad(point3(min.x(), min.y(), min.z()), dx, dz,
-                       mat));  // bottom
-}
 
 #endif

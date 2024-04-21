@@ -5,15 +5,15 @@
 #include "hittable.h"
 #include "hittable_list.h"
 
-struct aaquad final : public hittable {
+struct aaquad final : public geometry {
     point3 Q;
     double u, v;
     int axis;
 
-    constexpr aaquad() : hittable(nullptr) {}
+    constexpr aaquad() {}
 
-    constexpr aaquad(point3 Q, int axis, double u, double v, material *mat)
-        : hittable(mat), Q(Q), axis(axis), u(u), v(v) {}
+    constexpr aaquad(point3 Q, int axis, double u, double v)
+        : Q(Q), axis(axis), u(u), v(v) {}
 
     constexpr int uaxis() const noexcept { return (axis + 1) % 3; }
     constexpr int vaxis() const noexcept { return (axis + 2) % 3; }

@@ -21,16 +21,15 @@
 // and add a thread-private 'instantiate' buffer per worker thread where I can
 // push any transformations. When separating list-of-ptrs into tagged arrays,
 // these 'instantiate buffers' must also be separated.
-class sphere : public hittable {
+class sphere : public geometry {
    public:
     // Stationary Sphere
-    sphere(point3 const &center, double radius, material *mat)
-        : hittable(mat), center1(center), radius(fmax(0, radius)) {}
+    sphere(point3 const &center, double radius)
+        : center1(center), radius(fmax(0, radius)) {}
 
     // Moving Sphere
-    sphere(point3 const &center1, point3 const &center2, double radius,
-           material *mat)
-        : hittable(mat), center1(center1), radius(fmax(0, radius)) {
+    sphere(point3 const &center1, point3 const &center2, double radius )
+        : center1(center1), radius(fmax(0, radius)) {
         center_vec = center2 - center1;
     }
 

@@ -6,10 +6,10 @@
 #include "geometry.h"
 #include "hittable.h"
 
-struct box : public hittable {
+struct box : public geometry {
     std::array<aaquad, 6> faces;
 
-    box(point3 a, point3 b, material *mat) : hittable(mat) {
+    box(point3 a, point3 b) {
         // Returns the 3D box (six sides) that contains the two opposite
         // vertices a & b.
 
@@ -25,18 +25,18 @@ struct box : public hittable {
         auto dz = max.z() - min.z();
 
         // TODO: watch for u, v coordinates being correct!
-        faces[0] = (aaquad(point3(min.x(), min.y(), max.z()), 2, dx, dy,
-                           mat));  // front
-        faces[1] = (aaquad(point3(max.x(), min.y(), max.z()), 0, dy, -dz,
-                           mat));  // right
-        faces[2] = (aaquad(point3(min.x(), max.y(), max.z()), 1, -dz, dx,
-                           mat));  // top
-        faces[3] = (aaquad(point3(max.x(), min.y(), min.z()), 2, -dx, dy,
-                           mat));  // back
-        faces[4] = (aaquad(point3(min.x(), min.y(), min.z()), 0, dy, dz,
-                           mat));  // left
-        faces[5] = (aaquad(point3(min.x(), min.y(), min.z()), 1, dz, dx,
-                           mat));  // bottom
+        faces[0] =
+            (aaquad(point3(min.x(), min.y(), max.z()), 2, dx, dy));  // front
+        faces[1] =
+            (aaquad(point3(max.x(), min.y(), max.z()), 0, dy, -dz));  // right
+        faces[2] =
+            (aaquad(point3(min.x(), max.y(), max.z()), 1, -dz, dx));  // top
+        faces[3] =
+            (aaquad(point3(max.x(), min.y(), min.z()), 2, -dx, dy));  // back
+        faces[4] =
+            (aaquad(point3(min.x(), min.y(), min.z()), 0, dy, dz));  // left
+        faces[5] =
+            (aaquad(point3(min.x(), min.y(), min.z()), 1, dz, dx));  // bottom
     }
 
     aabb bounding_box() const final {
