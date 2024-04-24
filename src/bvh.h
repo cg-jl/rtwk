@@ -65,7 +65,7 @@ static hittable const *hitNode(ray const &r, interval ray_t,
         // kind of intersection, it will be interesting to bake statistics of
         // each object and use that as timing reference.
         assert(objects.size() == 1);
-        return objects[0]->hit(r, ray_t, rec) ? objects[0] : nullptr;
+        return hitSpan(objects, r, ray_t, rec);
     }
     if (!n->bbox.hit(r, ray_t)) return nullptr;
 

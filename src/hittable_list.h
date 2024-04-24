@@ -65,12 +65,8 @@ class hittable_list {
 
         {
             ZoneScopedN("hit individuals");
-            for (auto const *ob : objects) {
-                if (ob->hit(r, ray_t, rec)) {
-                    ray_t.max = rec.t;
-                    best = ob;
-                }
-            }
+            auto const hit_individual = hitSpan(objects, r, ray_t, rec);
+            best = hit_individual ?: best;
         }
 
         return best;
