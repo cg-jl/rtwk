@@ -269,7 +269,7 @@ class camera {
 
             // here we'll have to use the emit value as the 'attenuation' value.
             if (res->mat->emits) {
-                attenuations.emplace_back(res->mat->tex, rec.uv, rec.geom.p);
+                attenuations.emplace_back(res->tex, rec.uv, rec.geom.p);
                 return color(1, 1, 1);
             }
 
@@ -279,7 +279,7 @@ class camera {
             }
 
             depth = depth - 1;
-            attenuations.emplace_back(res->mat->tex, rec.uv, rec.geom.p);
+            attenuations.emplace_back(res->tex, rec.uv, rec.geom.p);
             r = ray(rec.geom.p, scattered, r.time);
         }
     }

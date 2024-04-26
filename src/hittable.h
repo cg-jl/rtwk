@@ -18,6 +18,7 @@
 #include "aabb.h"
 #include "geometry.h"
 #include "rtweekend.h"
+#include "texture.h"
 #include "vec3.h"
 
 class material;
@@ -40,10 +41,11 @@ class hit_record {
 struct hittable {
     material *mat;
     geometry *geom;
+    texture *tex;
     virtual ~hittable() = default;
 
-    constexpr explicit hittable(material *mat, geometry *geom)
-        : mat(mat), geom(geom) {}
+    constexpr explicit hittable(material *mat, texture *tex, geometry *geom)
+        : mat(mat), geom(geom), tex(tex) {}
 
     // NOTE: by default it's a single hit, but must make it overridable
     // for `constant_medium`, since it must do two hits.

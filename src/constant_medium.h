@@ -20,15 +20,14 @@
 
 // TODO: This is another candidate to make a separate array of, since
 // its behavior with materials is pretty specific.
-class constant_medium : public hittable {
+class constant_medium final : public hittable {
    public:
     constant_medium(geometry *boundary, double density, texture *tex)
-        : hittable(new isotropic(tex), boundary),
+        : hittable(new isotropic(), tex, boundary),
           neg_inv_density(-1 / density) {}
 
     constant_medium(geometry *boundary, double density, color const &albedo)
-        : hittable(new isotropic(albedo), boundary),
-          neg_inv_density(-1 / density) {}
+        : constant_medium(boundary, density, new solid_color(albedo)) {}
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("constant_medium hit");

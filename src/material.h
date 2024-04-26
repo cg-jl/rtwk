@@ -27,10 +27,9 @@ static solid_color white(color(1, 1, 1));
 struct hit_record;
 
 struct material {
-    texture *tex;
     bool emits;
 
-    constexpr material(texture *tex, bool emits) : tex(tex), emits(emits) {}
+    constexpr material(bool emits) : emits(emits) {}
 
     virtual ~material() = default;
 
@@ -41,8 +40,7 @@ struct material {
 };
 
 struct lambertian : public material {
-    lambertian(color const &albedo) : lambertian(new solid_color(albedo)) {}
-    constexpr lambertian(texture *tex) : material(tex, false) {}
+    constexpr lambertian() : material(false) {}
 
     bool scatter(vec3 in_dir, hit_record const &rec,
                  vec3 &scattered) const final {
@@ -58,8 +56,7 @@ struct lambertian : public material {
 };
 
 struct metal : public material {
-    metal(color const &albedo, double fuzz)
-        : material(new solid_color(albedo), false), fuzz(fuzz < 1 ? fuzz : 1) {}
+    constexpr metal(double fuzz) : material(false), fuzz(fuzz < 1 ? fuzz : 1) {}
 
     bool scatter(vec3 in_dir, hit_record const &rec,
                  vec3 &scattered) const final {
@@ -76,7 +73,7 @@ struct metal : public material {
 
 struct dielectric : public material {
     dielectric(double refraction_index)
-        : material(&detail::white, false), refraction_index(refraction_index) {}
+        : material(false), refraction_index(refraction_index) {}
 
     bool scatter(vec3 in_dir, hit_record const &rec,
                  vec3 &scattered) const final {
@@ -112,14 +109,11 @@ struct dielectric : public material {
 };
 
 struct diffuse_light : public material {
-    constexpr diffuse_light(texture *tex) : material(tex, true) {}
-    constexpr diffuse_light(color const &emit)
-        : diffuse_light(new solid_color(emit)) {}
+    constexpr diffuse_light() : material(true) {}
 };
 
 struct isotropic : public material {
-    isotropic(color const &albedo) : isotropic(new solid_color(albedo)) {}
-    constexpr isotropic(texture *tex) : material(tex, false) {}
+    constexpr isotropic() : material(false) {}
 
     bool scatter(vec3 in_dir, hit_record const &rec,
                  vec3 &scattered) const final {
