@@ -6,69 +6,90 @@
 #include "geometry.h"
 #include "hittable.h"
 
-struct box : public geometry {
-    std::array<aaquad, 6> faces;
+struct box final : public geometry {
+    aabb bbox;
 
-    box(point3 a, point3 b) {
-        // Returns the 3D box (six sides) that contains the two opposite
-        // vertices a & b.
+    aabb bounding_box() const { return bbox; }
 
-        // Construct the two opposite vertices with the minimum and maximum
-        // coordinates.
-        auto min =
-            point3(fmin(a.x(), b.x()), fmin(a.y(), b.y()), fmin(a.z(), b.z()));
-        auto max =
-            point3(fmax(a.x(), b.x()), fmax(a.y(), b.y()), fmax(a.z(), b.z()));
+    box(point3 a, point3 b) : bbox(a, b) {}
 
-        auto dx = max.x() - min.x();
-        auto dy = max.y() - min.y();
-        auto dz = max.z() - min.z();
+    static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
+                         int ax_u_idx, int ax_v_idx, double dir, double orig,
+                         ray const &r, interval ray_t,
+                         geometry_record &rec) noexcept {
+        // No hit if the ray is parallel to the plane.
+        if (fabs(dir) < 1e-8) return false;
+        double D;
+        double normal_dir;
+        // Only test the face that opposes the ray direction,
+        // the other one is going to be missed.
+        if (dir > 0) {
+            D = ax.min;
+            normal_dir = 1;
+        } else {
+            D = ax.max;
+            normal_dir = -1;
+        }
 
-        // TODO: watch for u, v coordinates being correct!
-        faces[0] =
-            (aaquad(point3(min.x(), min.y(), max.z()), 2, dx, dy));  // front
-        faces[1] =
-            (aaquad(point3(max.x(), min.y(), max.z()), 0, dy, -dz));  // right
-        faces[2] =
-            (aaquad(point3(min.x(), max.y(), max.z()), 1, -dz, dx));  // top
-        faces[3] =
-            (aaquad(point3(max.x(), min.y(), min.z()), 2, -dx, dy));  // back
-        faces[4] =
-            (aaquad(point3(min.x(), min.y(), min.z()), 0, dy, dz));  // left
-        faces[5] =
-            (aaquad(point3(min.x(), min.y(), min.z()), 1, dz, dx));  // bottom
+        auto t = (D - orig) / dir;
+        if (!ray_t.contains(t)) return false;
+
+        // Determine the hit point lies within the planar shape
+        // using its plane coordinates.
+        auto intersection = r.at(t);
+        double alpha, beta;
+        calcUVs(normal_dir, ax_u, ax_v, ax_u_idx, ax_v_idx, intersection, alpha,
+                beta);
+
+        if ((alpha < 0) || (1 < alpha) || (beta < 0) || (1 < beta))
+            return false;
+
+        rec.t = t;
+        rec.p = intersection;
+        rec.normal = vec3();
+        rec.normal[ax_i] = normal_dir;
+        return true;
     }
 
-    aabb bounding_box() const final {
-        aabb box = empty_aabb;
-        for (auto const &face : faces) {
-            box = aabb(box, face.bounding_box());
-        }
-        return box;
-    }
-
-    bool hit(ray const &r, interval ray_t, geometry_record &rec) const {
-        bool hit = false;
-        for (auto const &face : faces) {
-            if (face.hit(r, ray_t, rec)) {
-                ray_t.max = rec.t;
-                hit = true;
-            }
-        }
-        return hit;
+    static void calcUVs(double normal_dir, interval ax_u, interval ax_v,
+                        int ax_u_idx, int ax_v_idx, point3 intersection,
+                        double &u, double &v) {
+        auto beta_distance = normal_dir > 0 ? ax_v.max : ax_v.min;
+        auto inv_u_mag = 1 / ax_u.size();
+        auto inv_v_mag = 1 / ax_v.size();
+        u = inv_u_mag * (intersection[ax_u_idx] - ax_u.min);
+        v = -normal_dir * inv_v_mag * (intersection[ax_v_idx] - beta_distance);
     }
 
     void getUVs(uvs &uv, point3 intersection, vec3 normal) const {
-        // know the face by checking the axis.
-        int normal_axis = normal.x() == 0 ? normal.y() == 0 ? 2 : 1 : 0;
-
-        for (auto const &face : faces) {
-            if (face.axis == normal_axis &&
-                std::signbit(face.u * face.v) ==
-                    std::signbit(normal[normal_axis])) {
-                return face.getUVs(uv, intersection, normal);
-            }
+        if (normal.x() != 0) {
+            return calcUVs(normal.x(), bbox.z, bbox.y, 2, 1, intersection, uv.u,
+                           uv.v);
+        } else if (normal.y() != 0) {
+            return calcUVs(normal.y(), bbox.x, bbox.z, 0, 2, intersection, uv.u,
+                           uv.v);
+        } else {
+            return calcUVs(normal.z(), bbox.y, bbox.x, 1, 0, intersection, uv.u,
+                           uv.v);
         }
-        __builtin_unreachable();
+    }
+
+    bool hit(ray const &r, interval ray_t,
+             geometry_record &rec) const noexcept {
+        bool did_hit = false;
+        if (hit_side(bbox.x, bbox.z, bbox.y, 0, 2, 1, r.dir[0], r.orig[0], r,
+                     ray_t, rec)) {
+            did_hit = true;
+        }
+        if (hit_side(bbox.y, bbox.x, bbox.z, 1, 0, 2, r.dir[1], r.orig[1], r,
+                     ray_t, rec)) {
+            did_hit = true;
+        }
+        if (hit_side(bbox.z, bbox.y, bbox.x, 2, 1, 0, r.dir[2], r.orig[2], r,
+                     ray_t, rec)) {
+            did_hit = true;
+        }
+
+        return did_hit;
     }
 };
