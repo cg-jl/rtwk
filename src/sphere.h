@@ -28,7 +28,7 @@ class sphere : public geometry {
         : center1(center), radius(fmax(0, radius)) {}
 
     // Moving Sphere
-    sphere(point3 const &center1, point3 const &center2, double radius )
+    sphere(point3 const &center1, point3 const &center2, double radius)
         : center1(center1), radius(fmax(0, radius)) {
         center_vec = center2 - center1;
     }

@@ -17,6 +17,7 @@
 #include "hittable.h"
 #include "rtweekend.h"
 #include "texture.h"
+#include "vec3.h"
 
 namespace detail {
 static solid_color black(color(0, 0, 0));
@@ -64,7 +65,8 @@ struct metal : public material {
                  vec3 &scattered) const final {
         ZoneScopedN("metal scatter");
         vec3 reflected = reflect(in_dir, rec.geom.normal);
-        reflected = unit_vector(reflected) + (fuzz * random_unit_vector());
+        auto fv = fuzz * random_unit_vector();
+        reflected = unit_vector(reflected) + fv;
         scattered = reflected;
         return (dot(scattered, rec.geom.normal) > 0);
     }
@@ -83,10 +85,9 @@ struct dielectric : public material {
             rec.front_face ? (1.0 / refraction_index) : refraction_index;
 
         vec3 unit_direction = unit_vector(in_dir);
-        double cos_theta = fmin(dot(-unit_direction, rec.geom.normal), 1.0);
-        double sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+        double cos_theta = -dot(unit_direction, rec.geom.normal);
 
-        bool cannot_refract = ri * sin_theta > 1.0;
+        bool cannot_refract = ri * ri * (1 - cos_theta * cos_theta) > 1.0;
         vec3 direction;
 
         if (cannot_refract || reflectance(cos_theta, ri) > random_double())
