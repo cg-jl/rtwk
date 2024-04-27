@@ -23,7 +23,7 @@
 class constant_medium final : public hittable {
    public:
     constant_medium(geometry *boundary, double density, texture *tex)
-        : hittable(new isotropic(), tex, boundary),
+        : hittable(&detail::isotropic, tex, boundary),
           neg_inv_density(-1 / density) {}
 
     constant_medium(geometry *boundary, double density, color const &albedo)

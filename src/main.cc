@@ -29,7 +29,7 @@ void bouncing_spheres() {
 
     auto checker =
         new checker_texture(0.32, color(.2, .3, .1), color(.9, .9, .9));
-    world.add(new hittable(new lambertian(), checker,
+    world.add(new hittable(&detail::lambertian, checker,
                            new sphere(point3(0, -1000, 0), 1000)));
 
     for (int a = -11; a < 11; a++) {
@@ -39,13 +39,13 @@ void bouncing_spheres() {
                           b + 0.9 * random_double());
 
             if ((center - point3(4, 0.2, 0)).length() > 0.9) {
-                material *sphere_material;
+                material const *sphere_material;
 
                 if (choose_mat < 0.8) {
                     // diffuse
                     auto albedo =
                         new solid_color(color::random() * color::random());
-                    sphere_material = new lambertian();
+                    sphere_material = &detail::lambertian;
                     auto center2 = center + vec3(0, random_double(0, .5), 0);
                     world.add(new hittable(sphere_material, albedo,
                                            new sphere(center, center2, 0.2)));
@@ -71,7 +71,7 @@ void bouncing_spheres() {
                            new sphere(point3(0, 1, 0), 1.0)));
 
     auto color2 = new solid_color(0.4, 0.2, 0.1);
-    auto material2 = new lambertian();
+    auto material2 = &detail::lambertian;
     world.add(
         new hittable(material2, color2, new sphere(point3(-4, 1, 0), 1.0)));
 
@@ -108,9 +108,9 @@ void checkered_spheres() {
     auto checker =
         new checker_texture(0.32, color(.2, .3, .1), color(.9, .9, .9));
 
-    world.add(new hittable(new lambertian(), checker,
+    world.add(new hittable(&detail::lambertian, checker,
                            new sphere(point3(0, -10, 0), 10)));
-    world.add(new hittable(new lambertian(), checker,
+    world.add(new hittable(&detail::lambertian, checker,
                            new sphere(point3(0, 10, 0), 10)));
 
     camera cam;
@@ -133,7 +133,7 @@ void checkered_spheres() {
 
 void earth() {
     auto earth_texture = new image_texture("earthmap.jpg");
-    auto earth_surface = new lambertian();
+    auto earth_surface = &detail::lambertian;
     auto globe = new hittable(earth_surface, earth_texture,
                               new sphere(point3(0, 0, 0), 2));
 
@@ -159,9 +159,9 @@ void perlin_spheres() {
     hittable_list world;
 
     auto pertext = new noise_texture(4);
-    world.add(new hittable(new lambertian(), pertext,
+    world.add(new hittable(&detail::lambertian, pertext,
                            new sphere(point3(0, -1000, 0), 1000)));
-    world.add(new hittable(new lambertian(), pertext,
+    world.add(new hittable(&detail::lambertian, pertext,
                            new sphere(point3(0, 2, 0), 2)));
 
     camera cam;
@@ -192,7 +192,7 @@ void quads() {
     auto upper_orange = new solid_color(color(1.0, 0.5, 0.0));
     auto lower_teal = new solid_color(color(0.2, 0.8, 0.8));
 
-    auto lambert = new lambertian();
+    auto lambert = &detail::lambertian;
 
     // Quads
     world.add(new hittable(
@@ -233,10 +233,10 @@ void simple_light() {
     hittable_list world;
 
     auto pertext = new noise_texture(4);
-    world.add(new hittable(new lambertian(), pertext,
+    world.add(new hittable(&detail::lambertian, pertext,
                            new sphere(point3(0, -1000, 0), 1000)));
 
-    world.add(new hittable(new lambertian(), pertext,
+    world.add(new hittable(&detail::lambertian, pertext,
                            new sphere(point3(0, 2, 0), 2)));
 
     auto difflight = new diffuse_light();
@@ -274,7 +274,7 @@ void cornell_box() {
     auto light = new diffuse_light();
     auto light_tint = new solid_color(15, 15, 15);
 
-    auto lambert = new lambertian();
+    auto lambert = &detail::lambertian;
 
     world.add(new hittable(
         lambert, green,
@@ -340,7 +340,7 @@ void cornell_smoke() {
     auto light = new diffuse_light();
     auto light_tint = new solid_color(7, 7, 7);
 
-    auto lambert = new lambertian();
+    auto lambert = &detail::lambertian;
 
     world.add(new hittable(
         lambert, green,
@@ -395,7 +395,7 @@ void cornell_smoke() {
 
 void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     hittable_list boxes1;
-    auto lambert = new lambertian();
+    auto lambert = &detail::lambertian;
     auto ground_col = new solid_color(0.48, 0.83, 0.53);
 
     int boxes_per_side = 20;

@@ -123,4 +123,10 @@ struct isotropic : public material {
     }
 };
 
+namespace detail {
+static const lambertian lambertian;
+static const diffuse_light difflight;
+static const isotropic isotropic;
+};  // namespace detail
+
 #endif

@@ -39,12 +39,13 @@ class hit_record {
 };
 
 struct hittable {
-    material *mat;
+    material const *mat;
     geometry *geom;
     texture *tex;
     virtual ~hittable() = default;
 
-    constexpr explicit hittable(material *mat, texture *tex, geometry *geom)
+    constexpr explicit hittable(material const *mat, texture *tex,
+                                geometry *geom)
         : mat(mat), geom(geom), tex(tex) {}
 
     // NOTE: by default it's a single hit, but must make it overridable
