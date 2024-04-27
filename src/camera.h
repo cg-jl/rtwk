@@ -268,7 +268,7 @@ class camera {
             color attenuation;
 
             // here we'll have to use the emit value as the 'attenuation' value.
-            if (res->mat->emits) {
+            if (res->mat->tag == material::kind::diffuse_light) {
                 attenuations.emplace_back(res->tex, rec.uv, rec.geom.p);
                 return color(1, 1, 1);
             }

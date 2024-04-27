@@ -24,6 +24,11 @@
 #include "sphere.h"
 #include "texture.h"
 
+template <typename T>
+T *leak(T val) {
+    return new T(std::move(val));
+}
+
 void bouncing_spheres() {
     hittable_list world;
 
@@ -53,12 +58,12 @@ void bouncing_spheres() {
                     // metal
                     auto albedo = new solid_color(color::random(0.5, 1));
                     auto fuzz = random_double(0, 0.5);
-                    sphere_material = new metal(fuzz);
+                    sphere_material = leak(material::metal(fuzz));
                     world.add(new hittable(sphere_material, albedo,
                                            new sphere(center, 0.2)));
                 } else {
                     // glass
-                    sphere_material = new dielectric(1.5);
+                    sphere_material = leak(material::dielectric(1.5));
                     world.add(new hittable(sphere_material, &detail::white,
                                            new sphere(center, 0.2)));
                 }
@@ -66,7 +71,7 @@ void bouncing_spheres() {
         }
     }
 
-    auto material1 = new dielectric(1.5);
+    auto material1 = leak(material::dielectric(1.5));
     world.add(new hittable(material1, &detail::white,
                            new sphere(point3(0, 1, 0), 1.0)));
 
@@ -76,7 +81,7 @@ void bouncing_spheres() {
         new hittable(material2, color2, new sphere(point3(-4, 1, 0), 1.0)));
 
     auto color3 = new solid_color(color(0.7, 0.6, 0.5));
-    auto material3 = new metal(0.0);
+    auto material3 = leak(material::metal(0.0));
     world.add(
         new hittable(material3, color3, new sphere(point3(4, 1, 0), 1.0)));
 
@@ -239,7 +244,7 @@ void simple_light() {
     world.add(new hittable(&detail::lambertian, pertext,
                            new sphere(point3(0, 2, 0), 2)));
 
-    auto difflight = new diffuse_light();
+    auto difflight = &detail::diffuse_light;
     auto light_tint = new solid_color(4, 4, 4);
     world.add(
         new hittable(difflight, light_tint, new sphere(point3(0, 7, 0), 2)));
@@ -271,7 +276,7 @@ void cornell_box() {
     auto red = new solid_color(color(.65, .05, .05));
     auto white = new solid_color(color(.73, .73, .73));
     auto green = new solid_color(color(.12, .45, .15));
-    auto light = new diffuse_light();
+    auto light = &detail::diffuse_light;
     auto light_tint = new solid_color(15, 15, 15);
 
     auto lambert = &detail::lambertian;
@@ -337,7 +342,7 @@ void cornell_smoke() {
     auto red = new solid_color(color(.65, .05, .05));
     auto white = new solid_color(color(.73, .73, .73));
     auto green = new solid_color(color(.12, .45, .15));
-    auto light = new diffuse_light();
+    auto light = &detail::diffuse_light;
     auto light_tint = new solid_color(7, 7, 7);
 
     auto lambert = &detail::lambertian;
@@ -419,7 +424,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     world.trees.emplace_back(boxes1.objects);
 
-    auto light = new diffuse_light();
+    auto light = &detail::diffuse_light;
     auto light_tint = new solid_color(7, 7, 7);
     world.add(new hittable(
         light, light_tint,
@@ -432,14 +437,15 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     world.add(new hittable(sphere_material, sphere_tint,
                            new sphere(center1, center2, 50)));
 
-    world.add(new hittable(new dielectric(1.5), &detail::white,
+    world.add(new hittable(leak(material::dielectric(1.5)), &detail::white,
                            new sphere(point3(260, 150, 45), 50)));
     auto fuzzball_tint = new solid_color(0.8, 0.8, 0.9);
-    world.add(new hittable(new metal(1), fuzzball_tint,
+    world.add(new hittable(leak(material::metal(1)), fuzzball_tint,
                            new sphere(point3(0, 150, 145), 50)));
 
     auto boundary = new sphere(point3(360, 150, 145), 70);
-    world.add(new hittable(new dielectric(1.5), &detail::white, boundary));
+    world.add(new hittable(leak(material::dielectric(1.5)), &detail::white,
+                           boundary));
     world.add(new constant_medium(boundary, 0.2, color(0.2, 0.4, 0.9)));
     boundary = new sphere(point3(0, 0, 0), 5000);
     world.add(new constant_medium(boundary, .0001, color(1, 1, 1)));
