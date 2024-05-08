@@ -17,6 +17,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <fstream>
+#include <memory>
 #include <thread>
 #include <tracy/Tracy.hpp>
 
@@ -42,6 +43,30 @@ class camera {
     double defocus_angle = 0;  // Variation angle of rays through each pixel
     double focus_dist =
         10;  // Distance from camera lookfrom point to plane of perfect focus
+
+    struct sample_request {
+        texture tex;
+        uvs uv;
+        point3 p;
+
+        sample_request(texture tex, uvs uv, point3 p)
+            : tex(std::move(tex)), uv(uv), p(p) {}
+
+        color sample() const { return tex.value(uv, p); }
+    };
+
+    struct px_sampleq {
+        std::vector<sample_request> &reqs;
+        size_t prev_fill;
+
+        template <typename... Ts>
+        void emplace_back(Ts &&...ts) {
+            reqs.emplace_back(std::forward<Ts &&>(ts)...);
+        }
+        void clear() {
+            reqs.erase(reqs.cbegin() + intptr_t(prev_fill), reqs.cend());
+        }
+    };
 
     void render(hittable_list const &world) {
         initialize();
@@ -83,6 +108,8 @@ class camera {
 #pragma omp parallel
         {
             std::vector<sample_request> attenuations;
+            auto sample_counts =
+                std::make_unique<size_t[]>(size_t(samples_per_pixel));
             auto samples = std::make_unique<color[]>(size_t(samples_per_pixel));
             for (;;) {
                 auto j = remain_scanlines.load(std::memory_order_acquire);
@@ -94,7 +121,8 @@ class camera {
                     j, j - 1, std::memory_order_acq_rel));
                 --j;
 
-                scanLine(world, j, pixels.get(), attenuations, samples.get());
+                scanLine(world, j, pixels.get(), attenuations,
+                         sample_counts.get(), samples.get());
 
                 cv.notify_one();
             }
@@ -114,32 +142,37 @@ class camera {
 
         std::clog << "Done.\n";
     }
-    struct sample_request {
-        texture tex;
-        uvs uv;
-        point3 p;
-
-        constexpr sample_request() = default;
-        sample_request(texture tex, uvs uv, point3 p)
-            : tex(std::move(tex)), uv(uv), p(p) {}
-
-        color sample() const { return tex.value(uv, p); }
-    };
 
     void scanLine(hittable_list const &world, int j,
                   color *__restrict_arr pixels,
                   std::vector<sample_request> &attenuations,
+                  size_t *__restrict_arr sample_counts,
                   color *__restrict_arr samples) {
         for (int i = 0; i < image_width; i++) {
             color pixel_color(0, 0, 0);
+            attenuations.clear();
+            px_sampleq q{attenuations, 0};
             for (int sample = 0; sample < samples_per_pixel; sample++) {
                 ZoneScopedN("pixel sample");
                 ray r = get_ray(i, j);
 
-                attenuations.clear();
+                auto bg = geometrySim(r, max_depth, world, q);
 
-                auto bg = geometrySim(r, max_depth, world, attenuations);
-                samples[sample] = multiplySamples(attenuations, bg);
+                auto att_count = attenuations.size() - q.prev_fill;
+                q.prev_fill = attenuations.size();
+                sample_counts[sample] = att_count;
+                samples[sample] = bg;
+            }
+
+            {
+                std::span atts = attenuations;
+                size_t processed = 0;
+                for (int sample = 0; sample < samples_per_pixel; ++sample) {
+                    auto count = sample_counts[sample];
+                    samples[sample] = multiplySamples(
+                        atts.subspan(processed, count), samples[sample]);
+                    processed += count;
+                }
             }
 
             for (int sample = 0; sample < samples_per_pixel; ++sample) {
@@ -250,7 +283,7 @@ class camera {
 
     // Fills the `attenuations` vector and returns the background color
     color geometrySim(ray r, int depth, hittable_list const &world,
-                      std::vector<sample_request> &attenuations) const {
+                      px_sampleq &attenuations) const {
         for (;;) {
             if (depth <= 0) return color(1, 1, 1);
             ZoneScopedN("ray frame");
