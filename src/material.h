@@ -20,8 +20,8 @@
 #include "vec3.h"
 
 namespace detail {
-static solid_color black(color(0, 0, 0));
-static solid_color white(color(1, 1, 1));
+static texture black = texture::solid(color(0, 0, 0));
+static texture white = texture::solid(color(1, 1, 1));
 }  // namespace detail
 
 struct hit_record;

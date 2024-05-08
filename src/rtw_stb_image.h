@@ -25,7 +25,7 @@
 
 class rtw_image {
    public:
-    rtw_image() {}
+    constexpr rtw_image() {}
 
     rtw_image(char const *image_filename) {
         // Loads image data from the specified file. If the RTW_IMAGES
@@ -55,7 +55,7 @@ class rtw_image {
                   << "'.\n";
     }
 
-    ~rtw_image() {
+    constexpr ~rtw_image() {
         delete[] bdata;
         STBI_FREE(fdata);
     }

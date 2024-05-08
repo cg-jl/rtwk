@@ -42,7 +42,7 @@ class constant_medium final : public hittable {
           neg_inv_density(-1 / density) {}
 
     constant_medium(geometry *boundary, double density, color const &albedo)
-        : constant_medium(boundary, density, new solid_color(albedo)) {}
+        : constant_medium(boundary, density, leak(texture::solid(albedo))) {}
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
         ZoneScopedN("constant_medium hit");

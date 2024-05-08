@@ -19,100 +19,123 @@
 #include "perlin.h"
 #include "rtw_stb_image.h"
 #include "rtweekend.h"
+#include "vec3.h"
 
 class texture {
    public:
-    virtual ~texture() = default;
+    enum class tag {
+        solid,
+        checker,
+        image,
+        noise,
+    } kind;
 
-    virtual color value(uvs uv, point3 const &p) const = 0;
-};
+    struct noise_data {
+        perlin noise;
+        double scale;
+    };
 
-struct solid_color : public texture {
-    constexpr solid_color(color const &albedo) : albedo(albedo) {}
+    struct checker_data {
+        double inv_scale;
+        texture const *even;
+        texture const *odd;
+    };
 
-    constexpr solid_color(double red, double green, double blue)
-        : solid_color(color(red, green, blue)) {}
+    union data {
+        checker_data checker;
+        rtw_image image;
+        noise_data noise;
+        color solid;
 
-    color value(uvs uv, point3 const &p) const final {
-        ZoneScopedN("solid_color sample");
-        return albedo;
+        constexpr data() {}
+        ~data() {}
+
+    } as;
+
+    constexpr texture(tag kind, data &&d)
+        : kind(kind), as(std::forward<data &&>(d)) {}
+
+    static texture checker(double scale, texture const *even,
+                           texture const *odd) {
+        data d;
+        new (&d.checker) checker_data{scale, even, odd};
+        return texture(tag::checker, std::move(d));
     }
 
-    color albedo;
-};
-
-class checker_texture : public texture {
-   public:
-    checker_texture(double scale, texture *even, texture *odd)
-        : inv_scale(1.0 / scale), even(even), odd(odd) {}
-
-    checker_texture(double scale, color const &c1, color const &c2)
-        : inv_scale(1.0 / scale),
-          even(new solid_color(c1)),
-          odd(new solid_color(c2)) {}
-
-    color value(uvs uv, point3 const &p) const final {
-        ZoneScopedN("checker_texture sample");
-
-        auto xInteger = int(std::floor(inv_scale * p.x()));
-        auto yInteger = int(std::floor(inv_scale * p.y()));
-        auto zInteger = int(std::floor(inv_scale * p.z()));
-
-        bool isEven = (xInteger + yInteger + zInteger) % 2 == 0;
-
-        return isEven ? even->value(uv, p) : odd->value(uv, p);
+    template <typename... Ts>
+    static texture solid(Ts &&...ts) {
+        data d;
+        new (&d.solid) color(ts...);
+        return texture(tag::solid, std::move(d));
     }
 
-   private:
-    double inv_scale;
-    texture *even;
-    texture *odd;
-};
-
-class image_texture : public texture {
-   public:
-    image_texture(char const *filename) : image(filename) {}
-
-    color value(uvs uv, point3 const &p) const final {
-        ZoneScopedN("image_texture sample");
-
-        // If we have no texture data, then return solid cyan as a debugging
-        // aid.
-        if (image.height() <= 0) return color(0, 1, 1);
-
-        // Clamp input texture coordinates to [0,1] x [1,0]
-        uv.u = interval(0, 1).clamp(uv.u);
-        uv.v = 1.0 - interval(0, 1).clamp(uv.v);  // Flip V to image coordinates
-
-        auto i = int(uv.u * image.width());
-        auto j = int(uv.v * image.height());
-        auto pixel = image.pixel_data(i, j);
-
-        auto color_scale = 1.0 / 255.0;
-        return color(color_scale * pixel[0], color_scale * pixel[1],
-                     color_scale * pixel[2]);
+    static texture image(char const *filename) {
+        data d;
+        new (&d.image) rtw_image(filename);
+        return texture(tag::image, std::move(d));
     }
 
-   private:
-    rtw_image image;
-};
-
-class noise_texture : public texture {
-   public:
-    noise_texture() {}
-
-    noise_texture(double scale) : scale(scale) {}
-
-    color value(uvs _uv, point3 const &p) const final {
-        ZoneScopedN("noise_texture sample");
-
-        return color(.5, .5, .5) *
-               (1 + sin(scale * p.z() + 10 * noise.turb(p, 7)));
+    static texture noise(double scale) {
+        data d;
+        new (&d.noise.noise) perlin();
+        d.noise.scale = scale;
+        return texture(tag::noise, std::move(d));
     }
 
-   private:
-    perlin noise;
-    double scale;
+    color value(uvs uv, point3 const &p) const;
 };
+
+namespace texture_samplers {
+inline color sample_checker(texture::checker_data const &data, uvs uv,
+                            point3 const &p) {
+    ZoneScoped;
+
+    auto xint = int(std::floor(data.inv_scale * p.x()));
+    auto yint = int(std::floor(data.inv_scale * p.y()));
+    auto zint = int(std::floor(data.inv_scale * p.z()));
+
+    auto is_even = (xint + yint + zint) % 2 == 0;
+    return is_even ? data.even->value(uv, p) : data.odd->value(uv, p);
+}
+
+inline color sample_image(rtw_image const &img, uvs uv) {
+    ZoneScoped;
+
+    static constexpr auto unit = interval(0, 1);
+
+    uv.u = unit.clamp(uv.u);
+    uv.v = unit.clamp(uv.v);
+
+    auto i = int(uv.u * img.width());
+    auto j = int((1 - uv.v) * img.height());
+    auto px = img.pixel_data(i, j);
+
+    auto col_scale = 1. / 255.;
+
+    return color(col_scale * px[0], col_scale * px[1], col_scale * px[2]);
+}
+
+inline color sample_noise(texture::noise_data const &data, point3 const &p) {
+    ZoneScoped;
+
+    return color(.5, .5, .5) *
+           (1 + std::sin(data.scale * p.z() + 10 * data.noise.turb(p, 7)));
+}
+
+}  // namespace texture_samplers
+
+color texture::value(uvs uv, point3 const &p) const {
+    switch (kind) {
+        case tag::solid:
+            return as.solid;
+        case tag::checker:
+            return texture_samplers::sample_checker(as.checker, uv, p);
+        case tag::image:
+            return texture_samplers::sample_image(as.image, uv);
+        case tag::noise:
+            return texture_samplers::sample_noise(as.noise, p);
+    }
+    __builtin_unreachable();
+}
 
 #endif
