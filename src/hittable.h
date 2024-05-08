@@ -40,12 +40,12 @@ class hit_record {
 
 struct hittable {
     material const *mat;
-    geometry *geom;
+    geometry const *geom;
     texture const *tex;
     virtual ~hittable() = default;
 
     constexpr explicit hittable(material const *mat, texture const *tex,
-                                geometry *geom)
+                                geometry const *geom)
         : mat(mat), geom(geom), tex(tex) {}
 
     // NOTE: by default it's a single hit, but must make it overridable
@@ -71,7 +71,7 @@ struct hittable {
 // internalHit() (assumes transform) and hit()
 class translate final : public geometry {
    public:
-    constexpr translate(geometry *object, vec3 offset)
+    constexpr translate(geometry const *object, vec3 offset)
         : object(object), offset(offset) {}
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final {
@@ -99,7 +99,7 @@ class translate final : public geometry {
     aabb bounding_box() const final { return object->bounding_box() + offset; }
 
    private:
-    geometry *object;
+    geometry const *object;
     vec3 offset;
 };
 
@@ -108,7 +108,7 @@ class translate final : public geometry {
 // internalHit() (assumes transform) and hit()
 class rotate_y final : public geometry {
    public:
-    rotate_y(geometry *object, double angle) : object(object) {
+    rotate_y(geometry const *object, double angle) : object(object) {
         auto radians = degrees_to_radians(angle);
         sin_theta = sin(radians);
         cos_theta = cos(radians);
@@ -185,7 +185,7 @@ class rotate_y final : public geometry {
     }
 
    private:
-    geometry *object;
+    geometry const *object;
     double sin_theta;
     double cos_theta;
 };

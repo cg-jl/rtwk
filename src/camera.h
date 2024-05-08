@@ -115,15 +115,15 @@ class camera {
         std::clog << "Done.\n";
     }
     struct sample_request {
-        texture const *tex;
+        texture tex;
         uvs uv;
         point3 p;
 
         constexpr sample_request() = default;
-        constexpr sample_request(texture const *tex, uvs uv, point3 p)
-            : tex(tex), uv(uv), p(p) {}
+        sample_request(texture tex, uvs uv, point3 p)
+            : tex(std::move(tex)), uv(uv), p(p) {}
 
-        color sample() const { return tex->value(uv, p); }
+        color sample() const { return tex.value(uv, p); }
     };
 
     void scanLine(hittable_list const &world, int j,
@@ -269,7 +269,7 @@ class camera {
 
             // here we'll have to use the emit value as the 'attenuation' value.
             if (res->mat->tag == material::kind::diffuse_light) {
-                attenuations.emplace_back(res->tex, rec.uv, rec.geom.p);
+                attenuations.emplace_back(*res->tex, rec.uv, rec.geom.p);
                 return color(1, 1, 1);
             }
 
@@ -279,7 +279,7 @@ class camera {
             }
 
             depth = depth - 1;
-            attenuations.emplace_back(res->tex, rec.uv, rec.geom.p);
+            attenuations.emplace_back(*res->tex, rec.uv, rec.geom.p);
             r = ray(rec.geom.p, scattered, r.time);
         }
     }

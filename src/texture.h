@@ -31,7 +31,7 @@ class texture {
     } kind;
 
     struct noise_data {
-        perlin noise;
+        perlin const *noise;
         double scale;
     };
 
@@ -43,7 +43,7 @@ class texture {
 
     union data {
         checker_data checker;
-        rtw_image image;
+        rtw_image const *image;
         noise_data noise;
         color solid;
 
@@ -71,14 +71,13 @@ class texture {
 
     static texture image(char const *filename) {
         data d;
-        new (&d.image) rtw_image(filename);
+        d.image = new rtw_image(filename);
         return texture(tag::image, std::move(d));
     }
 
     static texture noise(double scale) {
         data d;
-        new (&d.noise.noise) perlin();
-        d.noise.scale = scale;
+        new (&d.noise) noise_data{new perlin(), scale};
         return texture(tag::noise, std::move(d));
     }
 
@@ -119,7 +118,7 @@ inline color sample_noise(texture::noise_data const &data, point3 const &p) {
     ZoneScoped;
 
     return color(.5, .5, .5) *
-           (1 + std::sin(data.scale * p.z() + 10 * data.noise.turb(p, 7)));
+           (1 + std::sin(data.scale * p.z() + 10 * data.noise->turb(p, 7)));
 }
 
 }  // namespace texture_samplers
@@ -131,7 +130,7 @@ color texture::value(uvs uv, point3 const &p) const {
         case tag::checker:
             return texture_samplers::sample_checker(as.checker, uv, p);
         case tag::image:
-            return texture_samplers::sample_image(as.image, uv);
+            return texture_samplers::sample_image(*as.image, uv);
         case tag::noise:
             return texture_samplers::sample_noise(as.noise, p);
     }
