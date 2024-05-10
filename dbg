@@ -1,0 +1,3 @@
+set -ex
+cmake --build build-dbg
+gdb ./build-dbg/rt

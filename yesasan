@@ -1,0 +1,2 @@
+sed -ie 's/ASAN_ENABLE.*/ASAN_ENABLE:BOOL=On/' build/CMakeCache.txt
+sed -ie 's/CMAKE_BUILD_TYPE.*/CMAKE_BUILD_TYPE=RelWithDebInfo/' build/CMakeCache.txt

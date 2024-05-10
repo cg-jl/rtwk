@@ -1,0 +1,6 @@
+#!/bin/bash
+set -ex
+./notracy
+./rel
+cmake --build build
+time ./build/rt

@@ -1,0 +1,3 @@
+set -ex
+./run
+eog test.ppm back.ppm

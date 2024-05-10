@@ -1,0 +1,6 @@
+#!/bin/bash
+set -ex
+./yestracy
+./rel
+cmake --build build
+./build/rt

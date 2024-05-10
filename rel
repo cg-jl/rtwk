@@ -1,0 +1,1 @@
+sed -ie 's/CMAKE_BUILD_TYPE.*/CMAKE_BUILD_TYPE:STRING=Release/' build/CMakeCache.txt
