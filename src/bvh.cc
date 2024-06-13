@@ -4,7 +4,8 @@
 
 namespace bvh {
 
-static bvh_node buildBVHNode(hittable **objects, int start, int end, int depth = 0) {
+[[clang::noinline]] static bvh_node buildBVHNode(hittable **objects, int start,
+                                                 int end, int depth = 0) {
     static constexpr int minObjectsInTree = 6;
     static_assert(minObjectsInTree > 1,
                   "Min objects in tree must be at least 2, otherwise it will "
@@ -41,9 +42,10 @@ static bvh_node buildBVHNode(hittable **objects, int start, int end, int depth =
     return bvh_node{bbox, start, end, new bvh_node(left), new bvh_node(right)};
 }
 
-static hittable const *hitNode(ray const &r, interval ray_t,
-                               geometry_record &rec, bvh_node const &n,
-                               hittable **objects) {
+[[clang::noinline]] static hittable const *hitNode(ray const &r, interval ray_t,
+                                                   geometry_record &rec,
+                                                   bvh_node const &n,
+                                                   hittable **objects) {
     if (!n.bbox.hit(r, ray_t)) return nullptr;
     if (n.left == nullptr) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
