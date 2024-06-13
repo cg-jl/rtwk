@@ -6,12 +6,27 @@ include(FetchContent)
 
 #find_package(PNG REQUIRED)
 
-add_executable(rt src/main.cc 
+add_executable(rt 
+    src/aabb.cc
+    src/aaquad.cc
     src/external/stb_image_write.cc
     src/external/stb_image.cc
-    src/rtw_stb_image.cc
-    src/timer.cc
+    src/box.cc
     src/bvh.cc
+    src/camera.cc
+    src/constant_medium.cc
+    src/hittable.cc
+    src/hittable_list.cc
+    src/main.cc 
+    src/material.cc
+    src/perlin.cc
+    src/quad.cc
+    src/random.cc
+    src/rtw_stb_image.cc
+    src/sphere.cc
+    src/texture.cc
+    src/timer.cc
+    src/transforms.cc
 )
 
 option(TRACY_ENABLE "" OFF)

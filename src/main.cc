@@ -10,7 +10,6 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
-#include <chrono>
 #include <print>
 
 #include "aaquad.h"
@@ -27,12 +26,14 @@
 #include "sphere.h"
 #include "texture.h"
 #include "timer.h"
+#include "transforms.h"
 
 void bouncing_spheres() {
     hittable_list world;
 
-    auto checker = leak(texture::checker(0.32, leak(texture::solid(.2, .3, .1)),
-                                         leak(texture::solid(.9, .9, .9))));
+    auto checker =
+        leak(texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
+                              leak(texture::solid(color(.9, .9, .9)))));
     world.add(new hittable(&detail::lambertian, checker,
                            new sphere(point3(0, -1000, 0), 1000)));
 
@@ -48,14 +49,14 @@ void bouncing_spheres() {
                 if (choose_mat < 0.8) {
                     // diffuse
                     auto albedo =
-                        leak(texture::solid(color::random() * color::random()));
+                        leak(texture::solid(random_vec() * random_vec()));
                     sphere_material = &detail::lambertian;
                     auto center2 = center + vec3(0, random_double(0, .5), 0);
                     world.add(new hittable(sphere_material, albedo,
                                            new sphere(center, center2, 0.2)));
                 } else if (choose_mat < 0.95) {
                     // metal
-                    auto albedo = leak(texture::solid(color::random(0.5, 1)));
+                    auto albedo = leak(texture::solid(random_vec(0.5, 1)));
                     auto fuzz = random_double(0, 0.5);
                     sphere_material = leak(material::metal(fuzz));
                     world.add(new hittable(sphere_material, albedo,
@@ -74,7 +75,7 @@ void bouncing_spheres() {
     world.add(new hittable(material1, &detail::white,
                            new sphere(point3(0, 1, 0), 1.0)));
 
-    auto color2 = leak(texture::solid(0.4, 0.2, 0.1));
+    auto color2 = leak(texture::solid(color(0.4, 0.2, 0.1)));
     auto material2 = &detail::lambertian;
     world.add(
         new hittable(material2, color2, new sphere(point3(-4, 1, 0), 1.0)));
@@ -109,8 +110,9 @@ void bouncing_spheres() {
 void checkered_spheres() {
     hittable_list world;
 
-    auto checker = leak(texture::checker(0.32, leak(texture::solid(.2, .3, .1)),
-                                         leak(texture::solid(.9, .9, .9))));
+    auto checker =
+        leak(texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
+                              leak(texture::solid(color(.9, .9, .9)))));
 
     world.add(new hittable(&detail::lambertian, checker,
                            new sphere(point3(0, -10, 0), 10)));
@@ -244,7 +246,7 @@ void simple_light() {
                            new sphere(point3(0, 2, 0), 2)));
 
     auto difflight = &detail::diffuse_light;
-    auto light_tint = texture::solid(4, 4, 4);
+    auto light_tint = texture::solid(color(4, 4, 4));
     world.add(
         new hittable(difflight, &light_tint, new sphere(point3(0, 7, 0), 2)));
     world.add(
@@ -276,7 +278,7 @@ void cornell_box() {
     auto white = texture::solid(color(.73, .73, .73));
     auto green = texture::solid(color(.12, .45, .15));
     auto light = &detail::diffuse_light;
-    auto light_tint = texture::solid(15, 15, 15);
+    auto light_tint = texture::solid(color(15, 15, 15));
 
     auto lambert = &detail::lambertian;
 
@@ -342,7 +344,7 @@ void cornell_smoke() {
     auto white = texture::solid(color(.73, .73, .73));
     auto green = texture::solid(color(.12, .45, .15));
     auto light = &detail::diffuse_light;
-    auto light_tint = texture::solid(7, 7, 7);
+    auto light_tint = texture::solid(color(7, 7, 7));
 
     auto lambert = &detail::lambertian;
 
@@ -401,7 +403,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto build_timer = new rtwk::timer("Building scene");
     hittable_list boxes1;
     auto lambert = &detail::lambertian;
-    auto ground_col = texture::solid(0.48, 0.83, 0.53);
+    auto ground_col = texture::solid(color(0.48, 0.83, 0.53));
 
     int boxes_per_side = 20;
     for (int i = 0; i < boxes_per_side; i++) {
@@ -425,7 +427,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     world.trees.emplace_back(boxes1.objects);
 
     auto light = &detail::diffuse_light;
-    auto light_tint = texture::solid(7, 7, 7);
+    auto light_tint = texture::solid(color(7, 7, 7));
     world.add(new hittable(
         light, &light_tint,
         new quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265))));
@@ -433,13 +435,13 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto center1 = point3(400, 400, 200);
     auto center2 = center1 + vec3(30, 0, 0);
     auto sphere_material = lambert;
-    auto sphere_tint = texture::solid(0.7, 0.3, 0.1);
+    auto sphere_tint = texture::solid(color(0.7, 0.3, 0.1));
     world.add(new hittable(sphere_material, &sphere_tint,
                            new sphere(center1, center2, 50)));
 
     world.add(new hittable(leak(material::dielectric(1.5)), &detail::white,
                            new sphere(point3(260, 150, 45), 50)));
-    auto fuzzball_tint = texture::solid(0.8, 0.8, 0.9);
+    auto fuzzball_tint = texture::solid(color(0.8, 0.8, 0.9));
     world.add(new hittable(leak(material::metal(1)), &fuzzball_tint,
                            new sphere(point3(0, 150, 145), 50)));
 
@@ -458,10 +460,10 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         new hittable(lambert, pertext, new sphere(point3(220, 280, 300), 80)));
 
     hittable_list boxes2;
-    auto white = texture::solid(.73, .73, .73);
+    auto white = texture::solid(color(.73, .73, .73));
     int ns = 1000;
     for (int j = 0; j < ns; j++) {
-        geometry *s = new sphere(point3::random(0, 165), 10);
+        geometry *s = new sphere(random_vec(0, 165), 10);
 
         s = new rotate_y(s, 15);
         s = new translate(s, vec3(-100, 270, 395));

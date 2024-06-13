@@ -12,10 +12,9 @@
 
 #include <cmath>
 #include <cstdlib>
-#include <iostream>
-#include <limits>
 #include <memory>
-#include <random>
+
+#include "random.h"
 
 // C++ Std Usings
 
@@ -23,6 +22,12 @@ using std::fabs;
 using std::make_shared;
 using std::shared_ptr;
 using std::sqrt;
+
+inline void assert(bool x) {
+    if (!x) [[unlikely]] {
+        std::abort();
+    }
+}
 
 // Constants
 
@@ -33,32 +38,6 @@ static constexpr double pi = 3.1415926535897932385;
 
 inline double degrees_to_radians(double degrees) {
     return degrees * pi / 180.0;
-}
-
-// Adapted from glibc/glibc/stdlib/rand_r.c
-/* This algorithm is mentioned in the ISO C standard, here extended
-   for 32 bits.  */
-inline int rand_r(unsigned int *seed) {
-    unsigned int next = *seed;
-    int result;
-    next *= 1103515245;
-    next += 12345;
-    result = (unsigned int)(next / 65536) % 2048;
-    next *= 1103515245;
-    next += 12345;
-    result <<= 10;
-    result ^= (unsigned int)(next / 65536) % 1024;
-    next *= 1103515245;
-    next += 12345;
-    result <<= 10;
-    result ^= (unsigned int)(next / 65536) % 1024;
-    *seed = next;
-    return result;
-}
-
-inline double random_double() {
-    static thread_local unsigned int seed;
-    return double(rand_r(&seed) & RAND_MAX) / (double(RAND_MAX) + 1);
 }
 
 inline double random_double(double min, double max) {

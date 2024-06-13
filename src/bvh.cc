@@ -1,5 +1,6 @@
 #include "bvh.h"
 
+#include <tracy/Tracy.hpp>
 #include <cassert>
 
 namespace bvh {

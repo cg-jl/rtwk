@@ -1,5 +1,4 @@
-#ifndef HITTABLE_LIST_H
-#define HITTABLE_LIST_H
+#pragma once
 //==============================================================================================
 // Originally written in 2016 by Peter Shirley <ptrshrl@gmail.com>
 //
@@ -14,11 +13,9 @@
 
 #include <vector>
 
-#include "aabb.h"
 #include "bvh.h"
 #include "geometry.h"
 #include "hittable.h"
-#include "rtweekend.h"
 
 class hittable_list {
    public:
@@ -48,29 +45,6 @@ class hittable_list {
     }
 
     hittable const *hitSelect(ray const &r, interval ray_t,
-                              geometry_record &rec) const {
-        ZoneScopedN("hittable_list hit");
+                              geometry_record &rec) const;
 
-        hittable const *best = nullptr;
-
-        {
-            ZoneScopedN("hit trees");
-            for (auto const &tree : trees) {
-                if (auto const next = tree.hitSelect(r, ray_t, rec); next) {
-                    ray_t.max = rec.t;
-                    best = next;
-                }
-            }
-        }
-
-        {
-            ZoneScopedN("hit individuals");
-            auto const hit_individual = hitSpan(objects, r, ray_t, rec);
-            best = hit_individual ?: best;
-        }
-
-        return best;
-    }
 };
-
-#endif

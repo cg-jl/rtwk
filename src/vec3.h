@@ -14,7 +14,6 @@
 
 #include <cmath>
 
-#include "rtweekend.h"
 class vec3 {
    public:
     double e[3];
@@ -58,15 +57,6 @@ class vec3 {
         return (std::abs(e[0]) < s) && (std::abs(e[1]) < s) &&
                (std::abs(e[2]) < s);
     }
-
-    static vec3 random() {
-        return vec3(random_double(), random_double(), random_double());
-    }
-
-    static vec3 random(double min, double max) {
-        return vec3(random_double(min, max), random_double(min, max),
-                    random_double(min, max));
-    }
 };
 
 // point3 is just an alias for vec3, but useful for geometric clarity in the
@@ -75,78 +65,36 @@ using point3 = vec3;
 
 // Vector Utility Functions
 
-inline std::ostream &operator<<(std::ostream &out, vec3 v) {
-    return out << v.e[0] << ' ' << v.e[1] << ' ' << v.e[2];
-}
-
-inline constexpr vec3 operator+(vec3 u, vec3 v) {
+constexpr vec3 operator+(vec3 u, vec3 v) {
     return vec3(u.e[0] + v.e[0], u.e[1] + v.e[1], u.e[2] + v.e[2]);
 }
 
-inline constexpr vec3 operator-(vec3 u, vec3 v) {
+constexpr vec3 operator-(vec3 u, vec3 v) {
     return vec3(u.e[0] - v.e[0], u.e[1] - v.e[1], u.e[2] - v.e[2]);
 }
 
-inline constexpr vec3 operator*(vec3 u, vec3 v) {
+constexpr vec3 operator*(vec3 u, vec3 v) {
     return vec3(u.e[0] * v.e[0], u.e[1] * v.e[1], u.e[2] * v.e[2]);
 }
 
-inline constexpr vec3 operator*(double t, vec3 v) {
+constexpr vec3 operator*(double t, vec3 v) {
     return vec3(t * v.e[0], t * v.e[1], t * v.e[2]);
 }
 
-inline constexpr vec3 operator*(vec3 v, double t) { return t * v; }
+constexpr vec3 operator*(vec3 v, double t) { return t * v; }
 
-inline constexpr vec3 operator/(vec3 v, double t) { return (1 / t) * v; }
+constexpr vec3 operator/(vec3 v, double t) { return (1 / t) * v; }
 
-inline constexpr double dot(vec3 u, vec3 v) {
+constexpr double dot(vec3 u, vec3 v) {
     return u.e[0] * v.e[0] + u.e[1] * v.e[1] + u.e[2] * v.e[2];
 }
 
-inline constexpr vec3 cross(vec3 u, vec3 v) {
+constexpr vec3 cross(vec3 u, vec3 v) {
     return vec3(u.e[1] * v.e[2] - u.e[2] * v.e[1],
                 u.e[2] * v.e[0] - u.e[0] * v.e[2],
                 u.e[0] * v.e[1] - u.e[1] * v.e[0]);
 }
 
 inline vec3 unit_vector(vec3 v) { return v / v.length(); }
-
-inline vec3 random_in_unit_disk() {
-    while (true) {
-        auto p = vec3(random_double(-1, 1), random_double(-1, 1), 0);
-        if (p.length_squared() < 1) return p;
-    }
-}
-
-inline vec3 random_in_unit_sphere() {
-    while (true) {
-        auto p = vec3::random(-1, 1);
-        if (p.length_squared() < 1) return p;
-    }
-}
-
-inline vec3 random_unit_vector() {
-    return unit_vector(random_in_unit_sphere());
-}
-
-inline vec3 random_on_hemisphere(vec3 normal) {
-    vec3 on_unit_sphere = random_unit_vector();
-    if (dot(on_unit_sphere, normal) >
-        0.0)  // In the same hemisphere as the normal
-        return on_unit_sphere;
-    else
-        return -on_unit_sphere;
-}
-
-inline vec3 reflect(vec3 v, vec3 n) { return v - 2 * dot(v, n) * n; }
-
-// `uv`, `n` are assumed to be unit vectors.
-inline vec3 refract(vec3 uv, vec3 n, double etai_over_etat) {
-    auto cos_theta = -dot(uv, n);
-    vec3 r_out_perp = etai_over_etat * (uv + cos_theta * n);
-    vec3 r_out_parallel =
-        -std::sqrt(std::abs(1.0 - r_out_perp.length_squared())) * n;
-    return r_out_perp + r_out_parallel;
-}
 
 #endif
