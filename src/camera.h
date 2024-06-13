@@ -12,7 +12,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
-#include <linux/futex.h>
+#include <external/stb_image_write.h>
 #include <omp.h>
 
 #include <algorithm>
@@ -204,21 +204,38 @@ class camera {
 
         std::clog << "\r\x1b[2KWriting image...\n";
 
-        std::ofstream imout("test.ppm");
+        // 1. Encode the image into RGB
+        auto bytes =
+            std::make_unique<uint8_t[]>(image_width * image_height * 3);
 
-        imout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
-        for (int i = 0; i < image_width * image_height; ++i) {
-            write_color(imout, pixels[i]);
+        for (size_t i = 0; i < image_width * image_height; ++i) {
+            auto const &pixel_color = pixels[i];
+            auto r = pixel_color.x();
+            auto g = pixel_color.y();
+            auto b = pixel_color.z();
+
+            // Apply a linear to gamma transform for gamma 2
+            r = linear_to_gamma(r);
+            g = linear_to_gamma(g);
+            b = linear_to_gamma(b);
+
+            // Translate the [0,1] component values to the byte range [0,255].
+            static interval const intensity(0.000, 0.999);
+            bytes[3 * i + 0] = uint8_t(256 * intensity.clamp(r));
+            bytes[3 * i + 1] = uint8_t(256 * intensity.clamp(g));
+            bytes[3 * i + 2] = uint8_t(256 * intensity.clamp(b));
         }
+
+        stbi_write_png("test.png", image_width, image_height, 3,
+                             &bytes[0], 0);
+
 
         std::clog << "Done.\n";
     }
 
-    void scanLine(hittable_list const &world, int j,
-                  color *__restrict_arr pixels,
+    void scanLine(hittable_list const &world, int j, color *pixels,
                   std::vector<sample_request> &attenuations,
-                  size_t *__restrict_arr sample_counts,
-                  color *__restrict_arr samples) {
+                  size_t *sample_counts, color *samples) {
         for (int i = 0; i < image_width; i++) {
             color pixel_color(0, 0, 0);
             attenuations.clear();

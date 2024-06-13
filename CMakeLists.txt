@@ -4,9 +4,10 @@ project(rt CXX)
 
 include(FetchContent)
 
-find_package(PNG REQUIRED)
+#find_package(PNG REQUIRED)
 
-add_executable(rt src/main.cc)
+add_executable(rt src/main.cc src/external/stb_image_write.cc)
+add_library(png src/png/png.cc src/png/png.h)
 
 option(TRACY_ENABLE "" OFF)
 option(TRACY_ON_DEMAND "" ON)
@@ -24,21 +25,19 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tracy)
 
-target_link_libraries(rt PRIVATE TracyClient "${PNG_LIBRARY}")
-
-target_include_directories(rt PRIVATE "${PNG_INCLUDE_DIR}")
+target_link_libraries(rt PRIVATE TracyClient png)
 
 target_include_directories(rt PRIVATE src vendor)
 
-target_link_options(rt PRIVATE -lpthread)
+#target_link_options(rt PRIVATE -lpthread)
 
-set_property(TARGET rt PROPERTY CXX_STANDARD 20)
+set_property(TARGET rt PROPERTY CXX_STANDARD 23)
 
 target_compile_options(rt PRIVATE 
-    -fsingle-precision-constant 
-    -fdiagnostics-color
+    #-fsingle-precision-constant 
+    -fcolor-diagnostics
     -fdiagnostics-show-template-tree
-    -fconcepts-diagnostics-depth=4
+    #-fconcepts-diagnostics-depth=4
 )
 
 
@@ -62,7 +61,6 @@ else ()
 
             # NOTE: all of these have been tested to not modify
             # the final image. Mileage may vary!
-            -fwhole-program
             -fno-math-errno
             -fno-trapping-math
             -fno-signed-zeros
@@ -70,8 +68,7 @@ else ()
             #-freciprocal-math
             -fassociative-math
             -ffinite-math-only
-            -fallow-store-data-races
-            #-ffast-math
+            -ffast-math
 
             # This shouldn't have a big impact, since it's only one file, and nothing
             # *should* be exported
