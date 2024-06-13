@@ -1,10 +1,10 @@
 #include "bvh.h"
 
-#include <print>
+#include <cassert>
 
 namespace bvh {
 
-bvh_node buildBVHNode(hittable **objects, int start, int end, int depth = 0) {
+static bvh_node buildBVHNode(hittable **objects, int start, int end, int depth = 0) {
     static constexpr int minObjectsInTree = 6;
     static_assert(minObjectsInTree > 1,
                   "Min objects in tree must be at least 2, otherwise it will "
@@ -17,7 +17,7 @@ bvh_node buildBVHNode(hittable **objects, int start, int end, int depth = 0) {
         bbox = aabb(bbox, objects[i]->geom->bounding_box());
     auto object_span = end - start;
 
-    if (object_span < minObjectsInTree) {
+    if (object_span == 1) {
         return bvh_node{bbox, start, end, nullptr, nullptr};
     }
 
@@ -40,8 +40,36 @@ bvh_node buildBVHNode(hittable **objects, int start, int end, int depth = 0) {
 
     return bvh_node{bbox, start, end, new bvh_node(left), new bvh_node(right)};
 }
+
+static hittable const *hitNode(ray const &r, interval ray_t,
+                               geometry_record &rec, bvh_node const &n,
+                               hittable **objects) {
+    if (!n.bbox.hit(r, ray_t)) return nullptr;
+    if (n.left == nullptr) {
+        // TODO: With something like SAH (Surface Area Heuristic), we should see
+        // improving times by hitting multiple in one go. Since I'm tracing each
+        // kind of intersection, it will be interesting to bake statistics of
+        // each object and use that as timing reference.
+        return hitSpan(std::span{objects + n.objectsStart,
+                                 size_t(n.objectsEnd - n.objectsStart)},
+                       r, ray_t, rec);
+    }
+
+    auto hit_left = hitNode(r, ray_t, rec, *n.left, objects);
+    auto hit_right =
+        hitNode(r, interval(ray_t.min, hit_left ? rec.t : ray_t.max), rec,
+                *n.right, objects);
+    return hit_left ?: hit_right;
+}
+
 }  // namespace bvh
 
 bvh_tree::bvh_tree(std::span<hittable *> objects)
     : root(bvh::buildBVHNode(&objects[0], 0, objects.size())),
       objects(objects.data()) {}
+
+hittable const *bvh_tree::hitSelect(ray const &r, interval ray_t,
+                                    geometry_record &rec) const {
+    ZoneScopedN("bvh_tree hit");
+    return bvh::hitNode(r, ray_t, rec, root, objects);
+}
