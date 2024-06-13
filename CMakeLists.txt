@@ -9,6 +9,7 @@ include(FetchContent)
 add_executable(rt src/main.cc 
     src/external/stb_image_write.cc
     src/external/stb_image.cc
+    src/rtw_stb_image.cc
     src/timer.cc
     src/bvh.cc
 )
@@ -88,10 +89,6 @@ else ()
             -fassociative-math
             -ffinite-math-only
             -ffast-math
-
-            # This shouldn't have a big impact, since it's only one file, and nothing
-            # *should* be exported
-            -fno-semantic-interposition
     )
     target_compile_options(rt PRIVATE -fopenmp)
     target_link_options(rt PRIVATE -fopenmp)

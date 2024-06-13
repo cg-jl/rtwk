@@ -18,7 +18,6 @@
 #include "geometry.h"
 #include "perlin.h"
 #include "rtw_stb_image.h"
-#include "rtweekend.h"
 #include "vec3.h"
 
 class texture {
@@ -105,8 +104,8 @@ inline color sample_image(rtw_image const &img, uvs uv) {
     uv.u = unit.clamp(uv.u);
     uv.v = unit.clamp(uv.v);
 
-    auto i = int(uv.u * img.width());
-    auto j = int((1 - uv.v) * img.height());
+    auto i = int(uv.u * img.image_width);
+    auto j = int((1 - uv.v) * img.image_height);
     auto px = img.pixel_data(i, j);
 
     auto col_scale = 1. / 255.;
