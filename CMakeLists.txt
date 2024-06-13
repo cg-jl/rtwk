@@ -8,8 +8,8 @@ include(FetchContent)
 
 add_executable(rt src/main.cc 
     src/external/stb_image_write.cc
-    src/timer.cpp
     src/external/stb_image.cc
+    src/timer.cc
     src/bvh.cc
 )
 
