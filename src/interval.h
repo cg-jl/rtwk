@@ -34,6 +34,8 @@ class interval {
 
     constexpr double clamp(double x) const { return std::clamp(x, min, max); }
 
+    constexpr double midPoint() const { return min + (max - min) / 2.; }
+
     constexpr interval expand(double delta) const {
         auto padding = delta / 2;
         return interval(min - padding, max + padding);

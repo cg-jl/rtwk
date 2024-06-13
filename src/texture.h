@@ -123,7 +123,7 @@ inline color sample_noise(texture::noise_data const &data, point3 const &p) {
 
 }  // namespace texture_samplers
 
-color texture::value(uvs uv, point3 const &p) const {
+inline color texture::value(uvs uv, point3 const &p) const {
     switch (kind) {
         case tag::solid:
             return as.solid;

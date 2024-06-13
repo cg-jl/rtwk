@@ -9,6 +9,8 @@ include(FetchContent)
 add_executable(rt src/main.cc 
     src/external/stb_image_write.cc
     src/timer.cpp
+    src/external/stb_image.cc
+    src/bvh.cc
 )
 
 option(TRACY_ENABLE "" OFF)
@@ -27,7 +29,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tracy)
 
-target_link_libraries(rt PRIVATE TracyClient png)
+target_link_libraries(rt PRIVATE TracyClient)
 
 target_include_directories(rt PRIVATE src vendor)
 

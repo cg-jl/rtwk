@@ -24,56 +24,35 @@
 
 struct bvh_node {
     aabb bbox;
+
+    // TODO: unify these four fields into two
+    int objectsStart;
+    int objectsEnd;
+
     bvh_node *left;
     bvh_node *right;
 };
 
 namespace bvh {
-static bvh_node *buildBVHNode(std::span<hittable *> objects) {
-    assert(objects.size() != 0);
-    // Build the bounding box of the span of source objects.
-    aabb bbox = empty_aabb;
-    for (auto ob : objects) bbox = aabb(bbox, ob->geom->bounding_box());
-
-    int axis = bbox.longest_axis();
-
-    size_t object_span = objects.size();
-
-    if (object_span == 1) {
-        return nullptr;
-    } else {
-        std::sort(objects.begin(), objects.end(),
-                  [axis](hittable const *a, hittable const *b) {
-                      auto a_axis_interval =
-                          a->geom->bounding_box().axis_interval(axis);
-                      auto b_axis_interval =
-                          b->geom->bounding_box().axis_interval(axis);
-                      return a_axis_interval.min < b_axis_interval.min;
-                  });
-
-        auto left = buildBVHNode(objects.subspan(0, object_span / 2));
-        auto right = buildBVHNode(objects.subspan(object_span / 2));
-        return new bvh_node{bbox, left, right};
-    }
-}
 static hittable const *hitNode(ray const &r, interval ray_t,
                                geometry_record &rec, bvh_node const *n,
                                std::span<hittable *> objects) {
-    if (n == nullptr) {
+    if (n->left == nullptr) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
         // improving times by hitting multiple in one go. Since I'm tracing each
         // kind of intersection, it will be interesting to bake statistics of
         // each object and use that as timing reference.
         assert(objects.size() == 1);
-        return hitSpan(objects, r, ray_t, rec);
+        return hitSpan(
+            objects.subspan(n->objectsStart, n->objectsEnd - n->objectsStart),
+            r, ray_t, rec);
     }
     if (!n->bbox.hit(r, ray_t)) return nullptr;
 
-    auto hit_left =
-        hitNode(r, ray_t, rec, n->left, objects.subspan(0, objects.size() / 2));
+    auto hit_left = hitNode(r, ray_t, rec, n->left, objects);
     auto hit_right =
         hitNode(r, interval(ray_t.min, hit_left ? rec.t : ray_t.max), rec,
-                n->right, objects.subspan(objects.size() / 2));
+                n->right, objects);
     return hit_left ?: hit_right;
 }
 }  // namespace bvh
@@ -82,8 +61,7 @@ struct bvh_tree {
     bvh_node *root;
     std::span<hittable *> objects;
 
-    bvh_tree(std::span<hittable *> objects)
-        : root(bvh::buildBVHNode(objects)), objects(objects) {}
+    bvh_tree(std::span<hittable *> objects);
 
     aabb bounding_box() const { return root->bbox; }
     hittable const *hitSelect(ray const &r, interval ray_t,

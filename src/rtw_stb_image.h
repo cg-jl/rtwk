@@ -16,7 +16,6 @@
 #pragma warning(push, 0)
 #endif
 
-#define STB_IMAGE_IMPLEMENTATION
 #define STBI_FAILURE_USERMSG
 #include <cstdlib>
 #include <iostream>
@@ -57,7 +56,7 @@ class rtw_image {
 
     constexpr ~rtw_image() {
         delete[] bdata;
-        STBI_FREE(fdata);
+        free(fdata);
     }
 
     bool load(std::string const &filename) {
