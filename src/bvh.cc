@@ -1,10 +1,11 @@
 #include "bvh.h"
 
+#include <print>
+
 namespace bvh {
 
 bvh_node buildBVHNode(hittable **objects, int start, int end, int depth = 0) {
-    static constexpr int maxTreeDepth = 5;
-    static constexpr int minObjectsInTree = 2;
+    static constexpr int minObjectsInTree = 6;
     static_assert(minObjectsInTree > 1,
                   "Min objects in tree must be at least 2, otherwise it will "
                   "stack overflow");
