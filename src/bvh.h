@@ -37,6 +37,7 @@ namespace bvh {
 static hittable const *hitNode(ray const &r, interval ray_t,
                                geometry_record &rec, bvh_node const *n,
                                hittable **objects) {
+    if (!n->bbox.hit(r, ray_t)) return nullptr;
     if (n->left == nullptr) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
         // improving times by hitting multiple in one go. Since I'm tracing each
@@ -47,7 +48,6 @@ static hittable const *hitNode(ray const &r, interval ray_t,
                                  size_t(n->objectsEnd - n->objectsStart)},
                        r, ray_t, rec);
     }
-    if (!n->bbox.hit(r, ray_t)) return nullptr;
 
     auto hit_left = hitNode(r, ray_t, rec, n->left, objects);
     auto hit_right =
