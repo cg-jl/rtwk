@@ -36,16 +36,16 @@ struct bvh_node {
 namespace bvh {
 static hittable const *hitNode(ray const &r, interval ray_t,
                                geometry_record &rec, bvh_node const *n,
-                               std::span<hittable *> objects) {
+                               hittable **objects) {
     if (n->left == nullptr) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
         // improving times by hitting multiple in one go. Since I'm tracing each
         // kind of intersection, it will be interesting to bake statistics of
         // each object and use that as timing reference.
         assert(objects.size() == 1);
-        return hitSpan(
-            objects.subspan(n->objectsStart, n->objectsEnd - n->objectsStart),
-            r, ray_t, rec);
+        return hitSpan(std::span{objects + n->objectsStart,
+                                 size_t(n->objectsEnd - n->objectsStart)},
+                       r, ray_t, rec);
     }
     if (!n->bbox.hit(r, ray_t)) return nullptr;
 
@@ -58,16 +58,16 @@ static hittable const *hitNode(ray const &r, interval ray_t,
 }  // namespace bvh
 
 struct bvh_tree {
-    bvh_node *root;
-    std::span<hittable *> objects;
+    bvh_node root;
+    hittable **objects;
 
     bvh_tree(std::span<hittable *> objects);
 
-    aabb bounding_box() const { return root->bbox; }
+    aabb bounding_box() const { return root.bbox; }
     hittable const *hitSelect(ray const &r, interval ray_t,
                               geometry_record &rec) const {
         ZoneScopedN("bvh_tree hit");
-        return bvh::hitNode(r, ray_t, rec, root, objects);
+        return bvh::hitNode(r, ray_t, rec, &root, objects);
     }
 };
 
