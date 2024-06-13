@@ -29,6 +29,7 @@
 #include "material.h"
 #include "rtweekend.h"
 #include "texture.h"
+#include "timer.h"
 
 class camera {
    public:
@@ -175,6 +176,7 @@ class camera {
         // performance will be lost.
 #endif
 
+        auto render_timer = new rtwk::timer("Render");
         // worker loop
 #pragma omp parallel
         {
@@ -200,6 +202,7 @@ class camera {
         finish_work:;
         }
 
+        delete render_timer;
         progress_thread.join();
 
         std::clog << "\r\x1b[2KWriting image...\n";
@@ -226,9 +229,7 @@ class camera {
             bytes[3 * i + 2] = uint8_t(256 * intensity.clamp(b));
         }
 
-        stbi_write_png("test.png", image_width, image_height, 3,
-                             &bytes[0], 0);
-
+        stbi_write_png("test.png", image_width, image_height, 3, &bytes[0], 0);
 
         std::clog << "Done.\n";
     }

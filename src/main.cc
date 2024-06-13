@@ -10,6 +10,9 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <chrono>
+#include <print>
+
 #include "aaquad.h"
 #include "box.h"
 #include "bvh.h"
@@ -23,6 +26,7 @@
 #include "rtweekend.h"
 #include "sphere.h"
 #include "texture.h"
+#include "timer.h"
 
 void bouncing_spheres() {
     hittable_list world;
@@ -394,6 +398,7 @@ void cornell_smoke() {
 }
 
 void final_scene(int image_width, int samples_per_pixel, int max_depth) {
+    auto build_timer = new rtwk::timer("Building scene");
     hittable_list boxes1;
     auto lambert = &detail::lambertian;
     auto ground_col = texture::solid(0.48, 0.83, 0.53);
@@ -465,6 +470,8 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     }
 
     world.trees.emplace_back(boxes2.objects);
+
+    delete build_timer;
 
     camera cam;
 

@@ -6,8 +6,10 @@ include(FetchContent)
 
 #find_package(PNG REQUIRED)
 
-add_executable(rt src/main.cc src/external/stb_image_write.cc)
-add_library(png src/png/png.cc src/png/png.h)
+add_executable(rt src/main.cc 
+    src/external/stb_image_write.cc
+    src/timer.cpp
+)
 
 option(TRACY_ENABLE "" OFF)
 option(TRACY_ON_DEMAND "" ON)
@@ -38,7 +40,22 @@ target_compile_options(rt PRIVATE
     -fcolor-diagnostics
     -fdiagnostics-show-template-tree
     #-fconcepts-diagnostics-depth=4
+    -flto
 )
+
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported OUTPUT error)
+
+if (ipo_supported)
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        message(STATUS "Not enabling LTO in debug mode")
+    else()
+        message(STATUS "Enabling LTO for release mode")
+        set_property(TARGET rt PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+else()
+    message(WARNING "LTO is not supported and thus will not be enabled: ${error}")
+endif()
 
 
 if (ASAN_ENABLE)
