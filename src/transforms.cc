@@ -1,10 +1,11 @@
 #include "transforms.h"
 
+#include <array>
 #include <tracy/Tracy.hpp>
 
 namespace rotateY {
 
-static point3 world2Local(point3 orig, double sin_theta, double cos_theta) {
+static point3 applyInverse(point3 orig, double sin_theta, double cos_theta) {
     point3 p = orig;
     p[0] = cos_theta * orig[0] - sin_theta * orig[2];
     p[2] = sin_theta * orig[0] + cos_theta * orig[2];
@@ -12,7 +13,7 @@ static point3 world2Local(point3 orig, double sin_theta, double cos_theta) {
     return p;
 }
 
-static point3 local2World(point3 local, double sin_theta, double cos_theta) {
+static point3 applyForward(point3 local, double sin_theta, double cos_theta) {
     auto p = local;
     p[0] = cos_theta * local[0] + sin_theta * local[2];
     p[2] = -sin_theta * local[0] + cos_theta * local[2];
@@ -38,8 +39,8 @@ bool translate::hit(ray const &r, interval ray_t, geometry_record &rec) const {
 bool rotate_y::hit(ray const &r, interval ray_t, geometry_record &rec) const {
     ZoneScopedN("rotate_y hit");
     // Change the ray from world space to object space
-    auto origin = rotateY::world2Local(r.orig, sin_theta, cos_theta);
-    auto direction = rotateY::world2Local(r.dir, sin_theta, cos_theta);
+    auto origin = rotateY::applyInverse(r.orig, sin_theta, cos_theta);
+    auto direction = rotateY::applyInverse(r.dir, sin_theta, cos_theta);
 
     ray rotated_r(origin, direction, r.time);
 
@@ -48,10 +49,10 @@ bool rotate_y::hit(ray const &r, interval ray_t, geometry_record &rec) const {
     if (!object->hit(rotated_r, ray_t, rec)) return false;
 
     // Change the intersection point from object space to world space
-    auto p = rotateY::local2World(rec.p, sin_theta, cos_theta);
+    auto p = rotateY::applyForward(rec.p, sin_theta, cos_theta);
 
     // Change the normal from object space to world space
-    auto normal = rotateY::local2World(rec.normal, sin_theta, cos_theta);
+    auto normal = rotateY::applyForward(rec.normal, sin_theta, cos_theta);
 
     rec.p = p;
     rec.normal = normal;
@@ -71,23 +72,21 @@ aabb rotate_y::bounding_box() const {
     point3 min(infinity, infinity, infinity);
     point3 max(-infinity, -infinity, -infinity);
 
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 2; j++) {
-            for (int k = 0; k < 2; k++) {
-                auto x = i * bbox.x.max + (1 - i) * bbox.x.min;
-                auto y = j * bbox.y.max + (1 - j) * bbox.y.min;
-                auto z = k * bbox.z.max + (1 - k) * bbox.z.min;
+    for (auto p : std::array{
+             point3{bbox.x.min, bbox.y.min, bbox.z.max},
+             point3{bbox.x.min, bbox.y.min, bbox.z.min},
+             point3{bbox.x.min, bbox.y.max, bbox.z.max},
+             point3{bbox.x.min, bbox.y.max, bbox.z.min},
+             point3{bbox.x.max, bbox.y.min, bbox.z.max},
+             point3{bbox.x.max, bbox.y.min, bbox.z.min},
+             point3{bbox.x.max, bbox.y.max, bbox.z.max},
+             point3{bbox.x.max, bbox.y.max, bbox.z.min},
+         }) {
+        auto tester = rotateY::applyForward(p, sin_theta, cos_theta);
 
-                auto newx = cos_theta * x + sin_theta * z;
-                auto newz = -sin_theta * x + cos_theta * z;
-
-                vec3 tester(newx, y, newz);
-
-                for (int c = 0; c < 3; c++) {
-                    min[c] = fmin(min[c], tester[c]);
-                    max[c] = fmax(max[c], tester[c]);
-                }
-            }
+        for (int c = 0; c < 3; c++) {
+            min[c] = fmin(min[c], tester[c]);
+            max[c] = fmax(max[c], tester[c]);
         }
     }
 
