@@ -13,6 +13,12 @@
 #include "random.h"
 #include "timer.h"
 
+static vec3 random_in_unit_sphere() {
+    while (true) {
+        auto p = random_vec(-1, 1);
+        if (p.length_squared() < 1) return p;
+    }
+}
 static point3 random_in_unit_disk() {
     while (true) {
         auto p = vec3{random_double(-1., 1.), random_double(-1., 1.), 0};
@@ -151,6 +157,27 @@ static color geometrySim(camera const &cam, ray r, int depth,
 
         // If the ray hits nothing, return the background color.
         auto res = world.hitSelect(r, interval(0.001, infinity), rec.geom);
+
+        auto maxT = res ? rec.geom.t : infinity;
+
+        // Try sampling a constant medium
+        double cmHit;
+        if (auto cm =
+                world.sampleConstantMediums(r, interval{0.001, maxT}, &cmHit)) {
+            // Don't need UVs/normal; we have an isotropic material.
+            // TODO: I could split the scattering too here.
+            res = cm;
+            rec.geom.p = r.at(cmHit);
+            // Be consistent with the normal from constant_medium::hit.
+            rec.geom.normal = vec3(1., 0., 0);
+            r.orig = rec.geom.p;
+            r.dir = unit_vector(random_in_unit_sphere());
+
+            attenuations.emplace_back(*cm->tex, rec.uv, rec.geom.p);
+            --depth;
+            continue;
+        }
+
         if (!res) return cam.background;
 
         rec.set_face_normal(r, rec.geom.normal);

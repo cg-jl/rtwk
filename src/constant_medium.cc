@@ -14,7 +14,8 @@ bool constant_medium::hit(ray const &r, interval ray_t,
 
     auto boundary = geom;
 
-    // Find some entry point
+    // Find some entry point. Note that this can't be achieved
+    // by sampling from the camera.
     if (!boundary->hit(r, universe_interval, rec1)) return false;
 
     // Find exit point

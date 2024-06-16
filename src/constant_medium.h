@@ -50,7 +50,6 @@ class constant_medium final : public hittable {
     // We don't care about its value.
     void getUVs(uvs &_uv, point3 _p, vec3 _normal) const final {}
 
-   private:
     double neg_inv_density;
 };
 
