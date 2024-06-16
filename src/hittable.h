@@ -38,22 +38,16 @@ struct hittable {
     material const *mat;
     geometry const *geom;
     texture const *tex;
-    virtual ~hittable() = default;
 
     constexpr explicit hittable(material const *mat, texture const *tex,
                                 geometry const *geom)
         : mat(mat), geom(geom), tex(tex) {}
 
-    // NOTE: by default it's a single hit, but must make it overridable
-    // for `constant_medium`, since it must do two hits.
-    virtual bool hit(ray const &r, interval ray_t, geometry_record &rec) const {
+    bool hit(ray const &r, interval ray_t, geometry_record &rec) const {
         return geom->hit(r, ray_t, rec);
     }
 
-    // NOTE: by default it should be the geometry, but `constant_medium`
-    // sets a specific normal regardless of what was stated by the bounding
-    // geometry.
-    virtual void getUVs(uvs &uv, point3 p, vec3 normal) const {
+    void getUVs(uvs &uv, point3 p, vec3 normal) const {
         return geom->getUVs(uv, p, normal);
     }
 };
@@ -62,5 +56,5 @@ struct hittable {
 // prepare(), end() as well to prepare a ray?
 // We should end in a geometry anyway.
 
-hittable const *hitSpan(std::span<hittable *const> objects, ray const &r,
+hittable const *hitSpan(std::span<hittable const> objects, ray const &r,
                         interval ray_t, geometry_record &rec);

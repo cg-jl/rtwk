@@ -1,11 +1,11 @@
 #include "bvh.h"
 
-#include <tracy/Tracy.hpp>
 #include <cassert>
+#include <tracy/Tracy.hpp>
 
 namespace bvh {
 
-[[clang::noinline]] static bvh_node buildBVHNode(hittable **objects, int start,
+[[clang::noinline]] static bvh_node buildBVHNode(hittable *objects, int start,
                                                  int end, int depth = 0) {
     static constexpr int minObjectsInTree = 6;
     static_assert(minObjectsInTree > 1,
@@ -16,7 +16,7 @@ namespace bvh {
     // Build the bounding box of the span of source objects.
     aabb bbox = empty_aabb;
     for (int i = start; i < end; ++i)
-        bbox = aabb(bbox, objects[i]->geom->bounding_box());
+        bbox = aabb(bbox, objects[i].geom->bounding_box());
     auto object_span = end - start;
 
     if (object_span == 1) {
@@ -30,8 +30,8 @@ namespace bvh {
 
     auto it = std::partition(
         objects + start, objects + end,
-        [axis, partitionPoint](hittable const *a) {
-            auto a_axis_interval = a->geom->bounding_box().axis_interval(axis);
+        [axis, partitionPoint](hittable const &a) {
+            auto a_axis_interval = a.geom->bounding_box().axis_interval(axis);
             return a_axis_interval.midPoint() < partitionPoint;
         });
 
@@ -46,7 +46,7 @@ namespace bvh {
 [[clang::noinline]] static hittable const *hitNode(ray const &r, interval ray_t,
                                                    geometry_record &rec,
                                                    bvh_node const &n,
-                                                   hittable **objects) {
+                                                   hittable const *objects) {
     if (!n.bbox.hit(r, ray_t)) return nullptr;
     if (n.left == nullptr) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
@@ -67,7 +67,7 @@ namespace bvh {
 
 }  // namespace bvh
 
-bvh_tree::bvh_tree(std::span<hittable *> objects)
+bvh_tree::bvh_tree(std::span<hittable> objects)
     : root(bvh::buildBVHNode(&objects[0], 0, objects.size())),
       objects(objects.data()) {}
 

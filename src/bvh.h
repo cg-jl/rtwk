@@ -28,9 +28,9 @@ struct bvh_node {
 
 struct bvh_tree {
     bvh_node root;
-    hittable **objects;
+    hittable const *objects;
 
-    bvh_tree(std::span<hittable *> objects);
+    bvh_tree(std::span<hittable> objects);
 
     aabb bounding_box() const { return root.bbox; }
     hittable const *hitSelect(ray const &r, interval ray_t,

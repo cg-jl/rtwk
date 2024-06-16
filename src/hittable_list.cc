@@ -1,9 +1,6 @@
 #include "hittable_list.h"
 
 #include <algorithm>
-#include <array>
-#include <cstdint>
-#include <iostream>
 #include <print>
 #include <tracy/Tracy.hpp>
 
@@ -38,7 +35,7 @@ hittable const *hittable_list::hitSelect(ray const &r, interval ray_t,
     return best;
 }
 
-void hittable_list::add(hittable *object) { objects.push_back(object); }
+void hittable_list::add(hittable object) { objects.emplace_back(object); }
 
 void hittable_list::add(constant_medium medium) { cms.emplace_back(medium); }
 

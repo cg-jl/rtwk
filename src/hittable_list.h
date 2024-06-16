@@ -20,7 +20,7 @@
 #include "hittable.h"
 
 struct hittable_list {
-    std::vector<hittable *> objects;
+    std::vector<hittable> objects;
     // TODO: make BVH tree not own their spans.
     // This way we can force more objects to be in the same array vector.
     // We could also have two different vector<hittable*>: One for 'lone'
@@ -29,19 +29,19 @@ struct hittable_list {
     std::vector<constant_medium> cms{};
 
     hittable_list() {}
-    hittable_list(hittable *object) { add(object); }
+    hittable_list(hittable object) { add(object); }
 
     void clear() { objects.clear(); }
 
-    void add(hittable *object);
+    void add(hittable object);
     void add(constant_medium medium);
 
-    std::span<hittable *> from(size_t start) {
+    std::span<hittable> from(size_t start) {
         std::span sp(objects);
         return sp.subspan(start);
     }
 
-    std::span<hittable *> with(auto add_lam) {
+    std::span<hittable> with(auto add_lam) {
         auto start = objects.size();
         add_lam(*this);
         return from(start);
