@@ -166,7 +166,6 @@ static color geometrySim(camera const &cam, ray r, int depth,
                 world.sampleConstantMediums(r, interval{0.001, maxT}, &cmHit)) {
             // Don't need UVs/normal; we have an isotropic material.
             // TODO: I could split the scattering too here.
-            res = cm;
             rec.geom.p = r.at(cmHit);
             // Be consistent with the normal from constant_medium::hit.
             rec.geom.normal = vec3(1., 0., 0);

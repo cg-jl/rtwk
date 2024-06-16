@@ -35,20 +35,15 @@
 
 // TODO: This is another candidate to make a separate array of, since
 // its behavior with materials is pretty specific.
-class constant_medium final : public hittable {
+class constant_medium final {
    public:
+    geometry *geom;
+    texture const *tex;
     constant_medium(geometry *boundary, double density, texture *tex)
-        : hittable(&detail::isotropic, tex, boundary),
-          neg_inv_density(-1 / density) {}
+        : geom(boundary), tex(tex), neg_inv_density(-1 / density) {}
 
     constant_medium(geometry *boundary, double density, color const &albedo)
         : constant_medium(boundary, density, leak(texture::solid(albedo))) {}
-
-    bool hit(ray const &r, interval ray_t, geometry_record &rec) const final;
-
-    // The normal is assigned arbitrarily, and the material is isotropic.
-    // We don't care about its value.
-    void getUVs(uvs &_uv, point3 _p, vec3 _normal) const final {}
 
     double neg_inv_density;
 };

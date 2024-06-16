@@ -26,7 +26,7 @@ struct hittable_list {
     // We could also have two different vector<hittable*>: One for 'lone'
     // objects and one for the ones in trees.
     std::vector<bvh_tree> trees;
-    std::vector<constant_medium const *> cms{};
+    std::vector<constant_medium> cms{};
 
     hittable_list() {}
     hittable_list(hittable *object) { add(object); }
@@ -34,6 +34,7 @@ struct hittable_list {
     void clear() { objects.clear(); }
 
     void add(hittable *object);
+    void add(constant_medium medium);
 
     std::span<hittable *> from(size_t start) {
         std::span sp(objects);
@@ -49,11 +50,6 @@ struct hittable_list {
     hittable const *hitSelect(ray const &r, interval ray_t,
                               geometry_record &rec) const;
 
-    struct cmResult {
-        constant_medium const *medium;
-        interval intv;
-    };
-
-    constant_medium const *sampleConstantMediums(
-        ray const &ray, interval ray_t, double *hit) const noexcept;
+    constant_medium const *sampleConstantMediums(ray const &ray, interval ray_t,
+                                                 double *hit) const noexcept;
 };

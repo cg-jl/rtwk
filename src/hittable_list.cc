@@ -38,13 +38,10 @@ hittable const *hittable_list::hitSelect(ray const &r, interval ray_t,
     return best;
 }
 
-void hittable_list::add(hittable *object) {
-    if (auto cm = dynamic_cast<constant_medium *>(object)) {
-        cms.push_back(cm);
-    } else {
-        objects.push_back(object);
-    }
-}
+void hittable_list::add(hittable *object) { objects.push_back(object); }
+
+void hittable_list::add(constant_medium medium) { cms.emplace_back(medium); }
+
 constant_medium const *hittable_list::sampleConstantMediums(
     ray const &ray, interval ray_t, double *hit) const noexcept {
     ZoneScoped;
@@ -53,12 +50,12 @@ constant_medium const *hittable_list::sampleConstantMediums(
 
     double currentHit = infinity;
 
-    for (auto cm : cms) {
+    for (auto const &cm : cms) {
         geometry_record nextrec;
 
-        if (!cm->geom->hit(ray, universe_interval, nextrec)) continue;
+        if (!cm.geom->hit(ray, universe_interval, nextrec)) continue;
         auto tstart = nextrec.t;
-        if (!cm->geom->hit(ray, interval{tstart + 0.0001, infinity}, nextrec))
+        if (!cm.geom->hit(ray, interval{tstart + 0.0001, infinity}, nextrec))
             continue;
         auto tend = nextrec.t;
 
@@ -73,7 +70,7 @@ constant_medium const *hittable_list::sampleConstantMediums(
         if (tstart > currentHit) continue;
 
         auto hitDistance =
-            cm->neg_inv_density * log(random_double()) / rayLength;
+            cm.neg_inv_density * log(random_double()) / rayLength;
 
         auto thit = hitDistance + tstart;
 
@@ -84,7 +81,7 @@ constant_medium const *hittable_list::sampleConstantMediums(
         if (currentHit < thit) continue;
 
         currentHit = thit;
-        selected = cm;
+        selected = &cm;
     }
 
     *hit = currentHit;
