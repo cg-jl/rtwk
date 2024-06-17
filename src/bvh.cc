@@ -20,7 +20,7 @@ namespace bvh {
     auto object_span = end - start;
 
     if (object_span == 1) {
-        return bvh_node{bbox, start, end, nullptr, nullptr};
+        return bvh_node{bbox, start, end, nullptr};
     }
 
     int axis = bbox.longest_axis();
@@ -40,7 +40,11 @@ namespace bvh {
     auto left = buildBVHNode(objects, start, midIndex, depth + 1);
     auto right = buildBVHNode(objects, midIndex, end, depth + 1);
 
-    return bvh_node{bbox, start, end, new bvh_node(left), new bvh_node(right)};
+    auto children = new bvh_node[2];
+    children[0] = left;
+    children[1] = right;
+
+    return bvh_node{bbox, start, end, children};
 }
 
 [[clang::noinline]] static hittable const *hitNode(ray const &r, interval ray_t,
@@ -48,7 +52,7 @@ namespace bvh {
                                                    bvh_node const &n,
                                                    hittable const *objects) {
     if (!n.bbox.hit(r, ray_t)) return nullptr;
-    if (n.left == nullptr) {
+    if (n.children == nullptr) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
         // improving times by hitting multiple in one go. Since I'm tracing each
         // kind of intersection, it will be interesting to bake statistics of
@@ -58,10 +62,10 @@ namespace bvh {
                        r, ray_t, rec);
     }
 
-    auto hit_left = hitNode(r, ray_t, rec, *n.left, objects);
+    auto hit_left = hitNode(r, ray_t, rec, n.children[0], objects);
     auto hit_right =
         hitNode(r, interval(ray_t.min, hit_left ? rec.t : ray_t.max), rec,
-                *n.right, objects);
+                n.children[1], objects);
     return hit_left ?: hit_right;
 }
 

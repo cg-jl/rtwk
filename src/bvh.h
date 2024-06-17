@@ -22,8 +22,7 @@ struct bvh_node {
     int objectsStart;
     int objectsEnd;
 
-    bvh_node *left;
-    bvh_node *right;
+    bvh_node *children;
 };
 
 struct bvh_tree {
