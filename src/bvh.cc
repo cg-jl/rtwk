@@ -62,7 +62,7 @@ namespace bvh {
     auto hit_right =
         hitNode(r, interval(ray_t.min, hit_left ? rec.t : ray_t.max), rec,
                 *n.right, objects);
-    return hit_left ?: hit_right;
+    return hit_right ?: hit_left;
 }
 
 }  // namespace bvh
