@@ -1,4 +1,5 @@
 #include "camera.h"
+#include "perlin.h"
 
 #include <external/stb_image_write.h>
 #include <omp.h>
@@ -66,7 +67,7 @@ struct sample_request {
     sample_request(texture tex, uvs uv, point3 p)
         : tex(std::move(tex)), uv(uv), p(p) {}
 
-    color sample() const { return tex.value(uv, p); }
+    color sample(perlin const &noise) const { return tex.value(uv, p, noise); }
 };
 struct px_sampleq {
     std::vector<sample_request> &reqs;
@@ -141,9 +142,9 @@ struct ring_q {
 };
 
 static color multiplySamples(std::span<sample_request const> samples,
-                             color initial) {
+                             color initial, perlin const &noise) {
     color acc = initial;
-    for (auto const &s : samples) acc = acc * s.sample();
+    for (auto const &s : samples) acc = acc * s.sample(noise);
     return acc;
 }
 
@@ -204,7 +205,7 @@ static color geometrySim(camera const &cam, ray r, int depth,
 
 static void scanLine(camera const &cam, hittable_list const &world, int j,
                      color *pixels, std::vector<sample_request> &attenuations,
-                     size_t *sample_counts, color *samples) {
+                     size_t *sample_counts, color *samples, perlin const &noise) {
     for (int i = 0; i < cam.image_width; i++) {
         color pixel_color(0, 0, 0);
         attenuations.clear();
@@ -227,7 +228,7 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
             for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
                 auto count = sample_counts[sample];
                 samples[sample] = multiplySamples(
-                    atts.subspan(processed, count), samples[sample]);
+                    atts.subspan(processed, count), samples[sample], noise);
                 processed += count;
             }
         }
@@ -341,6 +342,9 @@ void camera::render(hittable_list const &world) {
         auto sample_counts =
             std::make_unique<size_t[]>(size_t(samples_per_pixel));
         auto samples = std::make_unique<color[]>(size_t(samples_per_pixel));
+
+		perlin noise;
+
         for (;;) {
             auto j = remain_scanlines.load(std::memory_order_acquire);
 
@@ -351,8 +355,9 @@ void camera::render(hittable_list const &world) {
                 j, j - 1, std::memory_order_acq_rel));
             --j;
 
+			// TODO: render worker state struct
             scanLine(*this, world, j, pixels.get(), attenuations,
-                     sample_counts.get(), samples.get());
+                     sample_counts.get(), samples.get(), noise);
 
             cv.notify_one();
         }

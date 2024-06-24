@@ -23,12 +23,6 @@ using std::make_shared;
 using std::shared_ptr;
 using std::sqrt;
 
-inline void assert(bool x) {
-    if (!x) [[unlikely]] {
-        std::abort();
-    }
-}
-
 // Constants
 
 static constexpr double infinity = 1e11;

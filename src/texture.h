@@ -17,8 +17,7 @@
 #include "rtw_stb_image.h"
 #include "vec3.h"
 
-class texture {
-   public:
+struct texture {
     enum class tag {
         solid,
         checker,
@@ -27,7 +26,6 @@ class texture {
     } kind;
 
     struct noise_data {
-        perlin const *noise;
         double scale;
     };
 
@@ -60,7 +58,7 @@ class texture {
 
     static texture noise(double scale);
 
-    color value(uvs uv, point3 const &p) const;
+    color value(uvs uv, point3 const &p, perlin const &noise) const;
 };
 
 namespace detail {
