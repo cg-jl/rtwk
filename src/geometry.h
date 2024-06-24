@@ -18,5 +18,6 @@ struct geometry {
     virtual aabb bounding_box() const = 0;
     virtual bool hit(ray const &r, interval ray_t,
                      geometry_record &rec) const = 0;
+    // NOTE: If I can put in the time, I can get the UVs off of the intersection for all things I think.
     virtual void getUVs(uvs &uv, point3 intersection, vec3 normal) const = 0;
 };

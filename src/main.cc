@@ -301,8 +301,8 @@ void cornell_box() {
                            new box(point3(0, 0, 0), point3(165, 330, 165))));
     });
     for (auto &b : box1) {
-        b.geom = new rotate_y(b.geom, 15);
-        b.geom = new translate(b.geom, vec3(265, 0, 295));
+        b.geom =
+            new transformed(b.geom, rotate_y(15), translate(vec3(265, 0, 295)));
     }
 
     auto box2 = world.with([white, lambert](auto &world) {
@@ -310,8 +310,8 @@ void cornell_box() {
                            new box(point3(0, 0, 0), point3(165, 165, 165))));
     });
     for (auto &b : box2) {
-        b.geom = new rotate_y(b.geom, -18);
-        b.geom = new translate(b.geom, vec3(130, 0, 65));
+        b.geom =
+            new transformed(b.geom, rotate_y(-18), translate(vec3(130, 0, 65)));
     }
 
     camera cam;
@@ -364,15 +364,13 @@ void cornell_smoke() {
 
     {
         geometry *b = new box(point3(0, 0, 0), point3(165, 330, 165));
-        b = new rotate_y(b, 15);
-        b = new translate(b, vec3(265, 0, 295));
+        b = new transformed(b, rotate_y(15), translate(vec3(265, 0, 295)));
         world.add(constant_medium(b, 0.01, color(0, 0, 0)));
     }
 
     {
         geometry *b = new box(point3(0, 0, 0), point3(165, 165, 165));
-        b = new rotate_y(b, -18);
-        b = new translate(b, vec3(130, 0, 65));
+        b = new transformed(b, rotate_y(-18), translate(vec3(130, 0, 65)));
         world.add(constant_medium(b, 0.01, color(1, 1, 1)));
     };
 
@@ -459,9 +457,11 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     int ns = 1000;
     for (int j = 0; j < ns; j++) {
         geometry *s = new sphere(random_vec(0, 165), 10);
-
-        s = new rotate_y(s, 15);
-        s = new translate(s, vec3(-100, 270, 395));
+        s = new transformed{
+            s,
+            rotate_y(15),
+            translate(vec3(-100, 270, 395)),
+        };
 
         boxes2.add(hittable(lambert, &white, s));
     }
