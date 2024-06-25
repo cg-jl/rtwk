@@ -28,18 +28,28 @@ static color sample_noise(texture::noise_data const &data, point3 const &p,
            (1 + std::sin(data.scale * p.z() + 10 * perlin.turb(p, 7)));
 }
 
+static texture const *checkerSelect(texture::checker_data const &data,
+                                    point3 const &p) {
+    auto xint = int(std::floor(data.inv_scale * p.x()));
+    auto yint = int(std::floor(data.inv_scale * p.y()));
+    auto zint = int(std::floor(data.inv_scale * p.z()));
+    auto is_even = (xint + yint + zint) % 2 == 0;
+    return is_even ? data.even : data.odd;
+}
+
+// Traverses the checker tree and finds a texture that is not a checker.
+static texture const *traverseChecker(texture const *tex, point3 const &p) {
+    ZoneScoped;
+    while (tex->kind == texture::tag::checker) {
+        tex = checkerSelect(tex->as.checker, p);
+    }
+    return tex;
+}
+
 // TODO: make checker have (non-)terminals so we can just have a tree of
 // textures each leaf node is a texture pointer and each split node has the
 // inv_scale.
 static color sample_checker(texture::checker_data const &data, uvs uv,
                             point3 const &p, perlin const &noise) {
-    ZoneScoped;
-
-    auto xint = int(std::floor(data.inv_scale * p.x()));
-    auto yint = int(std::floor(data.inv_scale * p.y()));
-    auto zint = int(std::floor(data.inv_scale * p.z()));
-
-    auto is_even = (xint + yint + zint) % 2 == 0;
-    return is_even ? data.even->value(uv, p, noise)
-                   : data.odd->value(uv, p, noise);
+    return checkerSelect(data, p)->value(uv, p, noise);
 }

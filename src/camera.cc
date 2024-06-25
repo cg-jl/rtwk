@@ -60,7 +60,6 @@ static ray get_ray(camera const &cam, int i, int j) {
 
 // TODO: separate request things into more renderer files
 
-
 template <typename T>
 struct partialFill {
     std::vector<T> items;
@@ -82,57 +81,52 @@ struct px_sampleq {
     partialFill<std::pair<texture::noise_data, point3>> noises;
     // TODO: maybe I could collect images by their pointer?
     partialFill<std::pair<rtw_image const *, uvs>> images;
-    partialFill<std::tuple<texture::checker_data, uvs, point3>> checkers;
 
     struct commitSave {
         size_t solids;
         size_t noises;
         size_t images;
-        size_t checkers;
 
         void accept(commitSave const &other) {
             solids |= other.solids;
             noises |= other.noises;
             images |= other.images;
-            checkers |= other.checkers;
         }
     };
 
-    void emplace(texture tex, uvs uv, point3 p) {
-        switch (tex.kind) {
+    void emplace(texture const *tex, uvs uv, point3 p) {
+        tex = traverseChecker(tex, p);
+        switch (tex->kind) {
             case texture::tag::solid:
-                solids.items.emplace_back(tex.as.solid);
+                solids.items.emplace_back(tex->as.solid);
                 break;
             case texture::tag::noise:
-                noises.items.emplace_back(tex.as.noise, p);
+                noises.items.emplace_back(tex->as.noise, p);
                 break;
             case texture::tag::image:
-                images.items.emplace_back(tex.as.image, uv);
+                images.items.emplace_back(tex->as.image, uv);
                 break;
-            default:
-                checkers.items.emplace_back(tex.as.checker, uv, p);
+            case texture::tag::checker:
+                // Should be unreachable since we did the traverseChecker
+                std::unreachable();
                 break;
         }
     }
 
     commitSave commit() {
-        return commitSave(solids.commit(), noises.commit(), images.commit(),
-                          checkers.commit());
+        return commitSave(solids.commit(), noises.commit(), images.commit());
     }
     void reset() {
         solids.reset();
         noises.reset();
         images.reset();
-        checkers.reset();
     }
     void clear() {
         solids.clear();
         noises.clear();
         images.clear();
-        checkers.clear();
     }
 };
-
 
 // Aligns the normal so that it always points towards the ray origin.
 // Returs whether the face is at the front.
@@ -167,7 +161,7 @@ static color geometrySim(camera const &cam, ray r, int depth,
             r.orig = p;
             r.dir = unit_vector(random_in_unit_sphere());
 
-            attenuations.emplace(*cm->tex, uv, p);
+            attenuations.emplace(cm->tex, uv, p);
             --depth;
             continue;
         }
@@ -188,7 +182,7 @@ static color geometrySim(camera const &cam, ray r, int depth,
 
         // here we'll have to use the emit value as the 'attenuation' value.
         if (res->mat->tag == material::kind::diffuse_light) {
-            attenuations.emplace(*res->tex, uv, p);
+            attenuations.emplace(res->tex, uv, p);
             return color(1, 1, 1);
         }
 
@@ -198,7 +192,7 @@ static color geometrySim(camera const &cam, ray r, int depth,
         }
 
         depth = depth - 1;
-        attenuations.emplace(*res->tex, uv, p);
+        attenuations.emplace(res->tex, uv, p);
         r = ray(p, scattered, r.time);
     }
 }
@@ -265,22 +259,6 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
                             attenuations.images.items[processed++];
                         samples[sample] =
                             samples[sample] * sample_image(*imagep, uv);
-                    }
-                }
-            }
-
-            if (currentCounts.checkers) {
-                ZoneScopedN("checkers");
-                ZoneColor(tracy::Color::Azure4);
-                size_t processed = 0;
-                for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
-                    for (int i = 0; i < sample_counts[sample].checkers; ++i) {
-                        // TODO: duplication here with the texture code. Maybe
-                        // a texture_impls.h file?
-                        auto const &[checker, uv, p] =
-                            attenuations.checkers.items[processed++];
-                        samples[sample] = samples[sample] *
-                                          sample_checker(checker, uv, p, noise);
                     }
                 }
             }
