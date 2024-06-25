@@ -23,8 +23,8 @@ bool aaquad::hit(ray const &r, interval ray_t, geometry_record &rec) const {
     // coordinates.
     auto intersection = r.at(t);
     uvs uv;
-    // NOTE: normal argument is not needed.
-    getUVs(uv, intersection, vec3());
+    // NOTE: time argument is not needed.
+    getUVs(uv, intersection, 0);
 
     if (!is_interior(uv.u, uv.v)) return false;
 
@@ -37,7 +37,7 @@ bool aaquad::hit(ray const &r, interval ray_t, geometry_record &rec) const {
     return true;
 }
 
-void aaquad::getUVs(uvs &uv, point3 intersection, vec3 _normal) const {
+void aaquad::getUVs(uvs &uv, point3 intersection, double _time) const {
     vec3 pq = intersection - Q;
     uv.u = pq[uaxis(*this)] / u;
     uv.v = pq[vaxis(*this)] / v;

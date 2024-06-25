@@ -2,7 +2,7 @@
 
 #include <tracy/Tracy.hpp>
 
-void quad::getUVs(uvs &uv, point3 intersection, vec3 _normal) const {
+void quad::getUVs(uvs &uv, point3 intersection, double _time) const {
     vec3 pq = intersection - Q;
     auto v_squared = v.length_squared();
     auto u_squared = u.length_squared();
@@ -43,8 +43,8 @@ bool quad::hit(ray const &r, interval ray_t, geometry_record &rec) const {
     // coordinates.
     auto intersection = r.at(t);
     uvs uv;
-    // NOTE: normal argument is not needed.
-    getUVs(uv, intersection, vec3());
+    // NOTE: time argument is not needed.
+    getUVs(uv, intersection, 0);
 
     if (!is_interior(uv.u, uv.v)) return false;
 

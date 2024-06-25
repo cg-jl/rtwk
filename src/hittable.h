@@ -47,8 +47,8 @@ struct hittable {
         return geom->hit(r, ray_t, rec);
     }
 
-    void getUVs(uvs &uv, point3 p, vec3 normal) const {
-        return geom->getUVs(uv, p, normal);
+    void getUVs(uvs &uv, point3 p, double time) const {
+        return geom->getUVs(uv, p, time);
     }
 };
 

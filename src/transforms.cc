@@ -102,11 +102,11 @@ bool transformed::hit(ray const &r, interval ray_t,
     return true;
 }
 
-void transformed::getUVs(uvs &uv, point3 p, vec3 normal) const {
+void transformed::getUVs(uvs &uv, point3 p, double time) const {
     // NOTE: we already transform p/normal in the return. *maybe* transforming
     // them only here is required. normal may need to be a reference if so
     // (since it's used for material calcs)
-    return object->getUVs(uv, p, normal);
+    return object->getUVs(uv, p, time);
 }
 
 // bool translate::hit(ray const &r, interval ray_t, geometry_record &rec) const

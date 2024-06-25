@@ -44,7 +44,12 @@ bool sphere::hit(ray const &r, interval ray_t, geometry_record &rec) const {
 //     <1 0 0> yields <0.50 0.50>       <-1  0  0> yields <0.00 0.50>
 //     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
 //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
-void sphere::getUVs(uvs &uv, point3 p, vec3 normal) const {
+void sphere::getUVs(uvs &uv, point3 p,  double time) const {
+
+    auto center = sphere_center(*this, time);
+
+    auto normal = (p - center) / radius;
+
     auto theta = std::acos(-normal.y());
     auto phi = std::atan2(-normal.z(), normal.x()) + pi;
 

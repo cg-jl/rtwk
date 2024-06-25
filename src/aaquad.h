@@ -20,5 +20,5 @@ struct aaquad final : public geometry {
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final;
 
-    void getUVs(uvs &uv, point3 intersection, vec3 _normal) const final;
+    void getUVs(uvs &uv, point3 intersection, double _time) const final;
 };

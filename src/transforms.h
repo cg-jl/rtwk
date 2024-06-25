@@ -4,8 +4,7 @@
 
 #include "geometry.h"
 
-
-struct translate final  {
+struct translate final {
     constexpr translate(vec3 offset) : offset(offset) {}
     constexpr translate() : offset{} {}
 
@@ -16,7 +15,7 @@ struct translate final  {
     vec3 offset;
 };
 
-struct rotate_y final  {
+struct rotate_y final {
     constexpr rotate_y() : sin_theta{0}, cos_theta{1} {}
     rotate_y(double angle);
 
@@ -33,10 +32,10 @@ struct transformed final : public geometry {
     rotate_y const rotate;
     translate const translate;
 
-    transformed(geometry const *object,
-                rotate_y rotate, struct translate translate);
+    transformed(geometry const *object, rotate_y rotate,
+                struct translate translate);
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final;
-    void getUVs(uvs &uv, point3 p, vec3 normal) const final;
+    void getUVs(uvs &uv, point3 p, double time) const final;
     aabb bounding_box() const final;
 };

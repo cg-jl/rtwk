@@ -11,8 +11,7 @@
 
 #include "geometry.h"
 
-class quad : public geometry {
-   public:
+struct quad final : public geometry {
     constexpr quad(point3 Q, vec3 u, vec3 v) : Q(Q), u(u), v(v) {}
 
     aabb bounding_box() const final {
@@ -24,7 +23,7 @@ class quad : public geometry {
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final;
 
-    void getUVs(uvs &uv, point3 intersection, vec3 _normal) const final;
+    void getUVs(uvs &uv, point3 intersection, double _time) const final;
 
     point3 Q;
     vec3 u, v;

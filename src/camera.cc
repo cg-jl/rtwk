@@ -1,5 +1,4 @@
 #include "camera.h"
-#include "perlin.h"
 
 #include <external/stb_image_write.h>
 #include <omp.h>
@@ -11,6 +10,7 @@
 #include <tracy/Tracy.hpp>
 
 #include "material.h"
+#include "perlin.h"
 #include "random.h"
 #include "timer.h"
 
@@ -181,7 +181,7 @@ static color geometrySim(camera const &cam, ray r, int depth,
         if (!res) return cam.background;
 
         rec.set_face_normal(r, rec.geom.normal);
-        res->getUVs(rec.uv, rec.geom.p, rec.geom.normal);
+        res->getUVs(rec.uv, rec.geom.p, r.time);
 
         vec3 scattered;
         color attenuation;
@@ -205,7 +205,8 @@ static color geometrySim(camera const &cam, ray r, int depth,
 
 static void scanLine(camera const &cam, hittable_list const &world, int j,
                      color *pixels, std::vector<sample_request> &attenuations,
-                     size_t *sample_counts, color *samples, perlin const &noise) {
+                     size_t *sample_counts, color *samples,
+                     perlin const &noise) {
     for (int i = 0; i < cam.image_width; i++) {
         color pixel_color(0, 0, 0);
         attenuations.clear();
@@ -343,7 +344,7 @@ void camera::render(hittable_list const &world) {
             std::make_unique<size_t[]>(size_t(samples_per_pixel));
         auto samples = std::make_unique<color[]>(size_t(samples_per_pixel));
 
-		perlin noise;
+        perlin noise;
 
         for (;;) {
             auto j = remain_scanlines.load(std::memory_order_acquire);
@@ -355,7 +356,7 @@ void camera::render(hittable_list const &world) {
                 j, j - 1, std::memory_order_acq_rel));
             --j;
 
-			// TODO: render worker state struct
+            // TODO: render worker state struct
             scanLine(*this, world, j, pixels.get(), attenuations,
                      sample_counts.get(), samples.get(), noise);
 

@@ -66,15 +66,30 @@ bool box::hit(ray const &r, interval ray_t,
     return did_hit;
 }
 
-void box::getUVs(uvs &uv, point3 intersection, vec3 normal) const {
-    if (normal.x() != 0) {
-        return calcUVs(normal.x(), bbox.z, bbox.y, 2, 1, intersection, uv.u,
-                       uv.v);
-    } else if (normal.y() != 0) {
-        return calcUVs(normal.y(), bbox.x, bbox.z, 0, 2, intersection, uv.u,
-                       uv.v);
-    } else {
-        return calcUVs(normal.z(), bbox.y, bbox.x, 1, 0, intersection, uv.u,
-                       uv.v);
+void box::getUVs(uvs &uv, point3 intersection, double _time) const {
+    // search for the "box" that borders the point interval, since we know that
+    // the point is already within the bounds of the box.
+    for (int axis = 0; axis < 3; ++axis) {
+        auto uaxis = (axis + 2) % 3;
+        auto vaxis = (axis + 1) % 3;
+
+        auto intv = bbox.axis_interval(axis);
+        auto uintv = bbox.axis_interval(uaxis);
+        auto vintv = bbox.axis_interval(vaxis);
+
+        double beta_distance;
+        if (intersection[axis] == intv.min) {
+            beta_distance = vintv.max;
+        } else if (intersection[axis] == intv.max) {
+            beta_distance = vintv.min;
+        } else {
+            continue;
+        }
+        auto inv_u_mag = 1 / uintv.size();
+        auto inv_v_mag = 1 / vintv.size();
+        uv.u = inv_u_mag * (intersection[uaxis] - uintv.min);
+        uv.v = -inv_v_mag * (intersection[vaxis] - beta_distance);
+        return;
     }
+    std::unreachable();
 }
