@@ -181,7 +181,11 @@ static color geometrySim(camera const &cam, ray r, int depth,
         if (!res) return cam.background;
 
         rec.set_face_normal(r, rec.geom.normal);
-        res->getUVs(rec.uv, rec.geom.p, r.time);
+        {
+            ZoneScopedN("getUVs");
+            ZoneColor(tracy::Color::SteelBlue);
+            res->getUVs(rec.uv, rec.geom.p, r.time);
+        }
 
         vec3 scattered;
         color attenuation;
@@ -224,6 +228,8 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
         }
 
         {
+            ZoneScopedN("attenuation sample");
+            ZoneColor(tracy::Color::LawnGreen);
             std::span atts = attenuations;
             size_t processed = 0;
             for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
@@ -294,18 +300,21 @@ void camera::render(hittable_list const &world) {
     auto pixels =
         std::make_unique<color[]>(size_t(image_width) * size_t(image_height));
 
-    std::atomic<int> remain_scanlines{image_height};
     std::condition_variable cv;
     // lock progress mutex before launching the progress thread so we don't
     // end in a deadlock.
 
 #if TRACY_ENABLE
+    int start = 395;
     static constexpr int stop_at = 390;
 #else
+    int start = image_height;
     static constexpr int stop_at = 0;
 #endif
+    std::atomic<int> remain_scanlines{start};
+
     auto progress_thread =
-        std::thread([limit = image_height, &remain_scanlines, &cv]() {
+        std::thread([limit = start, &remain_scanlines, &cv]() {
             std::mutex progress_mux;
             std::unique_lock<std::mutex> lock(progress_mux);
             auto last_remain = limit + 1;
