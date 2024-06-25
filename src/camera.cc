@@ -80,7 +80,7 @@ struct px_sampleq {
     partialFill<color> solids;
     partialFill<std::pair<texture::noise_data, point3>> noises;
     // TODO: maybe I could collect images by their pointer?
-    partialFill<std::pair<rtw_image const *, uvs>> images;
+    partialFill<std::pair<rtw_shared_image, uvs>> images;
 
     struct commitSave {
         size_t solids;
@@ -250,17 +250,18 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
             }
 
             if (currentCounts.images) {
-                // NOTE: This is pretty slow. The loop takes most of the credit, where
-                // Tracy shows a ton of stalls (99% in loop, 1% in sample_image)
+                // NOTE: This is pretty slow. The loop takes most of the credit,
+                // where Tracy shows a ton of stalls (99% in loop, 1% in
+                // sample_image)
                 ZoneScopedN("images");
                 ZoneColor(tracy::Color::Lavender);
                 size_t processed = 0;
                 for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
                     for (int i = 0; i < sample_counts[sample].images; ++i) {
-                        auto const &[imagep, uv] =
+                        auto const &[image, uv] =
                             attenuations.images.items[processed++];
                         samples[sample] =
-                            samples[sample] * sample_image(*imagep, uv);
+                            samples[sample] * sample_image(image, uv);
                     }
                 }
             }

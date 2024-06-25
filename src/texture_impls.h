@@ -3,7 +3,7 @@
 
 #include "texture.h"
 
-static color sample_image(rtw_image const &img, uvs uv) {
+static color sample_image(rtw_shared_image img, uvs uv) {
     ZoneScoped;
 
     static constexpr auto unit = interval(0, 1);

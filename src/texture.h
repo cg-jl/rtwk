@@ -37,7 +37,7 @@ struct texture {
 
     union data {
         checker_data checker;
-        rtw_image const *image;
+        rtw_shared_image image;
         noise_data noise;
         color solid;
 

@@ -19,7 +19,10 @@ texture texture::solid(color col) {
 
 texture texture::image(char const *filename) {
     data d;
-    d.image = new rtw_image(filename);
+    // make sure we leak it so that we don't accidentally
+    // free the memory.
+    auto img = leak(rtw_image(filename));
+    new (&d.image) rtw_shared_image(img->share());
     return texture(tag::image, std::move(d));
 }
 
@@ -36,7 +39,7 @@ color texture::value(uvs uv, point3 const &p, perlin const &noise) const {
         case tag::checker:
             return sample_checker(as.checker, uv, p, noise);
         case tag::image:
-            return sample_image(*as.image, uv);
+            return sample_image(as.image, uv);
         case tag::noise:
             return sample_noise(as.noise, p, noise);
     }

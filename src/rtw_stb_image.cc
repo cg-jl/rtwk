@@ -1,5 +1,6 @@
 // Disable strict warnings for this header from the Microsoft Visual C++
 // compiler.
+#include <ostream>
 #ifdef _MSC_VER
 #pragma warning(push, 0)
 #endif
@@ -10,13 +11,12 @@
 #endif
 
 #define STBI_FAILURE_USERMSG
-#include "rtw_stb_image.h"
-
 #include <cstdlib>
 #include <iostream>
 #include <string>
 
 #include "external/stb_image.h"
+#include "rtw_stb_image.h"
 
 static constexpr int floats_per_pixel = 3;
 
@@ -82,7 +82,7 @@ static int clamp(int x, int low, int high) {
     return high - 1;
 }
 
-float const *rtw_image::pixel_data(int x, int y) const {
+float const *rtw_shared_image::pixel_data(int x, int y) const {
     // Return the address of the three RGB bytes of the pixel at x,y. If
     // there is no image data, returns magenta.
     static float magenta[] = {1, 0, 1};
@@ -95,6 +95,10 @@ float const *rtw_image::pixel_data(int x, int y) const {
 }
 
 rtw_image::~rtw_image() { free(fdata); }
+rtw_image::rtw_image(rtw_image &&img)
+    : fdata(std::exchange(img.fdata, nullptr)),
+      image_width(img.image_width),
+      image_height(img.image_height) {}
 
 // Restore MSVC compiler warnings
 #ifdef _MSC_VER
