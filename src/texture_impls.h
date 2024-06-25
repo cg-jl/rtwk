@@ -15,9 +15,9 @@ static color sample_image(rtw_image const &img, uvs uv) {
     auto j = int((1 - uv.v) * img.image_height);
     auto px = img.pixel_data(i, j);
 
-    auto col_scale = 1. / 255.;
-
-    return color(col_scale * px[0], col_scale * px[1], col_scale * px[2]);
+    // NOTE: @coversion from f32 -> f64.
+    // Maybe it's time to drop to floats?
+    return {px[0], px[1], px[2]};
 }
 
 static color sample_noise(texture::noise_data const &data, point3 const &p,

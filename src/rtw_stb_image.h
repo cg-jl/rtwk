@@ -18,10 +18,9 @@ class rtw_image {
     ~rtw_image();
 
     // NOTE: used by texture
-    unsigned char const *pixel_data(int x, int y) const;
+    float const *pixel_data(int x, int y) const;
 
     float *fdata = nullptr;          // Linear floating point pixel data
-    unsigned char *bdata = nullptr;  // Linear 8-bit pixel data
     int image_width = 0;             // Loaded image width
     int image_height = 0;            // Loaded image height
 };

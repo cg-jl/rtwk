@@ -18,28 +18,12 @@
 
 #include "external/stb_image.h"
 
-static constexpr int bytes_per_pixel = 3;
+static constexpr int floats_per_pixel = 3;
 
 static unsigned char float_to_byte(float value) {
     if (value <= 0.0) return 0;
     if (1.0 <= value) return 255;
     return static_cast<unsigned char>(256.0 * value);
-}
-
-static void convert_to_bytes(rtw_image &img) {
-    // Convert the linear floating point pixel data to bytes, storing the
-    // resulting byte data in the `bdata` member.
-
-    int total_bytes = img.image_width * img.image_height * bytes_per_pixel;
-    img.bdata = new unsigned char[total_bytes];
-
-    // Iterate through all pixel components, converting from [0.0, 1.0]
-    // float values to unsigned [0, 255] byte values.
-
-    auto *bptr = img.bdata;
-    auto *fptr = img.fdata;
-    for (auto i = 0; i < total_bytes; i++, fptr++, bptr++)
-        *bptr = float_to_byte(*fptr);
 }
 
 static bool load(rtw_image &img, std::string const &filename) {
@@ -50,17 +34,16 @@ static bool load(rtw_image &img, std::string const &filename) {
     // to right for the width of the image, followed by the next row below,
     // for the full height of the image.
 
-    auto n = bytes_per_pixel;  // Dummy out parameter: original components
-                               // per pixel
+    auto n = floats_per_pixel;  // Dummy out parameter: original components
+                                // per pixel
     img.fdata = stbi_loadf(filename.c_str(), &img.image_width,
-                           &img.image_height, &n, bytes_per_pixel);
+                           &img.image_height, &n, floats_per_pixel);
     if (img.fdata == nullptr) {
         img.image_width = 0;
         img.image_height = 0;
         return false;
     }
 
-    convert_to_bytes(img);
     return true;
 }
 
@@ -99,22 +82,19 @@ static int clamp(int x, int low, int high) {
     return high - 1;
 }
 
-unsigned char const *rtw_image::pixel_data(int x, int y) const {
+float const *rtw_image::pixel_data(int x, int y) const {
     // Return the address of the three RGB bytes of the pixel at x,y. If
     // there is no image data, returns magenta.
-    static unsigned char magenta[] = {255, 0, 255};
-    if (bdata == nullptr) return magenta;
+    static float magenta[] = {1, 0, 1};
+    if (fdata == nullptr) return magenta;
 
     x = clamp(x, 0, image_width);
     y = clamp(y, 0, image_height);
 
-    return bdata + y * image_width * bytes_per_pixel + x * bytes_per_pixel;
+    return fdata + y * image_width * floats_per_pixel + x * floats_per_pixel;
 }
 
-rtw_image::~rtw_image() {
-    delete[] bdata;
-    free(fdata);
-}
+rtw_image::~rtw_image() { free(fdata); }
 
 // Restore MSVC compiler warnings
 #ifdef _MSC_VER

@@ -250,6 +250,8 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
             }
 
             if (currentCounts.images) {
+                // NOTE: This is pretty slow. The loop takes most of the credit, where
+                // Tracy shows a ton of stalls (99% in loop, 1% in sample_image)
                 ZoneScopedN("images");
                 ZoneColor(tracy::Color::Lavender);
                 size_t processed = 0;
