@@ -31,7 +31,6 @@ bool sphere::hit(ray const &r, interval ray_t, geometry_record &rec) const {
     }
 
     rec.t = root;
-    rec.p = r.at(rec.t);
 
     return true;
 }

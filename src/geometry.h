@@ -5,7 +5,6 @@
 #include "vec3.h"
 
 struct geometry_record {
-    point3 p;
     double t;
 };
 

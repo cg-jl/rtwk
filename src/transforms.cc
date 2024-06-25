@@ -91,16 +91,10 @@ bool transformed::hit(ray const &r, interval ray_t,
     translate.transformRayOpposite(tfr);
     rotate.transformRayOpposite(tfr);
 
-    if (!object->hit(tfr, ray_t, rec)) return false;
-
-    rec.p = r.at(rec.t);
-    return true;
+    return object->hit(tfr, ray_t, rec);
 }
 
 void transformed::getUVs(uvs &uv, point3 p, double time) const {
-    // NOTE: we already transform p/normal in the return. *maybe* transforming
-    // them only here is required. normal may need to be a reference if so
-    // (since it's used for material calcs)
     return object->getUVs(uv, p, time);
 }
 

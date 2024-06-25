@@ -51,7 +51,6 @@ bool quad::hit(ray const &r, interval ray_t, geometry_record &rec) const {
     // Ray hits the 2D shape; set the rest of the hit record and return
     // true.
     rec.t = t;
-    rec.p = intersection;
 
     return true;
 }

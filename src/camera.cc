@@ -167,31 +167,32 @@ static color geometrySim(camera const &cam, ray r, int depth,
                 world.sampleConstantMediums(r, interval{0.001, maxT}, &cmHit)) {
             // Don't need UVs/normal; we have an isotropic material.
             // TODO: I could split the scattering too here.
-            rec.geom.p = r.at(cmHit);
-            r.orig = rec.geom.p;
+            auto p = r.at(cmHit);
+            r.orig = p;
             r.dir = unit_vector(random_in_unit_sphere());
 
-            attenuations.emplace_back(*cm->tex, rec.uv, rec.geom.p);
+            attenuations.emplace_back(*cm->tex, rec.uv, p);
             --depth;
             continue;
         }
 
         if (!res) return cam.background;
 
-        auto normal = res->geom->getNormal(rec.geom.p, r.time);
+        auto p = r.at(rec.geom.t);
+        auto normal = res->geom->getNormal(p, r.time);
 
         normal = rec.set_face_normal(r, normal);
         {
             ZoneScopedN("getUVs");
             ZoneColor(tracy::Color::SteelBlue);
-            res->getUVs(rec.uv, rec.geom.p, r.time);
+            res->getUVs(rec.uv, p, r.time);
         }
 
         vec3 scattered;
 
         // here we'll have to use the emit value as the 'attenuation' value.
         if (res->mat->tag == material::kind::diffuse_light) {
-            attenuations.emplace_back(*res->tex, rec.uv, rec.geom.p);
+            attenuations.emplace_back(*res->tex, rec.uv, p);
             return color(1, 1, 1);
         }
 
@@ -201,8 +202,8 @@ static color geometrySim(camera const &cam, ray r, int depth,
         }
 
         depth = depth - 1;
-        attenuations.emplace_back(*res->tex, rec.uv, rec.geom.p);
-        r = ray(rec.geom.p, scattered, r.time);
+        attenuations.emplace_back(*res->tex, rec.uv, p);
+        r = ray(p, scattered, r.time);
     }
 }
 

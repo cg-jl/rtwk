@@ -29,7 +29,6 @@ bool aaquad::hit(ray const &r, interval ray_t, geometry_record &rec) const {
     if (!is_interior(uv.u, uv.v)) return false;
 
     rec.t = t;
-    rec.p = intersection;
 
     return true;
 }

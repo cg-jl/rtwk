@@ -42,7 +42,6 @@ static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
     if ((alpha < 0) || (1 < alpha) || (beta < 0) || (1 < beta)) return false;
 
     rec.t = t;
-    rec.p = intersection;
     return true;
 }
 
