@@ -93,12 +93,7 @@ bool transformed::hit(ray const &r, interval ray_t,
 
     if (!object->hit(tfr, ray_t, rec)) return false;
 
-    {
-        ZoneScopedN("de-transform");
-        ZoneColor(tracy::Color::PowderBlue);
-        rotate.transformPoint(rec.p);
-        translate.transformPoint(rec.p);
-    }
+    rec.p = r.at(rec.t);
     return true;
 }
 
