@@ -52,7 +52,10 @@ bool quad::hit(ray const &r, interval ray_t, geometry_record &rec) const {
     // true.
     rec.t = t;
     rec.p = intersection;
-    rec.normal = normal;
 
     return true;
+}
+
+vec3 quad::getNormal(point3 const &_intersection, double _time) const {
+    return unit_vector(cross(u, v));
 }

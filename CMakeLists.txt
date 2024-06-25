@@ -83,6 +83,10 @@ if (ASAN_ENABLE)
     target_link_options(rt PRIVATE -fsanitize=undefined)
 endif ()
 
+target_compile_options(rt PRIVATE
+    -Wunused-variable
+)
+
 if ("${CMAKE_BUILD_TYPE}" STREQUAL Debug)
     message(STATUS "Using debug build. OpenMP is disabled.")
 elseif(TRACY_ENABLE)

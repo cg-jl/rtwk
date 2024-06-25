@@ -30,9 +30,6 @@ bool aaquad::hit(ray const &r, interval ray_t, geometry_record &rec) const {
 
     rec.t = t;
     rec.p = intersection;
-    vec3 n(0, 0, 0);
-    n[axis] = 1;
-    rec.normal = n;
 
     return true;
 }

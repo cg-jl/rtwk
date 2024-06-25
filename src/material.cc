@@ -29,7 +29,7 @@ static vec3 random_unit_vector() {
     return unit_vector(random_in_unit_sphere());
 }
 
-bool material::scatter(vec3 in_dir, hit_record const &rec,
+bool material::scatter(vec3 in_dir, vec3 const &normal, bool front_face,
                        vec3 &scattered) const {
     switch (tag) {
         case kind::diffuse_light:
@@ -42,11 +42,10 @@ bool material::scatter(vec3 in_dir, hit_record const &rec,
         }
         case kind::lambertian: {
             ZoneScopedN("lambertian scatter");
-            auto scatter_direction = rec.geom.normal + random_unit_vector();
+            auto scatter_direction = normal + random_unit_vector();
 
             // Catch degenerate scatter direction
-            if (scatter_direction.near_zero())
-                scatter_direction = rec.geom.normal;
+            if (scatter_direction.near_zero()) scatter_direction = normal;
 
             scattered = scatter_direction;
             return true;
@@ -54,28 +53,28 @@ bool material::scatter(vec3 in_dir, hit_record const &rec,
         case kind::metal: {
             auto fuzz = data.fuzz;
             ZoneScopedN("metal scatter");
-            vec3 reflected = reflect(in_dir, rec.geom.normal);
+            vec3 reflected = reflect(in_dir, normal);
             auto fv = fuzz * random_unit_vector();
             reflected = unit_vector(reflected) + fv;
             scattered = reflected;
-            return (dot(scattered, rec.geom.normal) > 0);
+            return (dot(scattered, normal) > 0);
         }
         case kind::dielectric: {
             auto refraction_index = data.refraction_index;
             ZoneScopedN("dielectric scatter");
             double ri =
-                rec.front_face ? (1.0 / refraction_index) : refraction_index;
+                front_face ? (1.0 / refraction_index) : refraction_index;
 
             vec3 unit_direction = unit_vector(in_dir);
-            double cos_theta = -dot(unit_direction, rec.geom.normal);
+            double cos_theta = -dot(unit_direction, normal);
 
             bool cannot_refract = ri * ri * (1 - cos_theta * cos_theta) > 1.0;
             vec3 direction;
 
             if (cannot_refract || reflectance(cos_theta, ri) > random_double())
-                direction = reflect(unit_direction, rec.geom.normal);
+                direction = reflect(unit_direction, normal);
             else
-                direction = refract(unit_direction, rec.geom.normal, ri);
+                direction = refract(unit_direction, normal, ri);
 
             scattered = direction;
             return true;

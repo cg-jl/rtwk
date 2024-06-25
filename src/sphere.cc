@@ -32,8 +32,6 @@ bool sphere::hit(ray const &r, interval ray_t, geometry_record &rec) const {
 
     rec.t = root;
     rec.p = r.at(rec.t);
-    vec3 outward_normal = (rec.p - center) / radius;
-    rec.normal = outward_normal;
 
     return true;
 }
@@ -44,8 +42,7 @@ bool sphere::hit(ray const &r, interval ray_t, geometry_record &rec) const {
 //     <1 0 0> yields <0.50 0.50>       <-1  0  0> yields <0.00 0.50>
 //     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
 //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
-void sphere::getUVs(uvs &uv, point3 p,  double time) const {
-
+void sphere::getUVs(uvs &uv, point3 p, double time) const {
     auto center = sphere_center(*this, time);
 
     auto normal = (p - center) / radius;
@@ -63,4 +60,8 @@ aabb sphere::bounding_box() const {
     aabb box1(center1 - rvec, center1 + rvec);
     aabb box2(center2 - rvec, center2 + rvec);
     return aabb(box1, box2);
+}
+
+vec3 sphere::getNormal(point3 const &intersection, double time) const {
+    return (intersection - sphere_center(*this, time)) / radius;
 }

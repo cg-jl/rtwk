@@ -96,8 +96,8 @@ bool transformed::hit(ray const &r, interval ray_t,
     {
         ZoneScopedN("de-transform");
         ZoneColor(tracy::Color::PowderBlue);
-        rotate.doTransform(rec.p, rec.normal);
-        translate.doTransform(rec.p, rec.normal);
+        rotate.transformPoint(rec.p);
+        translate.transformPoint(rec.p);
     }
     return true;
 }
@@ -109,77 +109,21 @@ void transformed::getUVs(uvs &uv, point3 p, double time) const {
     return object->getUVs(uv, p, time);
 }
 
-// bool translate::hit(ray const &r, interval ray_t, geometry_record &rec) const
-// {
-//     ZoneScopedN("translate hit");
-//     // Move the ray backwards by the offset
-//     ray offset_r(r.orig - offset, r.dir, r.time);
-//
-//     // Determine whether an intersection exists along the offset ray (and if
-//     // so, where)
-//     if (!object->hit(offset_r, ray_t, rec)) return false;
-//
-//     // Move the intersection point forwards by the offset
-//     rec.p += offset;
-//
-//     return true;
-// }
-//
-// bool rotate_y::hit(ray const &r, interval ray_t, geometry_record &rec) const
-// {
-//     ZoneScopedN("rotate_y hit");
-//     // Change the ray from world space to object space
-//     auto origin = rotateY::applyInverse(r.orig, sin_theta, cos_theta);
-//     auto direction = rotateY::applyInverse(r.dir, sin_theta, cos_theta);
-//
-//     ray rotated_r(origin, direction, r.time);
-//
-//     // Determine whether an intersection exists in object space (and if so,
-//     // where)
-//     if (!object->hit(rotated_r, ray_t, rec)) return false;
-//
-//     // Change the intersection point from object space to world space
-//     auto p = rotateY::applyForward(rec.p, sin_theta, cos_theta);
-//
-//     // Change the normal from object space to world space
-//     auto normal = rotateY::applyForward(rec.normal, sin_theta, cos_theta);
-//
-//     rec.p = p;
-//     rec.normal = normal;
-//
-//     return true;
-// }
-//
+vec3 transformed::getNormal(point3 const &intersection, double time) const {
+    // NOTE: Since `hit` transforms into the transformed space, we have to get
+    // back to the local space.
+    point3 p = intersection;
+    p = p - translate.offset;
+    p = rotateY::applyInverse(p, rotate.sin_theta, rotate.cos_theta);
+
+    auto normal = object->getNormal(p, time);
+
+    rotate.transformPoint(normal);
+    return normal;
+}
+
 rotate_y::rotate_y(double angle) {
     auto radians = degrees_to_radians(angle);
     sin_theta = sin(radians);
     cos_theta = cos(radians);
 }
-//
-// aabb rotate_y::bounding_box() const {
-//     auto bbox = object->bounding_box();
-//
-//     point3 min(infinity, infinity, infinity);
-//     point3 max(-infinity, -infinity, -infinity);
-//
-//     for (auto p : std::array{
-//              point3{bbox.x.min, bbox.y.min, bbox.z.max},
-//              point3{bbox.x.min, bbox.y.min, bbox.z.min},
-//              point3{bbox.x.min, bbox.y.max, bbox.z.max},
-//              point3{bbox.x.min, bbox.y.max, bbox.z.min},
-//              point3{bbox.x.max, bbox.y.min, bbox.z.max},
-//              point3{bbox.x.max, bbox.y.min, bbox.z.min},
-//              point3{bbox.x.max, bbox.y.max, bbox.z.max},
-//              point3{bbox.x.max, bbox.y.max, bbox.z.min},
-//          }) {
-//         auto tester = rotateY::applyForward(p, sin_theta, cos_theta);
-//
-//         for (int c = 0; c < 3; c++) {
-//             min[c] = fmin(min[c], tester[c]);
-//             max[c] = fmax(max[c], tester[c]);
-//         }
-//     }
-//
-//     bbox = aabb(min, max);
-//     return bbox;
-// }

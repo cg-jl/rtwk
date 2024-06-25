@@ -37,5 +37,7 @@ struct transformed final : public geometry {
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const final;
     void getUVs(uvs &uv, point3 p, double time) const final;
+
+    vec3 getNormal(point3 const &intersection, double time) const final;
     aabb bounding_box() const final;
 };

@@ -168,8 +168,6 @@ static color geometrySim(camera const &cam, ray r, int depth,
             // Don't need UVs/normal; we have an isotropic material.
             // TODO: I could split the scattering too here.
             rec.geom.p = r.at(cmHit);
-            // Be consistent with the normal from constant_medium::hit.
-            rec.geom.normal = vec3(1., 0., 0);
             r.orig = rec.geom.p;
             r.dir = unit_vector(random_in_unit_sphere());
 
@@ -180,7 +178,9 @@ static color geometrySim(camera const &cam, ray r, int depth,
 
         if (!res) return cam.background;
 
-        rec.set_face_normal(r, rec.geom.normal);
+        auto normal = res->geom->getNormal(rec.geom.p, r.time);
+
+        normal = rec.set_face_normal(r, normal);
         {
             ZoneScopedN("getUVs");
             ZoneColor(tracy::Color::SteelBlue);
@@ -188,7 +188,6 @@ static color geometrySim(camera const &cam, ray r, int depth,
         }
 
         vec3 scattered;
-        color attenuation;
 
         // here we'll have to use the emit value as the 'attenuation' value.
         if (res->mat->tag == material::kind::diffuse_light) {
@@ -196,7 +195,7 @@ static color geometrySim(camera const &cam, ray r, int depth,
             return color(1, 1, 1);
         }
 
-        if (!res->mat->scatter(r.dir, rec, scattered)) {
+        if (!res->mat->scatter(r.dir, normal, rec.front_face, scattered)) {
             attenuations.clear();
             return color(0, 0, 0);
         }
@@ -337,7 +336,6 @@ void camera::render(hittable_list const &world) {
     size_t thread_count = omp_get_num_threads();
     auto att_requests_mem =
         std::make_unique<std::vector<sample_request>[]>(thread_count);
-    auto att_rq = ring_q(std::span{att_requests_mem.get(), thread_count});
 
 #else
     // TODO: if I keep adding atomic things, then single threaded

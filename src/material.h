@@ -37,7 +37,8 @@ struct material {
 
     constexpr material(kind tag, Data const &data) : tag(tag), data(data) {}
 
-    bool scatter(vec3 in_dir, hit_record const &rec, vec3 &scattered) const;
+    bool scatter(vec3 in_dir, vec3 const &normal, bool front_face,
+                 vec3 &scattered) const;
 
     static constexpr material metal(double fuzz) {
         Data d;

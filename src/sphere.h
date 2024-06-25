@@ -30,9 +30,10 @@ class sphere : public geometry {
     }
 
     bool hit(ray const &r, interval ray_t, geometry_record &rec) const;
-    // NOTE: right now sphere can't calculate its normal because it requires the
-    // time instantiation parameter.
     void getUVs(uvs &uv, point3 p, double time) const final;
+
+
+    vec3 getNormal(point3 const& intersection, double time) const final;
 
     aabb bounding_box() const final;
 

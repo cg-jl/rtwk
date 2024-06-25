@@ -31,7 +31,7 @@ class interval {
     constexpr bool contains(double x) const { return min <= x && x <= max; }
 
     constexpr bool surrounds(double x) const { return min < x && x < max; }
-    constexpr bool atBorder(double x) const { return min == x || x == max; }
+    constexpr bool atBorder(double x) const { return std::abs(min - x) <= 1e-8 || std::abs(x - max) <= 1e-8; }
 
     constexpr double clamp(double x) const { return std::clamp(x, min, max); }
 

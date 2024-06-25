@@ -1,4 +1,5 @@
 #include "box.h"
+#include <utility>
 
 static void calcUVs(double normal_dir, interval ax_u, interval ax_v,
                     int ax_u_idx, int ax_v_idx, point3 intersection, double &u,
@@ -42,8 +43,6 @@ static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
 
     rec.t = t;
     rec.p = intersection;
-    rec.normal = vec3();
-    rec.normal[ax_i] = normal_dir;
     return true;
 }
 
@@ -90,6 +89,17 @@ void box::getUVs(uvs &uv, point3 intersection, double _time) const {
         uv.u = inv_u_mag * (intersection[uaxis] - uintv.min);
         uv.v = -inv_v_mag * (intersection[vaxis] - beta_distance);
         return;
+    }
+    std::unreachable();
+}
+
+vec3 box::getNormal(point3 const &intersection, double _time) const {
+    for (int axis = 0; axis < 3; ++axis) {
+        if (bbox.axis_interval(axis).atBorder(intersection[axis])) {
+            vec3 n(0, 0, 0);
+            n[axis] = 1;
+            return n;
+        }
     }
     std::unreachable();
 }

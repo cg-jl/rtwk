@@ -25,12 +25,12 @@ class hit_record {
     uvs uv;
     bool front_face;
 
-    void set_face_normal(ray const &r, vec3 const &outward_normal) {
+    vec3 set_face_normal(ray const &r, vec3 const &outward_normal) {
         // Sets the hit record normal vector.
         // NOTE: the parameter `outward_normal` is assumed to have unit length.
 
         front_face = dot(r.dir, outward_normal) < 0;
-        geom.normal = front_face ? outward_normal : -outward_normal;
+        return front_face ? outward_normal : -outward_normal;
     }
 };
 
