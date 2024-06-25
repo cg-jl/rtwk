@@ -11,12 +11,10 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
-#include <cstdint>
 #include <vector>
 
 #include "bvh.h"
 #include "constant_medium.h"
-#include "geometry.h"
 #include "hittable.h"
 
 struct hittable_list {
@@ -48,7 +46,7 @@ struct hittable_list {
     }
 
     hittable const *hitSelect(ray const &r, interval ray_t,
-                              geometry_record &rec) const;
+                              double &closestHit) const;
 
     constant_medium const *sampleConstantMediums(ray const &ray, interval ray_t,
                                                  double *hit) const noexcept;

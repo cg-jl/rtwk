@@ -1,4 +1,5 @@
 #include "box.h"
+
 #include <utility>
 
 static void calcUVs(double normal_dir, interval ax_u, interval ax_v,
@@ -14,7 +15,7 @@ static void calcUVs(double normal_dir, interval ax_u, interval ax_v,
 static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
                      int ax_u_idx, int ax_v_idx, double dir, double orig,
                      ray const &r, interval ray_t,
-                     geometry_record &rec) noexcept {
+                     double &closestHit) noexcept {
     // No hit if the ray is parallel to the plane.
     if (fabs(dir) < 1e-8) return false;
     double D;
@@ -41,23 +42,22 @@ static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
 
     if ((alpha < 0) || (1 < alpha) || (beta < 0) || (1 < beta)) return false;
 
-    rec.t = t;
+    closestHit = t;
     return true;
 }
 
-bool box::hit(ray const &r, interval ray_t,
-              geometry_record &rec) const noexcept {
+bool box::hit(ray const &r, interval ray_t, double &closestHit) const {
     bool did_hit = false;
     if (hit_side(bbox.x, bbox.z, bbox.y, 0, 2, 1, r.dir[0], r.orig[0], r, ray_t,
-                 rec)) {
+                 closestHit)) {
         did_hit = true;
     }
     if (hit_side(bbox.y, bbox.x, bbox.z, 1, 0, 2, r.dir[1], r.orig[1], r, ray_t,
-                 rec)) {
+                 closestHit)) {
         did_hit = true;
     }
     if (hit_side(bbox.z, bbox.y, bbox.x, 2, 1, 0, r.dir[2], r.orig[2], r, ray_t,
-                 rec)) {
+                 closestHit)) {
         did_hit = true;
     }
 

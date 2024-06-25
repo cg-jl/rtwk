@@ -44,7 +44,7 @@ namespace bvh {
 }
 
 [[clang::noinline]] static hittable const *hitNode(ray const &r, interval ray_t,
-                                                   geometry_record &rec,
+                                                   double &closestHit,
                                                    bvh_node const &n,
                                                    hittable const *objects) {
     if (!n.bbox.hit(r, ray_t)) return nullptr;
@@ -55,13 +55,13 @@ namespace bvh {
         // each object and use that as timing reference.
         return hitSpan(std::span{objects + n.objectsStart,
                                  size_t(n.objectsEnd - n.objectsStart)},
-                       r, ray_t, rec);
+                       r, ray_t, closestHit);
     }
 
-    auto hit_left = hitNode(r, ray_t, rec, *n.left, objects);
+    auto hit_left = hitNode(r, ray_t, closestHit, *n.left, objects);
     auto hit_right =
-        hitNode(r, interval(ray_t.min, hit_left ? rec.t : ray_t.max), rec,
-                *n.right, objects);
+        hitNode(r, interval(ray_t.min, hit_left ? closestHit : ray_t.max),
+                closestHit, *n.right, objects);
     return hit_right ?: hit_left;
 }
 
@@ -72,7 +72,7 @@ bvh_tree::bvh_tree(std::span<hittable> objects)
       objects(objects.data()) {}
 
 hittable const *bvh_tree::hitSelect(ray const &r, interval ray_t,
-                                    geometry_record &rec) const {
+                                    double &closestHit) const {
     ZoneScopedN("bvh_tree hit");
-    return bvh::hitNode(r, ray_t, rec, root, objects);
+    return bvh::hitNode(r, ray_t, closestHit, root, objects);
 }

@@ -19,19 +19,8 @@
 
 class material;
 
-class hit_record {
-   public:
-    geometry_record geom;
+struct hit_record {
     uvs uv;
-    bool front_face;
-
-    vec3 set_face_normal(ray const &r, vec3 const &outward_normal) {
-        // Sets the hit record normal vector.
-        // NOTE: the parameter `outward_normal` is assumed to have unit length.
-
-        front_face = dot(r.dir, outward_normal) < 0;
-        return front_face ? outward_normal : -outward_normal;
-    }
 };
 
 struct hittable {
@@ -43,8 +32,8 @@ struct hittable {
                                 geometry const *geom)
         : mat(mat), geom(geom), tex(tex) {}
 
-    bool hit(ray const &r, interval ray_t, geometry_record &rec) const {
-        return geom->hit(r, ray_t, rec);
+    bool hit(ray const &r, interval ray_t, double &closestHit) const {
+        return geom->hit(r, ray_t, closestHit);
     }
 
     void getUVs(uvs &uv, point3 p, double time) const {
@@ -57,4 +46,4 @@ struct hittable {
 // We should end in a geometry anyway.
 
 hittable const *hitSpan(std::span<hittable const> objects, ray const &r,
-                        interval ray_t, geometry_record &rec);
+                        interval ray_t, double &closestHit);

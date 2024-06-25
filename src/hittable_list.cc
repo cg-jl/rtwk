@@ -11,7 +11,7 @@
 #include "rtweekend.h"
 
 hittable const *hittable_list::hitSelect(ray const &r, interval ray_t,
-                                         geometry_record &rec) const {
+                                         double &closestHit) const {
     ZoneScopedN("hittable_list hit");
 
     hittable const *best = nullptr;
@@ -19,8 +19,8 @@ hittable const *hittable_list::hitSelect(ray const &r, interval ray_t,
     {
         ZoneScopedN("hit trees");
         for (auto const &tree : trees) {
-            if (auto const next = tree.hitSelect(r, ray_t, rec); next) {
-                ray_t.max = rec.t;
+            if (auto const next = tree.hitSelect(r, ray_t, closestHit); next) {
+                ray_t.max = closestHit;
                 best = next;
             }
         }
@@ -28,7 +28,7 @@ hittable const *hittable_list::hitSelect(ray const &r, interval ray_t,
 
     {
         ZoneScopedN("hit individuals");
-        auto const hit_individual = hitSpan(objects, r, ray_t, rec);
+        auto const hit_individual = hitSpan(objects, r, ray_t, closestHit);
         best = hit_individual ?: best;
     }
 
@@ -48,13 +48,11 @@ constant_medium const *hittable_list::sampleConstantMediums(
     double currentHit = infinity;
 
     for (auto const &cm : cms) {
-        geometry_record nextrec;
+        double tstart, tend;
 
-        if (!cm.geom->hit(ray, universe_interval, nextrec)) continue;
-        auto tstart = nextrec.t;
-        if (!cm.geom->hit(ray, interval{tstart + 0.0001, infinity}, nextrec))
+        if (!cm.geom->hit(ray, universe_interval, tstart)) continue;
+        if (!cm.geom->hit(ray, interval{tstart + 0.0001, infinity}, tend))
             continue;
-        auto tend = nextrec.t;
 
         // intertse
         tstart = std::max(tstart, ray_t.min);

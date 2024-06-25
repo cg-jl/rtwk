@@ -24,7 +24,7 @@ static bool is_interior(double a, double b) {
     return unit_interval.contains(a) && unit_interval.contains(b);
 }
 
-bool quad::hit(ray const &r, interval ray_t, geometry_record &rec) const {
+bool quad::hit(ray const &r, interval ray_t, double &closestHit) const {
     ZoneScopedN("quad hit");
     auto n = cross(u, v);
     auto normal = unit_vector(n);
@@ -50,7 +50,7 @@ bool quad::hit(ray const &r, interval ray_t, geometry_record &rec) const {
 
     // Ray hits the 2D shape; set the rest of the hit record and return
     // true.
-    rec.t = t;
+    closestHit = t;
 
     return true;
 }

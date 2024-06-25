@@ -8,7 +8,7 @@ static bool is_interior(double a, double b) {
     return unit_interval.contains(a) && unit_interval.contains(b);
 }
 
-bool aaquad::hit(ray const &r, interval ray_t, geometry_record &rec) const {
+bool aaquad::hit(ray const &r, interval ray_t, double &closestHit) const {
     ZoneScopedN("aaquad hit");
 
     // No hit if the ray is parallel to the plane.
@@ -28,7 +28,7 @@ bool aaquad::hit(ray const &r, interval ray_t, geometry_record &rec) const {
 
     if (!is_interior(uv.u, uv.v)) return false;
 
-    rec.t = t;
+    closestHit = t;
 
     return true;
 }

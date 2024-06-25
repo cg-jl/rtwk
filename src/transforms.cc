@@ -85,13 +85,13 @@ aabb transformed::bounding_box() const {
 }
 
 bool transformed::hit(ray const &r, interval ray_t,
-                      geometry_record &rec) const {
+                      double &closestHit) const {
     ZoneScopedN("transformed hit");
     ray tfr{r};
     translate.transformRayOpposite(tfr);
     rotate.transformRayOpposite(tfr);
 
-    return object->hit(tfr, ray_t, rec);
+    return object->hit(tfr, ray_t, closestHit);
 }
 
 void transformed::getUVs(uvs &uv, point3 p, double time) const {

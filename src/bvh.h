@@ -34,5 +34,5 @@ struct bvh_tree {
 
     aabb bounding_box() const { return root.bbox; }
     hittable const *hitSelect(ray const &r, interval ray_t,
-                              geometry_record &rec) const;
+                              double &closestHit) const;
 };

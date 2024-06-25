@@ -1,7 +1,5 @@
 #pragma once
 
-#include <array>
-
 #include "geometry.h"
 
 struct translate final {
@@ -35,7 +33,7 @@ struct transformed final : public geometry {
     transformed(geometry const *object, rotate_y rotate,
                 struct translate translate);
 
-    bool hit(ray const &r, interval ray_t, geometry_record &rec) const final;
+    bool hit(ray const &r, interval ray_t, double &closestHit) const;
     void getUVs(uvs &uv, point3 p, double time) const final;
 
     vec3 getNormal(point3 const &intersection, double time) const final;

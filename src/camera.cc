@@ -148,18 +148,28 @@ static color multiplySamples(std::span<sample_request const> samples,
     return acc;
 }
 
+// Aligns the normal so that it always points towards the ray origin.
+// Returs whether the face is at the front.
+static bool set_face_normal(ray const &r, vec3 &normal) {
+    auto front_face = dot(r.dir, normal) < 0;
+    normal = front_face ? normal : -normal;
+    return front_face;
+}
+
 static color geometrySim(camera const &cam, ray r, int depth,
                          hittable_list const &world, px_sampleq &attenuations) {
     for (;;) {
         if (depth <= 0) return color(1, 1, 1);
         ZoneScopedN("ray frame");
 
-        hit_record rec;
+        double closestHit;
 
         // If the ray hits nothing, return the background color.
-        auto res = world.hitSelect(r, interval(0.001, infinity), rec.geom);
+        auto res = world.hitSelect(r, interval(0.001, infinity), closestHit);
 
-        auto maxT = res ? rec.geom.t : infinity;
+        auto maxT = res ? closestHit : infinity;
+
+        uvs uv;
 
         // Try sampling a constant medium
         double cmHit;
@@ -171,38 +181,38 @@ static color geometrySim(camera const &cam, ray r, int depth,
             r.orig = p;
             r.dir = unit_vector(random_in_unit_sphere());
 
-            attenuations.emplace_back(*cm->tex, rec.uv, p);
+            attenuations.emplace_back(*cm->tex, uv, p);
             --depth;
             continue;
         }
 
         if (!res) return cam.background;
 
-        auto p = r.at(rec.geom.t);
+        auto p = r.at(closestHit);
         auto normal = res->geom->getNormal(p, r.time);
 
-        normal = rec.set_face_normal(r, normal);
+        auto front_face = set_face_normal(r, normal);
         {
             ZoneScopedN("getUVs");
             ZoneColor(tracy::Color::SteelBlue);
-            res->getUVs(rec.uv, p, r.time);
+            res->getUVs(uv, p, r.time);
         }
 
         vec3 scattered;
 
         // here we'll have to use the emit value as the 'attenuation' value.
         if (res->mat->tag == material::kind::diffuse_light) {
-            attenuations.emplace_back(*res->tex, rec.uv, p);
+            attenuations.emplace_back(*res->tex, uv, p);
             return color(1, 1, 1);
         }
 
-        if (!res->mat->scatter(r.dir, normal, rec.front_face, scattered)) {
+        if (!res->mat->scatter(r.dir, normal, front_face, scattered)) {
             attenuations.clear();
             return color(0, 0, 0);
         }
 
         depth = depth - 1;
-        attenuations.emplace_back(*res->tex, rec.uv, p);
+        attenuations.emplace_back(*res->tex, uv, p);
         r = ray(p, scattered, r.time);
     }
 }

@@ -8,7 +8,7 @@ point3 sphere_center(sphere const &sph, double time) {
     return sph.center1 + time * sph.center_vec;
 }
 
-bool sphere::hit(ray const &r, interval ray_t, geometry_record &rec) const {
+bool sphere::hit(ray const &r, interval ray_t, double &closestHit) const {
     ZoneScopedN("sphere hit");
     point3 center = sphere_center(*this, r.time);
     vec3 oc = center - r.orig;
@@ -30,7 +30,7 @@ bool sphere::hit(ray const &r, interval ray_t, geometry_record &rec) const {
         if (!ray_t.surrounds(root)) return false;
     }
 
-    rec.t = root;
+    closestHit = root;
 
     return true;
 }

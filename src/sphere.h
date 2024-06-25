@@ -29,7 +29,7 @@ class sphere : public geometry {
         center_vec = center2 - center1;
     }
 
-    bool hit(ray const &r, interval ray_t, geometry_record &rec) const;
+    bool hit(ray const &r, interval ray_t, double &closestHiw) const;
     void getUVs(uvs &uv, point3 p, double time) const final;
 
 
