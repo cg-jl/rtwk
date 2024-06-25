@@ -12,6 +12,7 @@
 #include "material.h"
 #include "perlin.h"
 #include "random.h"
+#include "texture_impls.h"
 #include "timer.h"
 
 static vec3 random_in_unit_sphere() {
@@ -59,35 +60,79 @@ static ray get_ray(camera const &cam, int i, int j) {
 
 // TODO: separate request things into more renderer files
 
-struct sample_request {
-    texture tex;
-    uvs uv;
-    point3 p;
 
-    sample_request(texture tex, uvs uv, point3 p)
-        : tex(std::move(tex)), uv(uv), p(p) {}
-
-    color sample(perlin const &noise) const { return tex.value(uv, p, noise); }
-};
-struct px_sampleq {
-    std::vector<sample_request> &reqs;
+template <typename T>
+struct partialFill {
+    std::vector<T> items;
     size_t prev_fill;
 
-    template <typename... Ts>
-    void emplace_back(Ts &&...ts) {
-        reqs.emplace_back(std::forward<Ts &&>(ts)...);
+    void reset() { prev_fill = 0; }
+
+    size_t commit() {
+        return items.size() - std::exchange(prev_fill, items.size());
     }
+
     void clear() {
-        reqs.erase(reqs.cbegin() + intptr_t(prev_fill), reqs.cend());
+        items.erase(items.begin() + intptr_t(prev_fill), items.end());
     }
 };
 
-static color multiplySamples(std::span<sample_request const> samples,
-                             color initial, perlin const &noise) {
-    color acc = initial;
-    for (auto const &s : samples) acc = acc * s.sample(noise);
-    return acc;
-}
+struct px_sampleq {
+    partialFill<color> solids;
+    partialFill<std::pair<texture::noise_data, point3>> noises;
+    // TODO: maybe I could collect images by their pointer?
+    partialFill<std::pair<rtw_image const *, uvs>> images;
+    partialFill<std::tuple<texture::checker_data, uvs, point3>> checkers;
+
+    struct commitSave {
+        size_t solids;
+        size_t noises;
+        size_t images;
+        size_t checkers;
+
+        void accept(commitSave const &other) {
+            solids |= other.solids;
+            noises |= other.noises;
+            images |= other.images;
+            checkers |= other.checkers;
+        }
+    };
+
+    void emplace(texture tex, uvs uv, point3 p) {
+        switch (tex.kind) {
+            case texture::tag::solid:
+                solids.items.emplace_back(tex.as.solid);
+                break;
+            case texture::tag::noise:
+                noises.items.emplace_back(tex.as.noise, p);
+                break;
+            case texture::tag::image:
+                images.items.emplace_back(tex.as.image, uv);
+                break;
+            default:
+                checkers.items.emplace_back(tex.as.checker, uv, p);
+                break;
+        }
+    }
+
+    commitSave commit() {
+        return commitSave(solids.commit(), noises.commit(), images.commit(),
+                          checkers.commit());
+    }
+    void reset() {
+        solids.reset();
+        noises.reset();
+        images.reset();
+        checkers.reset();
+    }
+    void clear() {
+        solids.clear();
+        noises.clear();
+        images.clear();
+        checkers.clear();
+    }
+};
+
 
 // Aligns the normal so that it always points towards the ray origin.
 // Returs whether the face is at the front.
@@ -122,7 +167,7 @@ static color geometrySim(camera const &cam, ray r, int depth,
             r.orig = p;
             r.dir = unit_vector(random_in_unit_sphere());
 
-            attenuations.emplace_back(*cm->tex, uv, p);
+            attenuations.emplace(*cm->tex, uv, p);
             --depth;
             continue;
         }
@@ -143,7 +188,7 @@ static color geometrySim(camera const &cam, ray r, int depth,
 
         // here we'll have to use the emit value as the 'attenuation' value.
         if (res->mat->tag == material::kind::diffuse_light) {
-            attenuations.emplace_back(*res->tex, uv, p);
+            attenuations.emplace(*res->tex, uv, p);
             return color(1, 1, 1);
         }
 
@@ -153,27 +198,28 @@ static color geometrySim(camera const &cam, ray r, int depth,
         }
 
         depth = depth - 1;
-        attenuations.emplace_back(*res->tex, uv, p);
+        attenuations.emplace(*res->tex, uv, p);
         r = ray(p, scattered, r.time);
     }
 }
 
 static void scanLine(camera const &cam, hittable_list const &world, int j,
-                     color *pixels, std::vector<sample_request> &attenuations,
-                     size_t *sample_counts, color *samples,
+                     color *pixels, px_sampleq &attenuations,
+                     px_sampleq::commitSave *sample_counts, color *samples,
                      perlin const &noise) {
     for (int i = 0; i < cam.image_width; i++) {
         color pixel_color(0, 0, 0);
+        attenuations.reset();
         attenuations.clear();
-        px_sampleq q{attenuations, 0};
+        px_sampleq::commitSave currentCounts{};
         for (int sample = 0; sample < cam.samples_per_pixel; sample++) {
             ZoneScopedN("pixel sample");
             ray r = get_ray(cam, i, j);
 
-            auto bg = geometrySim(cam, r, cam.max_depth, world, q);
+            auto bg = geometrySim(cam, r, cam.max_depth, world, attenuations);
 
-            auto att_count = attenuations.size() - q.prev_fill;
-            q.prev_fill = attenuations.size();
+            auto att_count = attenuations.commit();
+            currentCounts.accept(att_count);
             sample_counts[sample] = att_count;
             samples[sample] = bg;
         }
@@ -181,13 +227,62 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
         {
             ZoneScopedN("attenuation sample");
             ZoneColor(tracy::Color::LawnGreen);
-            std::span atts = attenuations;
-            size_t processed = 0;
-            for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
-                auto count = sample_counts[sample];
-                samples[sample] = multiplySamples(
-                    atts.subspan(processed, count), samples[sample], noise);
-                processed += count;
+
+            if (currentCounts.solids) {
+                ZoneScopedN("solids");
+                ZoneColor(tracy::Color::Blue3);
+                size_t processed = 0;
+                for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+                    for (int i = 0; i < sample_counts[sample].solids; ++i) {
+                        samples[sample] =
+                            samples[sample] *
+                            attenuations.solids.items[processed++];
+                    }
+                }
+            }
+
+            if (currentCounts.noises) {
+                ZoneScopedN("noises");
+                ZoneColor(tracy::Color::Blue4);
+                size_t processed = 0;
+                for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+                    for (int i = 0; i < sample_counts[sample].noises; ++i) {
+                        auto const &[noiseData, p] =
+                            attenuations.noises.items[processed++];
+                        samples[sample] =
+                            samples[sample] * sample_noise(noiseData, p, noise);
+                    }
+                }
+            }
+
+            if (currentCounts.images) {
+                ZoneScopedN("images");
+                ZoneColor(tracy::Color::Lavender);
+                size_t processed = 0;
+                for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+                    for (int i = 0; i < sample_counts[sample].images; ++i) {
+                        auto const &[imagep, uv] =
+                            attenuations.images.items[processed++];
+                        samples[sample] =
+                            samples[sample] * sample_image(*imagep, uv);
+                    }
+                }
+            }
+
+            if (currentCounts.checkers) {
+                ZoneScopedN("checkers");
+                ZoneColor(tracy::Color::Azure4);
+                size_t processed = 0;
+                for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+                    for (int i = 0; i < sample_counts[sample].checkers; ++i) {
+                        // TODO: duplication here with the texture code. Maybe
+                        // a texture_impls.h file?
+                        auto const &[checker, uv, p] =
+                            attenuations.checkers.items[processed++];
+                        samples[sample] = samples[sample] *
+                                          sample_checker(checker, uv, p, noise);
+                    }
+                }
             }
         }
 
@@ -285,10 +380,6 @@ void camera::render(hittable_list const &world) {
         });
 
 #ifdef _OPENMP
-    size_t thread_count = omp_get_num_threads();
-    auto att_requests_mem =
-        std::make_unique<std::vector<sample_request>[]>(thread_count);
-
 #else
     // TODO: if I keep adding atomic things, then single threaded
     // performance will be lost.
@@ -298,9 +389,9 @@ void camera::render(hittable_list const &world) {
     // worker loop
 #pragma omp parallel
     {
-        std::vector<sample_request> attenuations;
-        auto sample_counts =
-            std::make_unique<size_t[]>(size_t(samples_per_pixel));
+        px_sampleq attenuations;
+        auto sample_counts = std::make_unique<px_sampleq::commitSave[]>(
+            size_t(samples_per_pixel));
         auto samples = std::make_unique<color[]>(size_t(samples_per_pixel));
 
         perlin noise;
