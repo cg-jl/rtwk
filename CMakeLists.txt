@@ -8,7 +8,6 @@ include(FetchContent)
 
 add_executable(rt 
     src/aabb.cc
-    src/aaquad.cc
     src/external/stb_image_write.cc
     src/external/stb_image.cc
     src/box.cc

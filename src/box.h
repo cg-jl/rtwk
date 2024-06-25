@@ -13,5 +13,5 @@ struct box final : public geometry {
 
     vec3 getNormal(point3 const& intersection, double time) const final;
 
-    bool hit(ray const &r, interval ray_t, double &closestHiw) const;
+    bool hit(ray const &r, interval ray_t, double &closestHit) const;
 };

@@ -82,65 +82,6 @@ struct px_sampleq {
     }
 };
 
-// TODO: pick another place/namespace for these
-
-// The constructors for `T` have a time limit, the moment they modify the
-// value successfully is the moment they should be flushing the writes,
-// otherwise other thread could read garbage memory.
-template <typename T>
-struct ring_q {
-    std::span<T> const buffer;
-    std::atomic<size_t> write{0}, read{0};
-
-    explicit constexpr ring_q(std::span<T> buffer) : buffer(buffer) {}
-
-    constexpr size_t mask2(size_t val) { return val % (2 * buffer.size()); }
-    constexpr size_t mask(size_t val) { return val % buffer.size(); }
-
-    // Do not wait if the queue is full -> does not move from val
-    bool pushIfNotFull(T &val) {
-        auto old_head = write.load(std::memory_order_acquire);
-
-        size_t new_head;
-        do {
-            auto cur_read = read.load(std::memory_order::acquire);
-            // queue is full.
-            if (cur_read == mask2(new_head + buffer.size())) return false;
-
-            new_head = mask2(old_head + 1);
-
-        } while (!write.compare_exchange_weak(old_head, new_head,
-                                              std::memory_order::acq_rel));
-
-        // Overwrite the old value. We don't run destructors, since we
-        // should have popped the value when removing it.
-        new (&buffer[mask(old_head)]) T(std::move(val));
-        return true;
-    }
-
-    // Do not wait if queue is empty. Returns whether `target` was
-    // constructed with the value from the queue.
-    // `target` is not valid memory for `T` until this function returns
-    // `true`.
-    bool pop(void *target) {
-        auto old_read = read.load(std::memory_order::acquire);
-
-        size_t new_read;
-        do {
-            auto cur_write = write.load(std::memory_order::acquire);
-
-            if (cur_write == old_read) return false;
-
-            new_read = mask2(cur_write + 1);
-        } while (!read.compare_exchange_weak(old_read, new_read,
-                                             std::memory_order::acq_rel));
-
-        // We aren't running destructors, so the target should not be an
-        // initialized piece.
-        new (target) T(std::move(buffer[mask(old_read)]));
-    }
-};
-
 static color multiplySamples(std::span<sample_request const> samples,
                              color initial, perlin const &noise) {
     color acc = initial;
