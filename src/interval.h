@@ -1,5 +1,4 @@
-#ifndef INTERVAL_H
-#define INTERVAL_H
+#pragma once
 //==============================================================================================
 // To the extent possible under law, the author(s) have dedicated all copyright
 // and related and neighboring rights to this software to the public domain
@@ -11,10 +10,10 @@
 //==============================================================================================
 
 #include <algorithm>
+#include <cmath>
 
 #include "rtweekend.h"
-class interval {
-   public:
+struct interval {
     double min, max;
 
     constexpr interval()
@@ -31,7 +30,9 @@ class interval {
     constexpr bool contains(double x) const { return min <= x && x <= max; }
 
     constexpr bool surrounds(double x) const { return min < x && x < max; }
-    constexpr bool atBorder(double x) const { return std::abs(min - x) <= 1e-8 || std::abs(x - max) <= 1e-8; }
+    constexpr bool atBorder(double x) const {
+        return std::abs(min - x) <= 1e-8 || std::abs(x - max) <= 1e-8;
+    }
 
     constexpr double clamp(double x) const { return std::clamp(x, min, max); }
 
@@ -53,5 +54,3 @@ constexpr interval operator+(interval ival, double displacement) {
 constexpr interval operator+(double displacement, interval ival) {
     return ival + displacement;
 }
-
-#endif

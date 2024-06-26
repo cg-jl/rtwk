@@ -31,17 +31,3 @@ texture texture::noise(double scale) {
     new (&d.noise) noise_data{scale};
     return texture(tag::noise, std::move(d));
 }
-
-color texture::value(uvs uv, point3 const &p, perlin const &noise) const {
-    switch (kind) {
-        case tag::solid:
-            return as.solid;
-        case tag::checker:
-            return sample_checker(as.checker, uv, p, noise);
-        case tag::image:
-            return sample_image(as.image, uv);
-        case tag::noise:
-            return sample_noise(as.noise, p, noise);
-    }
-    __builtin_unreachable();
-}

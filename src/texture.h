@@ -12,10 +12,7 @@
 //==============================================================================================
 
 #include "color.h"
-#include "geometry.h"
-#include "perlin.h"
 #include "rtw_stb_image.h"
-#include "vec3.h"
 
 struct texture {
     enum class tag {
@@ -57,8 +54,6 @@ struct texture {
     static texture image(char const *filename);
 
     static texture noise(double scale);
-
-    color value(uvs uv, point3 const &p, perlin const &noise) const;
 };
 
 namespace detail {

@@ -1,10 +1,15 @@
 #pragma once
 #include <tracy/Tracy.hpp>
 
+#include "perlin.h"
 #include "texture.h"
+#include "interval.h"
+#include "geometry.h"
+#include "trace_colors.h"
 
-static color sample_image(rtw_shared_image img, uvs uv) {
-    ZoneScoped;
+inline color sample_image(rtw_shared_image img, uvs uv) {
+    ZoneScopedN("image");
+    ZoneColor(Ctp::Teal);
 
     static constexpr auto unit = interval(0, 1);
 
@@ -20,15 +25,16 @@ static color sample_image(rtw_shared_image img, uvs uv) {
     return {px[0], px[1], px[2]};
 }
 
-static color sample_noise(texture::noise_data const &data, point3 const &p,
+inline color sample_noise(texture::noise_data const &data, point3 const &p,
                           perlin const &perlin) {
-    ZoneScoped;
+    ZoneScopedN("noise");
+    ZoneColor(Ctp::Blue);
 
     return color(.5, .5, .5) *
            (1 + std::sin(data.scale * p.z() + 10 * perlin.turb(p, 7)));
 }
 
-static texture const *checkerSelect(texture::checker_data const &data,
+inline texture const *checkerSelect(texture::checker_data const &data,
                                     point3 const &p) {
     auto xint = int(std::floor(data.inv_scale * p.x()));
     auto yint = int(std::floor(data.inv_scale * p.y()));
@@ -38,18 +44,11 @@ static texture const *checkerSelect(texture::checker_data const &data,
 }
 
 // Traverses the checker tree and finds a texture that is not a checker.
-static texture const *traverseChecker(texture const *tex, point3 const &p) {
-    ZoneScoped;
+inline texture const *traverseChecker(texture const *tex, point3 const &p) {
+    ZoneScopedN("traverse checker");
+    ZoneColor(Base);
     while (tex->kind == texture::tag::checker) {
         tex = checkerSelect(tex->as.checker, p);
     }
     return tex;
-}
-
-// TODO: make checker have (non-)terminals so we can just have a tree of
-// textures each leaf node is a texture pointer and each split node has the
-// inv_scale.
-static color sample_checker(texture::checker_data const &data, uvs uv,
-                            point3 const &p, perlin const &noise) {
-    return checkerSelect(data, p)->value(uv, p, noise);
 }

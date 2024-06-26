@@ -7,25 +7,26 @@ include(FetchContent)
 #find_package(PNG REQUIRED)
 
 add_executable(rt 
-    src/aabb.cc
-    src/external/stb_image_write.cc
-    src/external/stb_image.cc
-    src/box.cc
-    src/bvh.cc
-    src/camera.cc
-    src/constant_medium.cc
-    src/hittable.cc
-    src/hittable_list.cc
-    src/main.cc 
-    src/material.cc
-    src/perlin.cc
-    src/quad.cc
-    src/random.cc
-    src/rtw_stb_image.cc
-    src/sphere.cc
-    src/texture.cc
-    src/timer.cc
-    src/transforms.cc
+    aabb.cc
+    box.cc
+    bvh.cc
+    camera.cc
+    constant_medium.cc
+    external/stb_image.cc
+    external/stb_image_write.cc
+    hittable.cc
+    hittable_list.cc
+    main.cc 
+    material.cc
+    perlin.cc
+    quad.cc
+    random.cc
+    renderer.cc
+    rtw_stb_image.cc
+    sphere.cc
+    texture.cc
+    timer.cc
+    transforms.cc
 )
 
 option(TRACY_ENABLE "" OFF)
@@ -46,7 +47,7 @@ FetchContent_MakeAvailable(tracy)
 
 target_link_libraries(rt PRIVATE TracyClient)
 
-target_include_directories(rt PRIVATE src vendor)
+target_include_directories(rt PRIVATE "${CMAKE_SOURCE_DIR}" TracyClient)
 
 #target_link_options(rt PRIVATE -lpthread)
 
@@ -83,7 +84,7 @@ if (ASAN_ENABLE)
 endif ()
 
 target_compile_options(rt PRIVATE
-    -Wunused-variable
+    -Wunused
 )
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL Debug)
