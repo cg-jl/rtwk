@@ -83,9 +83,9 @@ struct px_sampleq {
     partialFill<std::pair<rtw_shared_image, uvs>> images;
 
     struct commitSave {
-        size_t solids;
-        size_t noises;
-        size_t images;
+        int solids;
+        int noises;
+        int images;
 
         void accept(commitSave const &other) {
             solids |= other.solids;
@@ -227,11 +227,11 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
                 ZoneColor(tracy::Color::Blue3);
                 size_t processed = 0;
                 for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+                    color res = samples[sample];
                     for (int i = 0; i < sample_counts[sample].solids; ++i) {
-                        samples[sample] =
-                            samples[sample] *
-                            attenuations.solids.items[processed++];
+                        res = res * attenuations.solids.items[processed++];
                     }
+                    samples[sample] = res;
                 }
             }
 
@@ -240,12 +240,13 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
                 ZoneColor(tracy::Color::Blue4);
                 size_t processed = 0;
                 for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+                    color res = samples[sample];
                     for (int i = 0; i < sample_counts[sample].noises; ++i) {
                         auto const &[noiseData, p] =
                             attenuations.noises.items[processed++];
-                        samples[sample] =
-                            samples[sample] * sample_noise(noiseData, p, noise);
+                        res = res * sample_noise(noiseData, p, noise);
                     }
+                    samples[sample] = res;
                 }
             }
 
@@ -257,12 +258,13 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
                 ZoneColor(tracy::Color::Lavender);
                 size_t processed = 0;
                 for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+                    color res = samples[sample];
                     for (int i = 0; i < sample_counts[sample].images; ++i) {
                         auto const &[image, uv] =
                             attenuations.images.items[processed++];
-                        samples[sample] =
-                            samples[sample] * sample_image(image, uv);
+                        res = res * sample_image(image, uv);
                     }
+                    samples[sample] = res;
                 }
             }
         }
