@@ -124,7 +124,11 @@ static vec3 random_in_unit_sphere() {
 static color geometrySim(color const &background, ray r, int depth,
                          hittable_list const &world, px_sampleq &attenuations) {
     for (;;) {
-        if (depth <= 0) return color(1, 1, 1);
+        // Too deep and haven't found a light source.
+        if (depth <= 0) {
+            attenuations.clear();
+            return color(0, 0, 0);
+        }
         ZoneScopedN("ray frame");
 
         double closestHit;
@@ -151,7 +155,10 @@ static color geometrySim(color const &background, ray r, int depth,
             continue;
         }
 
-        if (!res) return background;
+        if (!res) {
+            attenuations.clear();
+            return background;
+        }
 
         auto p = r.at(closestHit);
         auto normal = res->geom->getNormal(p, r.time);
