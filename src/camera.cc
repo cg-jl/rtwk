@@ -69,8 +69,9 @@ void camera::render(hittable_list const &world) {
     // end in a deadlock.
 
 #if TRACY_ENABLE
-    int start = 395;
-    static constexpr int stop_at = 390;
+    // do at least 50 of them. Should be enough to remove sampling noise.
+    int start = 400;
+    static constexpr int stop_at = 370;
 #else
     int start = image_height;
     static constexpr int stop_at = 0;

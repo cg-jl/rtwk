@@ -32,7 +32,7 @@ void bouncing_spheres() {
     auto checker =
         leak(texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
                               leak(texture::solid(color(.9, .9, .9)))));
-    world.add(hittable(&detail::lambertian, checker,
+    world.add(hittable(detail::lambertian, checker,
                        new sphere(point3(0, -1000, 0), 1000)));
 
     for (int a = -11; a < 11; a++) {
@@ -42,26 +42,24 @@ void bouncing_spheres() {
                           b + 0.9 * random_double());
 
             if ((center - point3(4, 0.2, 0)).length() > 0.9) {
-                material const *sphere_material;
-
                 if (choose_mat < 0.8) {
                     // diffuse
                     auto albedo =
                         leak(texture::solid(random_vec() * random_vec()));
-                    sphere_material = &detail::lambertian;
+                    auto sphere_material = detail::lambertian;
                     auto center2 = center + vec3(0, random_double(0, .5), 0);
-                    world.add(hittable(sphere_material, albedo,
+                    world.add(hittable(detail::lambertian, albedo,
                                        new sphere(center, center2, 0.2)));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = leak(texture::solid(random_vec(0.5, 1)));
                     auto fuzz = random_double(0, 0.5);
-                    sphere_material = leak(material::metal(fuzz));
+                    auto sphere_material = (material::metal(fuzz));
                     world.add(hittable(sphere_material, albedo,
                                        new sphere(center, 0.2)));
                 } else {
                     // glass
-                    sphere_material = leak(material::dielectric(1.5));
+                    auto sphere_material = (material::dielectric(1.5));
                     world.add(hittable(sphere_material, &detail::white,
                                        new sphere(center, 0.2)));
                 }
@@ -69,16 +67,16 @@ void bouncing_spheres() {
         }
     }
 
-    auto material1 = leak(material::dielectric(1.5));
+    auto material1 = (material::dielectric(1.5));
     world.add(
         hittable(material1, &detail::white, new sphere(point3(0, 1, 0), 1.0)));
 
     auto color2 = leak(texture::solid(color(0.4, 0.2, 0.1)));
-    auto material2 = &detail::lambertian;
+    auto material2 = detail::lambertian;
     world.add(hittable(material2, color2, new sphere(point3(-4, 1, 0), 1.0)));
 
     auto color3 = leak(texture::solid(color(0.7, 0.6, 0.5)));
-    auto material3 = leak(material::metal(0.0));
+    auto material3 = (material::metal(0.0));
     world.add(hittable(material3, color3, new sphere(point3(4, 1, 0), 1.0)));
 
     hittable_list bvhd_world;
@@ -110,9 +108,9 @@ void checkered_spheres() {
         leak(texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
                               leak(texture::solid(color(.9, .9, .9)))));
 
-    world.add(hittable(&detail::lambertian, checker,
+    world.add(hittable(detail::lambertian, checker,
                        new sphere(point3(0, -10, 0), 10)));
-    world.add(hittable(&detail::lambertian, checker,
+    world.add(hittable(detail::lambertian, checker,
                        new sphere(point3(0, 10, 0), 10)));
 
     camera cam;
@@ -135,7 +133,7 @@ void checkered_spheres() {
 
 void earth() {
     auto earth_texture = leak(texture::image("earthmap.jpg"));
-    auto earth_surface = &detail::lambertian;
+    auto earth_surface = detail::lambertian;
     auto globe =
         hittable(earth_surface, earth_texture, new sphere(point3(0, 0, 0), 2));
 
@@ -161,10 +159,10 @@ void perlin_spheres() {
     hittable_list world;
 
     auto pertext = leak(texture::noise(4));
-    world.add(hittable(&detail::lambertian, pertext,
+    world.add(hittable(detail::lambertian, pertext,
                        new sphere(point3(0, -1000, 0), 1000)));
     world.add(
-        hittable(&detail::lambertian, pertext, new sphere(point3(0, 2, 0), 2)));
+        hittable(detail::lambertian, pertext, new sphere(point3(0, 2, 0), 2)));
 
     camera cam;
 
@@ -194,7 +192,7 @@ void quads() {
     auto upper_orange = texture::solid(color(1.0, 0.5, 0.0));
     auto lower_teal = texture::solid(color(0.2, 0.8, 0.8));
 
-    auto lambert = &detail::lambertian;
+    auto lambert = detail::lambertian;
 
     // Quads
     world.add(
@@ -235,13 +233,13 @@ void simple_light() {
     hittable_list world;
 
     auto pertext = leak(texture::noise(4));
-    world.add(hittable(&detail::lambertian, pertext,
+    world.add(hittable(detail::lambertian, pertext,
                        new sphere(point3(0, -1000, 0), 1000)));
 
     world.add(
-        hittable(&detail::lambertian, pertext, new sphere(point3(0, 2, 0), 2)));
+        hittable(detail::lambertian, pertext, new sphere(point3(0, 2, 0), 2)));
 
-    auto difflight = &detail::diffuse_light;
+    auto difflight = detail::diffuse_light;
     auto light_tint = texture::solid(color(4, 4, 4));
     world.add(hittable(difflight, &light_tint, new sphere(point3(0, 7, 0), 2)));
     world.add(
@@ -272,10 +270,10 @@ void cornell_box() {
     auto red = texture::solid(color(.65, .05, .05));
     auto white = texture::solid(color(.73, .73, .73));
     auto green = texture::solid(color(.12, .45, .15));
-    auto light = &detail::diffuse_light;
+    auto light = detail::diffuse_light;
     auto light_tint = texture::solid(color(15, 15, 15));
 
-    auto lambert = &detail::lambertian;
+    auto lambert = detail::lambertian;
 
     world.add(hittable(
         lambert, &green,
@@ -338,10 +336,10 @@ void cornell_smoke() {
     auto red = texture::solid(color(.65, .05, .05));
     auto white = texture::solid(color(.73, .73, .73));
     auto green = texture::solid(color(.12, .45, .15));
-    auto light = &detail::diffuse_light;
+    auto light = detail::diffuse_light;
     auto light_tint = texture::solid(color(7, 7, 7));
 
-    auto lambert = &detail::lambertian;
+    auto lambert = detail::lambertian;
 
     world.add(hittable(
         lambert, &green,
@@ -395,7 +393,7 @@ void cornell_smoke() {
 void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto build_timer = new rtwk::timer("Building scene");
     hittable_list boxes1;
-    auto lambert = &detail::lambertian;
+    auto lambert = detail::lambertian;
     auto ground_col = texture::solid(color(0.48, 0.83, 0.53));
 
     int boxes_per_side = 20;
@@ -419,7 +417,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     world.trees.emplace_back(boxes1.objects);
 
-    auto light = &detail::diffuse_light;
+    auto light = detail::diffuse_light;
     auto light_tint = texture::solid(color(7, 7, 7));
     world.add(hittable(
         light, &light_tint,
@@ -432,15 +430,14 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     world.add(hittable(sphere_material, &sphere_tint,
                        new sphere(center1, center2, 50)));
 
-    world.add(hittable(leak(material::dielectric(1.5)), &detail::white,
+    world.add(hittable((material::dielectric(1.5)), &detail::white,
                        new sphere(point3(260, 150, 45), 50)));
     auto fuzzball_tint = texture::solid(color(0.8, 0.8, 0.9));
-    world.add(hittable(leak(material::metal(1)), &fuzzball_tint,
+    world.add(hittable((material::metal(1)), &fuzzball_tint,
                        new sphere(point3(0, 150, 145), 50)));
 
     auto boundary = new sphere(point3(360, 150, 145), 70);
-    world.add(
-        hittable(leak(material::dielectric(1.5)), &detail::white, boundary));
+    world.add(hittable((material::dielectric(1.5)), &detail::white, boundary));
     world.add(constant_medium(boundary, 0.2, color(0.2, 0.4, 0.9)));
     boundary = new sphere(point3(0, 0, 0), 5000);
     world.add(constant_medium(boundary, .0001, color(1, 1, 1)));

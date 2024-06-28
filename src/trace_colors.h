@@ -1,5 +1,11 @@
 #pragma once
 
+namespace filters {
+static constexpr bool surfaceHit = true;
+static constexpr bool deepHit = false;
+static constexpr bool hit = surfaceHit && deepHit;
+}
+
 // Using Catppuccin Frappe theming
 // https://catppuccin.com/palette
 enum Ctp : int {

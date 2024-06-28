@@ -2,10 +2,14 @@
 
 #include <tracy/Tracy.hpp>
 
+#include "trace_colors.h"
+
 hittable const *hitSpan(std::span<hittable const> objects, ray const &r,
                         interval ray_t, double &closestHit) {
-    ZoneScoped;
-    ZoneValue(objects.size());
+    ZoneNamed(_tracy, filters::hit);
+#if TRACY_ENABLE
+    _tracy.Value(objects.size());
+#endif
 
     hittable const *best = nullptr;
     auto closest_so_far = ray_t.max;

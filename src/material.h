@@ -11,10 +11,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
-#include "hittable.h"
 #include "vec3.h"
-
-struct hit_record;
 
 struct material {
     enum class kind {

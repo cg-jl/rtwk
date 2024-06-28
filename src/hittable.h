@@ -14,21 +14,16 @@
 #include <span>
 
 #include "geometry.h"
+#include "material.h"
 #include "texture.h"
 #include "vec3.h"
 
-class material;
-
-struct hit_record {
-    uvs uv;
-};
-
 struct hittable {
-    material const *mat;
     geometry const *geom;
+    material mat;
     texture const *tex;
 
-    constexpr explicit hittable(material const *mat, texture const *tex,
+    constexpr explicit hittable(material mat, texture const *tex,
                                 geometry const *geom)
         : mat(mat), geom(geom), tex(tex) {}
 

@@ -30,7 +30,7 @@ add_executable(rt
 )
 
 option(TRACY_ENABLE "" OFF)
-option(TRACY_ON_DEMAND "" ON)
+option(TRACY_ON_DEMAND "" OFF)
 option(TRACY_NO_BROADCAST "" ON)
 option(TRACY_ONLY_LOCALHOST "" ON)
 option(TRACY_NO_EXIT "" ON)

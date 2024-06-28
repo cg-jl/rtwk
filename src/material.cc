@@ -1,5 +1,8 @@
 #include "material.h"
 
+#include "random.h"
+#include "trace_colors.h"
+
 #include <tracy/Tracy.hpp>
 
 static double reflectance(double cosine, double refraction_index) {
@@ -31,6 +34,8 @@ static vec3 random_unit_vector() {
 
 bool material::scatter(vec3 in_dir, vec3 const &normal, bool front_face,
                        vec3 &scattered) const {
+    ZoneScopedN("scatter");
+    ZoneColor(Ctp::Pink);
     switch (tag) {
         case kind::diffuse_light:
             __builtin_unreachable();

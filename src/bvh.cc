@@ -3,7 +3,11 @@
 #include <cassert>
 #include <tracy/Tracy.hpp>
 
+#include "trace_colors.h"
+
 namespace bvh {
+
+// TODO: @memory move all objects here? Last time it was good?
 
 [[clang::noinline]] static bvh_node buildBVHNode(hittable *objects, int start,
                                                  int end, int depth = 0) {
@@ -73,6 +77,7 @@ bvh_tree::bvh_tree(std::span<hittable> objects)
 
 hittable const *bvh_tree::hitSelect(ray const &r, interval ray_t,
                                     double &closestHit) const {
-    ZoneScopedN("bvh_tree hit");
+    // deactivate this zone for now.
+    ZoneNamedN(zone, "bvh_tree hit", filters::hit);
     return bvh::hitNode(r, ray_t, closestHit, root, objects);
 }

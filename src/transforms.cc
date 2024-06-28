@@ -4,6 +4,7 @@
 #include <tracy/Tracy.hpp>
 
 #include "geometry.h"
+#include "trace_colors.h"
 
 namespace rotateY {
 
@@ -84,9 +85,8 @@ aabb transformed::bounding_box() const {
     return aabb(min, max);
 }
 
-bool transformed::hit(ray const &r, interval ray_t,
-                      double &closestHit) const {
-    ZoneScopedN("transformed hit");
+bool transformed::hit(ray const &r, interval ray_t, double &closestHit) const {
+    ZoneNamedN(_tracy, "transformed hit", filters::hit);
     ray tfr{r};
     translate.transformRayOpposite(tfr);
     rotate.transformRayOpposite(tfr);

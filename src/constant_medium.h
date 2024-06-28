@@ -13,8 +13,6 @@
 //==============================================================================================
 
 #include "geometry.h"
-#include "hittable.h"
-#include "material.h"
 #include "rtweekend.h"
 #include "texture.h"
 

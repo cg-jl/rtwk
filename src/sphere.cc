@@ -1,6 +1,7 @@
 #include "sphere.h"
 
 #include <tracy/Tracy.hpp>
+#include "trace_colors.h"
 
 point3 sphere_center(sphere const &sph, double time) {
     // Linearly interpolate from center1 to center2 according to time, where
@@ -9,7 +10,7 @@ point3 sphere_center(sphere const &sph, double time) {
 }
 
 bool sphere::hit(ray const &r, interval ray_t, double &closestHit) const {
-    ZoneScopedN("sphere hit");
+    ZoneNamedN(_tracy, "sphere hit", filters::hit);
     point3 center = sphere_center(*this, r.time);
     vec3 oc = center - r.orig;
     auto a = r.dir.length_squared();

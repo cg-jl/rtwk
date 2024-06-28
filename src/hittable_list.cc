@@ -9,15 +9,16 @@
 #include "hittable.h"
 #include "interval.h"
 #include "rtweekend.h"
+#include "trace_colors.h"
 
 hittable const *hittable_list::hitSelect(ray const &r, interval ray_t,
                                          double &closestHit) const {
-    ZoneScopedN("hittable_list hit");
+    ZoneNamedN(_tracy, "hittable_list hit", filters::surfaceHit);
 
     hittable const *best = nullptr;
 
     {
-        ZoneScopedN("hit trees");
+        ZoneNamedN(_tracy, "hit trees", filters::hit);
         for (auto const &tree : trees) {
             if (auto const next = tree.hitSelect(r, ray_t, closestHit); next) {
                 ray_t.max = closestHit;
@@ -27,7 +28,7 @@ hittable const *hittable_list::hitSelect(ray const &r, interval ray_t,
     }
 
     {
-        ZoneScopedN("hit individuals");
+        ZoneNamedN(_tracy, "hit individuals", filters::hit);
         auto const hit_individual = hitSpan(objects, r, ray_t, closestHit);
         best = hit_individual ?: best;
     }

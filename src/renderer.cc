@@ -166,12 +166,12 @@ static color geometrySim(color const &background, ray r, int depth,
         vec3 scattered;
 
         // here we'll have to use the emit value as the 'attenuation' value.
-        if (res->mat->tag == material::kind::diffuse_light) {
+        if (res->mat.tag == material::kind::diffuse_light) {
             attenuations.emplace(res->tex, uv, p);
             return color(1, 1, 1);
         }
 
-        if (!res->mat->scatter(r.dir, normal, front_face, scattered)) {
+        if (!res->mat.scatter(r.dir, normal, front_face, scattered)) {
             attenuations.clear();
             return color(0, 0, 0);
         }

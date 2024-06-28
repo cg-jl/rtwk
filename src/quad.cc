@@ -2,6 +2,8 @@
 
 #include <tracy/Tracy.hpp>
 
+#include "trace_colors.h"
+
 void quad::getUVs(uvs &uv, point3 intersection, double _time) const {
     vec3 pq = intersection - Q;
     auto v_squared = v.length_squared();
@@ -25,7 +27,7 @@ static bool is_interior(double a, double b) {
 }
 
 bool quad::hit(ray const &r, interval ray_t, double &closestHit) const {
-    ZoneScopedN("quad hit");
+    ZoneNamedN(_tracy, "quad hit", filters::hit);
     auto n = cross(u, v);
     auto normal = unit_vector(n);
     auto D = dot(normal, Q);

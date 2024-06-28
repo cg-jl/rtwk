@@ -1,9 +1,10 @@
 #include "aabb.h"
 
 #include <tracy/Tracy.hpp>
+#include "trace_colors.h"
 
 bool aabb::hit(ray const &r, interval ray_t) const {
-    ZoneScopedN("AABB hit");
+    ZoneNamedN(zone, "AABB hit", filters::hit);
     point3 ray_orig = r.orig;
     vec3 ray_dir = r.dir;
 
