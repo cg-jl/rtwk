@@ -34,7 +34,6 @@ option(TRACY_ON_DEMAND "" ON)
 option(TRACY_NO_BROADCAST "" ON)
 option(TRACY_ONLY_LOCALHOST "" ON)
 option(TRACY_NO_EXIT "" ON)
-option(ASAN_ENABLE "" OFF)
 
 FetchContent_Declare(
     tracy
@@ -74,14 +73,6 @@ endif()
 else()
     message(WARNING "LTO is not supported and thus will not be enabled: ${error}")
 endif()
-
-
-if (ASAN_ENABLE)
-    target_compile_options(rt PRIVATE -fsanitize=address)
-    target_link_options(rt PRIVATE -fsanitize=address)
-    target_compile_options(rt PRIVATE -fsanitize=undefined)
-    target_link_options(rt PRIVATE -fsanitize=undefined)
-endif ()
 
 target_compile_options(rt PRIVATE
     -Wunused
