@@ -2,30 +2,55 @@
 #include <renderer.h>
 #include <texture_impls.h>
 
+#include <cstdint>
+#include <tracy/Tracy.hpp>
+
 #include "hittable_list.h"
 
+using uint32 = uint32_t;
+
+// NOTE: doesn't manage the lifetimes of `T`.
 template <typename T>
-struct partialFill {
-    std::vector<T> items;
-    size_t prev_fill;
+struct boundedDynArr {
+    T *elems{};
+    size_t count{};
+#if _DEBUG
+    size_t cap;
+#endif
 
-    void reset() { prev_fill = 0; }
+    auto as_span() const { return std::span{elems, count}; }
 
-    size_t commit() {
-        return items.size() - std::exchange(prev_fill, items.size());
+    void push_back(T val) { elems[count++] = val; }
+};
+
+using deferNoise = std::pair<texture::noise_data, point3>;
+
+// TODO: @maybe I could collect images by their pointer?
+using deferImage = std::pair<rtw_shared_image, uvs>;
+
+struct sampleMat {
+    color *solids;
+    deferNoise *noises;
+    deferImage *images;
+
+    static sampleMat request(uint32 spp, uint32 maxDepth) {
+        return {
+            .solids = new color[spp * maxDepth],
+            .noises = new deferNoise[spp * maxDepth],
+            .images = new deferImage[spp * maxDepth],
+        };
     }
 
-    void clear() {
-        items.erase(items.begin() + intptr_t(prev_fill), items.end());
+    sampleMat offset(uint32 sample, uint32 maxDepth) const noexcept {
+        return {
+            .solids = solids + sample * maxDepth,
+            .noises = noises + sample * maxDepth,
+            .images = images + sample * maxDepth,
+        };
     }
 };
 
 struct px_sampleq {
-    partialFill<color> solids;
-    partialFill<std::pair<texture::noise_data, point3>> noises;
-    // TODO: maybe I could collect images by their pointer?
-    partialFill<std::pair<rtw_shared_image, uvs>> images;
-
     struct commitSave {
         int solids;
         int noises;
@@ -38,17 +63,20 @@ struct px_sampleq {
         }
     };
 
+    sampleMat ptrs;
+    commitSave tally;
+
     void emplace(texture const *tex, uvs uv, point3 p) {
         tex = traverseChecker(tex, p);
         switch (tex->kind) {
             case texture::tag::solid:
-                solids.items.emplace_back(tex->as.solid);
+                ptrs.solids[tally.solids++] = tex->as.solid;
                 break;
             case texture::tag::noise:
-                noises.items.emplace_back(tex->as.noise, p);
+                ptrs.noises[tally.noises++] = {tex->as.noise, p};
                 break;
             case texture::tag::image:
-                images.items.emplace_back(tex->as.image, uv);
+                ptrs.images[tally.images++] = {tex->as.image, uv};
                 break;
             case texture::tag::checker:
                 // Should be unreachable since we did the traverseChecker
@@ -57,18 +85,17 @@ struct px_sampleq {
         }
     }
 
-    commitSave commit() {
-        return commitSave(solids.commit(), noises.commit(), images.commit());
+    commitSave commit() { return tally; }
+    void reset() { tally = {}; }
+
+    constexpr std::span<color> solids() const {
+        return {ptrs.solids, size_t(tally.solids)};
     }
-    void reset() {
-        solids.reset();
-        noises.reset();
-        images.reset();
+    constexpr std::span<deferNoise> noises() const {
+        return {ptrs.noises, size_t(tally.noises)};
     }
-    void clear() {
-        solids.clear();
-        noises.clear();
-        images.clear();
+    constexpr std::span<deferImage> images() const {
+        return {ptrs.images, size_t(tally.images)};
     }
 };
 static vec3 sample_square() {
@@ -126,7 +153,7 @@ static color geometrySim(color const &background, ray r, int depth,
     for (;;) {
         // Too deep and haven't found a light source.
         if (depth <= 0) {
-            attenuations.clear();
+            attenuations.reset();
             return color(0, 0, 0);
         }
         ZoneScopedN("ray frame");
@@ -145,7 +172,6 @@ static color geometrySim(color const &background, ray r, int depth,
         if (auto cm =
                 world.sampleConstantMediums(r, interval{0.001, maxT}, &cmHit)) {
             // Don't need UVs/normal; we have an isotropic material.
-            // TODO: I could split the scattering too here.
             auto p = r.at(cmHit);
             r.orig = p;
             r.dir = unit_vector(random_in_unit_sphere());
@@ -156,7 +182,7 @@ static color geometrySim(color const &background, ray r, int depth,
         }
 
         if (!res) {
-            attenuations.clear();
+            attenuations.reset();
             return background;
         }
 
@@ -179,7 +205,7 @@ static color geometrySim(color const &background, ray r, int depth,
         }
 
         if (!res->mat.scatter(r.dir, normal, front_face, scattered)) {
-            attenuations.clear();
+            attenuations.reset();
             return color(0, 0, 0);
         }
 
@@ -189,54 +215,89 @@ static color geometrySim(color const &background, ray r, int depth,
     }
 }
 
+struct countArrays {
+    int *solids;
+    int *noises;
+    int *images;
+
+    static countArrays request(uint32 spp) {
+        return {
+            .solids = new int[spp],
+            .noises = new int[spp],
+            .images = new int[spp],
+        };
+    }
+};
+
+// NOTE: @maybe @perf We can't do the transpose of the depth/sample matrix
+// because we have to multiply first. We still could gather multiple rays once
+// we have the scene separated by kind.
+
+// Things to keep:
+// - samples >>> depth
+// - depth < saturated threshold: The number of bounces is not enough
+//   for a bulk algorithm (which relies on most of the work being saturated)
+//   to be beneficial.
+// - depth might be > transitory threshold, but that's the only option we have
+// right now.
+//   if it's in between, any algorithm (saturated or transitory) will behave
+//   mostly the same.
+
 static void scanLine(camera const &cam, hittable_list const &world, int j,
-                     color *pixels, px_sampleq &attenuations,
-                     px_sampleq::commitSave *sample_counts, color *samples,
-                     perlin const &noise) {
+                     color *pixels, sampleMat attMat, countArrays counts,
+                     color *samples, perlin const &noise) {
+    // NOTE: @maybe a matrix only for the solids and vectors for the  other
+    // types works better. geometrySim could also return whether it is
+    // cancelling/light/background to find what the last (or first) color
+    // multiplier is, and store it in one go. This would allow to do all the
+    // lane multiplies in one loop.
+
     for (int i = 0; i < cam.image_width; i++) {
         color pixel_color(0, 0, 0);
-        attenuations.reset();
-        attenuations.clear();
+
         px_sampleq::commitSave currentCounts{};
         for (int sample = 0; sample < cam.samples_per_pixel; sample++) {
             ZoneScopedN("pixel sample");
             ray r = get_ray(cam, i, j);
 
-            auto bg = geometrySim(cam.background, r, cam.max_depth, world,
-                                  attenuations);
+            px_sampleq q{attMat.offset(sample, cam.max_depth),
+                         px_sampleq::commitSave{}};
 
-            auto att_count = attenuations.commit();
+            auto bg = geometrySim(cam.background, r, cam.max_depth, world, q);
+
+            auto att_count = q.tally;
             currentCounts.accept(att_count);
-            sample_counts[sample] = att_count;
+
+            counts.solids[sample] = att_count.solids;
+            counts.noises[sample] = att_count.noises;
+            counts.images[sample] = att_count.images;
             samples[sample] = bg;
         }
 
+        // NOTE: @maybe consider filling the color matrix with 1s where samples
+        // shouldn't be recorded. That way loops could be fixed at least.
+
+        // NOTE: @waste There's no point in having lanes for noises/images
+        // if I still have to encode the samples and lengths. They are also much less
+        // frequent than their solid counterparts. @maybe having one vector each
+        // and sampling those in bulk is better.
+
         {
-            ZoneScopedN("attenuation sample");
-            ZoneColor(Ctp::Green);
-
-            if (currentCounts.solids) {
-                ZoneScopedN("solids");
-                ZoneColor(Ctp::Pink);
-                size_t processed = 0;
-                for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
-                    color res = samples[sample];
-                    for (int i = 0; i < sample_counts[sample].solids; ++i) {
-                        res = res * attenuations.solids.items[processed++];
-                    }
-                    samples[sample] = res;
-                }
-            }
-
+            ZoneScopedNC("attenuation samples", Ctp::Peach);
             if (currentCounts.noises) {
                 ZoneScopedN("noises");
                 ZoneColor(tracy::Color::Blue4);
-                size_t processed = 0;
                 for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
                     color res = samples[sample];
-                    for (int i = 0; i < sample_counts[sample].noises; ++i) {
-                        auto const &[noiseData, p] =
-                            attenuations.noises.items[processed++];
+                    // NOTE: @maybe Separating each attenuation matrix for each
+                    // type of texture may have impact in loading the length
+                    // here.
+                    // @maybe Keeping an iterable set of which samples don't
+                    // have zero of these may be also interesting, to skip
+                    // loading zeros without relying on the loop.
+                    for (auto const &[noiseData, p] :
+                         std::span(attMat.noises + sample * cam.max_depth,
+                                   counts.noises[sample])) {
                         res = res * sample_noise(noiseData, p, noise);
                     }
                     samples[sample] = res;
@@ -249,14 +310,29 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
                 // sample_image)
                 ZoneScopedN("images");
                 ZoneColor(tracy::Color::Lavender);
-                size_t processed = 0;
                 for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
                     color res = samples[sample];
-                    for (int i = 0; i < sample_counts[sample].images; ++i) {
-                        auto const &[image, uv] =
-                            attenuations.images.items[processed++];
+                    for (auto const &[image, uv] :
+                         std::span(attMat.images + sample * cam.max_depth,
+                                   counts.images[sample])) {
                         res = res * sample_image(image, uv);
                     }
+                    samples[sample] = res;
+                }
+            }
+
+            if (currentCounts.solids) {
+                ZoneScopedN("solids");
+                ZoneColor(Ctp::Pink);
+                for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+                    color res = samples[sample];
+
+                    for (auto const &col :
+                         std::span(attMat.solids + sample * cam.max_depth,
+                                   counts.solids[sample])) {
+                        res = res * col;
+                    }
+
                     samples[sample] = res;
                 }
             }
@@ -273,10 +349,11 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
 void render(camera const &cam, std::atomic<int> &remain_scanlines,
             std::condition_variable &notifyScanline, size_t stop_at,
             hittable_list const &world, color *pixels) noexcept {
-    px_sampleq attenuations;
-    auto sample_counts = std::make_unique<px_sampleq::commitSave[]>(
-        size_t(cam.samples_per_pixel));
+    // NOTE: @waste @mem Could reuse a solids lane (maybe the last/first one)
+    // for the final lane.
     auto samples = std::make_unique<color[]>(size_t(cam.samples_per_pixel));
+    auto attMat = sampleMat::request(cam.samples_per_pixel, cam.max_depth);
+    auto counts = countArrays::request(cam.samples_per_pixel);
 
     perlin noise;
 
@@ -291,8 +368,7 @@ void render(camera const &cam, std::atomic<int> &remain_scanlines,
         --j;
 
         // TODO: render worker state struct
-        scanLine(cam, world, j, pixels, attenuations, sample_counts.get(),
-                 samples.get(), noise);
+        scanLine(cam, world, j, pixels, attMat, counts, samples.get(), noise);
 
         notifyScanline.notify_one();
     }
