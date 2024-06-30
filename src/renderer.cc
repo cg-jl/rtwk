@@ -215,16 +215,21 @@ static color geometrySim(color const &background, ray r, int depth,
     }
 }
 
+struct RLE {
+    int location;
+    int count;
+};
+
 struct countArrays {
-    int *solids;
-    int *noises;
-    int *images;
+    RLE *solids;
+    RLE *noises;
+    RLE *images;
 
     static countArrays request(uint32 spp) {
         return {
-            .solids = new int[spp],
-            .noises = new int[spp],
-            .images = new int[spp],
+            .solids = new RLE[spp],
+            .noises = new RLE[spp],
+            .images = new RLE[spp],
         };
     }
 };
@@ -255,7 +260,10 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
     for (int i = 0; i < cam.image_width; i++) {
         color pixel_color(0, 0, 0);
 
-        px_sampleq::commitSave currentCounts{};
+        int rleSolids = 0;
+        int rleNoises = 0;
+        int rleImages = 0;
+
         for (int sample = 0; sample < cam.samples_per_pixel; sample++) {
             ZoneScopedN("pixel sample");
             ray r = get_ray(cam, i, j);
@@ -266,11 +274,17 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
             auto bg = geometrySim(cam.background, r, cam.max_depth, world, q);
 
             auto att_count = q.tally;
-            currentCounts.accept(att_count);
 
-            counts.solids[sample] = att_count.solids;
-            counts.noises[sample] = att_count.noises;
-            counts.images[sample] = att_count.images;
+            if (att_count.solids) {
+                counts.solids[rleSolids++] = {sample, att_count.solids};
+            }
+            if (att_count.noises) {
+                counts.noises[rleNoises++] = {sample, att_count.noises};
+            }
+            if (att_count.images) {
+                counts.images[rleImages++] = {sample, att_count.images};
+            }
+
             samples[sample] = bg;
         }
 
@@ -278,16 +292,18 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
         // shouldn't be recorded. That way loops could be fixed at least.
 
         // NOTE: @waste There's no point in having lanes for noises/images
-        // if I still have to encode the samples and lengths. They are also much less
-        // frequent than their solid counterparts. @maybe having one vector each
-        // and sampling those in bulk is better.
+        // if I still have to encode the samples and lengths. They are also much
+        // less frequent than their solid counterparts. @maybe having one vector
+        // each and sampling those in bulk is better.
 
         {
             ZoneScopedNC("attenuation samples", Ctp::Peach);
-            if (currentCounts.noises) {
+            {
                 ZoneScopedN("noises");
                 ZoneColor(tracy::Color::Blue4);
-                for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+
+                for (int rleI = 0; rleI < rleNoises; ++rleI) {
+                    auto [sample, count] = counts.noises[rleI];
                     color res = samples[sample];
                     // NOTE: @maybe Separating each attenuation matrix for each
                     // type of texture may have impact in loading the length
@@ -295,41 +311,40 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
                     // @maybe Keeping an iterable set of which samples don't
                     // have zero of these may be also interesting, to skip
                     // loading zeros without relying on the loop.
-                    for (auto const &[noiseData, p] :
-                         std::span(attMat.noises + sample * cam.max_depth,
-                                   counts.noises[sample])) {
+                    for (auto const &[noiseData, p] : std::span(
+                             attMat.noises + sample * cam.max_depth, count)) {
                         res = res * sample_noise(noiseData, p, noise);
                     }
                     samples[sample] = res;
                 }
             }
 
-            if (currentCounts.images) {
+            {
                 // NOTE: This is pretty slow. The loop takes most of the credit,
                 // where Tracy shows a ton of stalls (99% in loop, 1% in
                 // sample_image)
                 ZoneScopedN("images");
                 ZoneColor(tracy::Color::Lavender);
-                for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+                for (int rleI = 0; rleI < rleImages; ++rleI) {
+                    auto [sample, count] = counts.images[rleI];
                     color res = samples[sample];
-                    for (auto const &[image, uv] :
-                         std::span(attMat.images + sample * cam.max_depth,
-                                   counts.images[sample])) {
+                    for (auto const &[image, uv] : std::span(
+                             attMat.images + sample * cam.max_depth, count)) {
                         res = res * sample_image(image, uv);
                     }
                     samples[sample] = res;
                 }
             }
 
-            if (currentCounts.solids) {
+            {
                 ZoneScopedN("solids");
                 ZoneColor(Ctp::Pink);
-                for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+                for (int rleI = 0; rleI < rleSolids; ++rleI) {
+                    auto [sample, count] = counts.solids[rleI];
                     color res = samples[sample];
 
-                    for (auto const &col :
-                         std::span(attMat.solids + sample * cam.max_depth,
-                                   counts.solids[sample])) {
+                    for (auto const &col : std::span(
+                             attMat.solids + sample * cam.max_depth, count)) {
                         res = res * col;
                     }
 
