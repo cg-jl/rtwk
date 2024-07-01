@@ -11,9 +11,6 @@
 #include "rtweekend.h"
 #include "trace_colors.h"
 
-// NOTE: @perf This has a horrible self time, with ~300ns MTPC and mostly wasting time in the ~500ns-1us range.
-// @maybe Tracking the geometry in hitSelect instead of returning it is better?
-// Plus, creating nodes over the trees removes all the list context.
 geometry const *hittable_list::hitSelect(ray const &r, interval ray_t,
                                          double &closestHit) const {
     ZoneNamedN(_tracy, "hittable_list hit", filters::surfaceHit);

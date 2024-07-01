@@ -68,14 +68,8 @@ void camera::render(hittable_list const &world) {
     // lock progress mutex before launching the progress thread so we don't
     // end in a deadlock.
 
-#if TRACY_ENABLE
-    // Test the middle part, not the floor
-    int start = 200;
-    static constexpr int stop_at = 180;
-#else
     int start = image_height;
     static constexpr int stop_at = 0;
-#endif
     std::atomic<int> remain_scanlines{start};
 
     auto progress_thread =

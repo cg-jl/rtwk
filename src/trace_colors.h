@@ -3,6 +3,7 @@
 namespace filters {
 static constexpr bool surfaceHit = true;
 static constexpr bool deepHit = false;
+static constexpr bool treeHit = true;
 static constexpr bool hit = surfaceHit && deepHit;
 }
 

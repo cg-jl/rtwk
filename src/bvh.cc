@@ -81,6 +81,6 @@ bvh_tree::bvh_tree(std::span<geometry const *> objects)
 geometry const *bvh_tree::hitSelect(ray const &r, interval ray_t,
                                     double &closestHit) const {
     // deactivate this zone for now.
-    ZoneNamedN(zone, "bvh_tree hit", filters::hit);
+    ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
     return bvh::hitNode(r, ray_t, closestHit, root, objects);
 }

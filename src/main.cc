@@ -488,7 +488,11 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 }
 
 int main() {
+#if TRACY_ENABLE
+    switch (10) {
+#else
     switch (0) {
+#endif
         case 1:
             bouncing_spheres();
             break;
@@ -515,6 +519,12 @@ int main() {
             break;
         case 9:
             final_scene(800, 10000, 40);
+            break;
+        case 10:
+            // tracing scene.
+            // 1spp at the testing capacity. Otherwise
+            // I get so much data.
+            final_scene(400, 1, 40);
             break;
         default:
             final_scene(400, 250, 40);
