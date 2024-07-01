@@ -9,6 +9,14 @@ struct uvs {
     double u, v;
 };
 
+// NOTE: @maybe separating them in tags is interesting
+// for hitSelect but not for constantMediums.
+
+
+// NOTE: @maybe including an index for a geometry allows
+// for easy sorting without a special interface while keeping
+// the texture/material stuff out.
+
 struct geometry {
     virtual aabb bounding_box() const = 0;
     virtual bool hit(ray const &r, interval ray_t,

@@ -66,11 +66,13 @@ struct px_sampleq {
     sampleMat ptrs;
     commitSave tally;
 
+    void emplaceSolid(color solid) { ptrs.solids[tally.solids++] = solid; }
+
     void emplace(texture const *tex, uvs uv, point3 p) {
         tex = traverseChecker(tex, p);
         switch (tex->kind) {
             case texture::tag::solid:
-                ptrs.solids[tally.solids++] = tex->as.solid;
+                emplaceSolid(tex->as.solid);
                 break;
             case texture::tag::noise:
                 ptrs.noises[tally.noises++] = {tex->as.noise, p};
@@ -161,22 +163,26 @@ static color geometrySim(color const &background, ray r, int depth,
         double closestHit;
 
         // If the ray hits nothing, return the background color.
-        auto res = world.hitSelect(r, interval(0.001, infinity), closestHit);
+        auto *res = world.hitSelect(r, interval(0.001, infinity), closestHit);
 
         auto maxT = res ? closestHit : infinity;
 
         uvs uv;
 
+        // NOTE: I have a constant problem where the camera is inside a
+        // constant medium, so getting a ray through means getting through a
+        // medium. I can't predict where/if the ray is going to disperse. So I
+        // just haveh to run both hitSelect and sampleConstantMediums.
+
         // Try sampling a constant medium
         double cmHit;
-        if (auto cm =
+        if (auto *cmColor =
                 world.sampleConstantMediums(r, interval{0.001, maxT}, &cmHit)) {
             // Don't need UVs/normal; we have an isotropic material.
-            auto p = r.at(cmHit);
-            r.orig = p;
-            r.dir = unit_vector(random_in_unit_sphere());
+            r.orig = r.at(cmHit);
+            attenuations.emplaceSolid(*cmColor);
 
-            attenuations.emplace(cm->tex, uv, p);
+            r.dir = unit_vector(random_in_unit_sphere());
             --depth;
             continue;
         }

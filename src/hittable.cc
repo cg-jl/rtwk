@@ -6,10 +6,8 @@
 
 hittable const *hitSpan(std::span<hittable const> objects, ray const &r,
                         interval ray_t, double &closestHit) {
-    ZoneNamed(_tracy, filters::hit);
-#if TRACY_ENABLE
-    _tracy.Value(objects.size());
-#endif
+    ZoneScopedNC("hit span", Ctp::Green);
+    ZoneValue(objects.size());
 
     hittable const *best = nullptr;
     auto closest_so_far = ray_t.max;

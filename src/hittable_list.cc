@@ -40,11 +40,12 @@ void hittable_list::add(hittable object) { objects.emplace_back(object); }
 
 void hittable_list::add(constant_medium medium) { cms.emplace_back(medium); }
 
-constant_medium const *hittable_list::sampleConstantMediums(
-    ray const &ray, interval ray_t, double *hit) const noexcept {
+color const *hittable_list::sampleConstantMediums(ray const &ray,
+                                                  interval ray_t,
+                                                  double *hit) const noexcept {
     ZoneScoped;
     auto rayLength = ray.dir.length();
-    constant_medium const *selected = nullptr;
+    color const *selected = nullptr;
 
     double currentHit = infinity;
 
@@ -77,7 +78,7 @@ constant_medium const *hittable_list::sampleConstantMediums(
         if (currentHit < thit) continue;
 
         currentHit = thit;
-        selected = &cm;
+        selected = &cm.albedo;
     }
 
     *hit = currentHit;
