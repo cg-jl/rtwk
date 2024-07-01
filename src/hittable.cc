@@ -1,20 +1,21 @@
-#include "hittable.h"
+#include <geometry.h>
 
+#include <span>
 #include <tracy/Tracy.hpp>
 
 #include "trace_colors.h"
 
-hittable const *hitSpan(std::span<hittable const> objects, ray const &r,
+geometry const *hitSpan(std::span<geometry const * const> objects, ray const &r,
                         interval ray_t, double &closestHit) {
     ZoneScopedNC("hit span", Ctp::Green);
     ZoneValue(objects.size());
 
-    hittable const *best = nullptr;
+    geometry const *best = nullptr;
     auto closest_so_far = ray_t.max;
 
     for (auto const &object : objects) {
-        if (object.hit(r, interval(ray_t.min, closest_so_far), closestHit)) {
-            best = &object;
+        if (object->hit(r, interval(ray_t.min, closest_so_far), closestHit)) {
+            best = object;
             closest_so_far = closestHit;
         }
     }

@@ -193,7 +193,7 @@ static color geometrySim(color const &background, ray r, int depth,
         }
 
         auto p = r.at(closestHit);
-        auto normal = res->geom->getNormal(p, r.time);
+        auto normal = res->getNormal(p, r.time);
 
         auto front_face = set_face_normal(r, normal);
         {
@@ -204,23 +204,26 @@ static color geometrySim(color const &background, ray r, int depth,
 
         vec3 scattered;
 
+        auto const &[mat, tex] = world.objects[res->relIndex];
+
         // here we'll have to use the emit value as the 'attenuation' value.
-        if (res->mat.tag == material::kind::diffuse_light) {
-            attenuations.emplace(res->tex, uv, p);
+        if (mat.tag == material::kind::diffuse_light) {
+            attenuations.emplace(tex, uv, p);
             return color(1, 1, 1);
         }
 
-        if (!res->mat.scatter(r.dir, normal, front_face, scattered)) {
+        if (!mat.scatter(r.dir, normal, front_face, scattered)) {
             attenuations.reset();
             return color(0, 0, 0);
         }
 
         depth = depth - 1;
-        attenuations.emplace(res->tex, uv, p);
+        attenuations.emplace(tex, uv, p);
         r = ray(p, scattered, r.time);
     }
 }
 
+// NOTE: @misname Not really RLE, just avoiding zeros.
 struct RLE {
     int location;
     int count;

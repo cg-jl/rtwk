@@ -14,11 +14,12 @@
 #include <color.h>
 #include <geometry.h>
 
+// NOTE: When hitting constant mediums, we care about both the geometry and the
+// density. The albedo can be linked through geom->refIndex.
+
 struct constant_medium {
     geometry const *geom;
     double neg_inv_density;
-    color albedo;
-    constant_medium(geometry const *boundary, double density, color albedo)
-        : geom(boundary), neg_inv_density(-1 / density), albedo(albedo) {}
+    constant_medium(geometry const *boundary, double density)
+        : geom(boundary), neg_inv_density(-1 / density) {}
 };
-

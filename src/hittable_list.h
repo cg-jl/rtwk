@@ -15,37 +15,30 @@
 
 #include "bvh.h"
 #include "constant_medium.h"
+#include "geometry.h"
 #include "hittable.h"
 
 struct hittable_list {
-    std::vector<hittable> objects;
+    std::vector<lightInfo> objects;
+    std::vector<geometry const *> selectGeoms;
     // TODO: make BVH tree not own their spans.
     // This way we can force more objects to be in the same array vector.
     // We could also have two different vector<hittable*>: One for 'lone'
     // objects and one for the ones in trees.
     std::vector<bvh_tree> trees;
     std::vector<constant_medium> cms{};
+    std::vector<color> cmAlbedos{};
 
     hittable_list() {}
-    hittable_list(hittable object) { add(object); }
+    hittable_list(lightInfo object, geometry *geom) { add(object, geom); }
 
     void clear() { objects.clear(); }
 
-    void add(hittable object);
-    void add(constant_medium medium);
+    // Links the geomery with the lighting information.
+    void add(lightInfo object, geometry *geom);
+    void add(constant_medium medium, color albedo);
 
-    std::span<hittable> from(size_t start) {
-        std::span sp(objects);
-        return sp.subspan(start);
-    }
-
-    std::span<hittable> with(auto add_lam) {
-        auto start = objects.size();
-        add_lam(*this);
-        return from(start);
-    }
-
-    hittable const *hitSelect(ray const &r, interval ray_t,
+    geometry const *hitSelect(ray const &r, interval ray_t,
                               double &closestHit) const;
 
     color const *sampleConstantMediums(ray const &ray, interval ray_t,

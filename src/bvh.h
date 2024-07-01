@@ -11,10 +11,10 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
-#include <span>
+#include <aabb.h>
+#include <geometry.h>
 
-#include "aabb.h"
-#include "hittable.h"
+#include <span>
 
 struct bvh_node {
     aabb bbox;
@@ -28,11 +28,10 @@ struct bvh_node {
 
 struct bvh_tree {
     bvh_node root;
-    hittable const *objects;
+    geometry const *const *objects;
 
-    bvh_tree(std::span<hittable> objects);
+    bvh_tree(std::span<geometry const *> objects);
 
-    aabb bounding_box() const { return root.bbox; }
-    hittable const *hitSelect(ray const &r, interval ray_t,
+    geometry const *hitSelect(ray const &r, interval ray_t,
                               double &closestHit) const;
 };

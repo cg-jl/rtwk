@@ -11,11 +11,14 @@
 #include "rtweekend.h"
 #include "trace_colors.h"
 
-hittable const *hittable_list::hitSelect(ray const &r, interval ray_t,
+// NOTE: @perf This has a horrible self time, with ~300ns MTPC and mostly wasting time in the ~500ns-1us range.
+// @maybe Tracking the geometry in hitSelect instead of returning it is better?
+// Plus, creating nodes over the trees removes all the list context.
+geometry const *hittable_list::hitSelect(ray const &r, interval ray_t,
                                          double &closestHit) const {
     ZoneNamedN(_tracy, "hittable_list hit", filters::surfaceHit);
 
-    hittable const *best = nullptr;
+    geometry const *best = nullptr;
 
     {
         ZoneNamedN(_tracy, "hit trees", filters::hit);
@@ -29,17 +32,27 @@ hittable const *hittable_list::hitSelect(ray const &r, interval ray_t,
 
     {
         ZoneNamedN(_tracy, "hit individuals", filters::hit);
-        auto const hit_individual = hitSpan(objects, r, ray_t, closestHit);
+        auto const hit_individual = hitSpan(selectGeoms, r, ray_t, closestHit);
         best = hit_individual ?: best;
     }
 
     return best;
 }
 
-void hittable_list::add(hittable object) { objects.emplace_back(object); }
+void hittable_list::add(lightInfo object, geometry *geom) {
+    geom->relIndex = objects.size();  // Make sure we link the texture/mat data.
+    selectGeoms.emplace_back(geom);
+    objects.emplace_back(object);
+}
 
-void hittable_list::add(constant_medium medium) { cms.emplace_back(medium); }
+void hittable_list::add(constant_medium medium, color albedo) {
+    cms.emplace_back(medium);
+    cmAlbedos.emplace_back(albedo);
+}
 
+// TODO: @waste Consider giving just an (optional) index to cmAlbedos.
+// The compiler may be optimizing for the wrong case (not having a null pointer)
+// here, as well as the hitSelect result.
 color const *hittable_list::sampleConstantMediums(ray const &ray,
                                                   interval ray_t,
                                                   double *hit) const noexcept {
@@ -49,7 +62,16 @@ color const *hittable_list::sampleConstantMediums(ray const &ray,
 
     double currentHit = infinity;
 
-    for (auto const &cm : cms) {
+    // NOTE: cmAlbedos and colors are linked not by refIndex, but are just
+    // sorted. @maybe if I get to BVH'ing this (although currently it would be
+    // detrimental), then I would need to store their indices here.
+
+    // TODO: @waste @maybe The indices stored in the geometries are wasted here,
+    // since we use a different (better) mechanism.
+
+
+    for (size_t i = 0; i < cms.size(); ++i) {
+        auto const &cm = cms[i];
         double tstart, tend;
 
         if (!cm.geom->hit(ray, universe_interval, tstart)) continue;
@@ -78,7 +100,9 @@ color const *hittable_list::sampleConstantMediums(ray const &ray,
         if (currentHit < thit) continue;
 
         currentHit = thit;
-        selected = &cm.albedo;
+        // NOTE: @waste We don't need to read the cmAlbedos pointer until we've selected
+        // the index.
+        selected = &cmAlbedos[i];
     }
 
     *hit = currentHit;

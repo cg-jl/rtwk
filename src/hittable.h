@@ -16,29 +16,18 @@
 #include "geometry.h"
 #include "material.h"
 #include "texture.h"
-#include "vec3.h"
 
-struct hittable {
-    geometry const *geom;
+struct lightInfo {
     material mat;
     texture const *tex;
 
-    constexpr explicit hittable(material mat, texture const *tex,
-                                geometry const *geom)
-        : mat(mat), geom(geom), tex(tex) {}
-
-    bool hit(ray const &r, interval ray_t, double &closestHit) const {
-        return geom->hit(r, ray_t, closestHit);
-    }
-
-    void getUVs(uvs &uv, point3 p, double time) const {
-        return geom->getUVs(uv, p, time);
-    }
+    constexpr explicit lightInfo(material mat, texture const *tex)
+        : mat(mat), tex(tex) {}
 };
 
 // NOTE: maybe some sort of infra to have a hittable hit() and also restore()
 // prepare(), end() as well to prepare a ray?
 // We should end in a geometry anyway.
 
-hittable const *hitSpan(std::span<hittable const> objects, ray const &r,
+geometry const *hitSpan(std::span<geometry const *const> objects, ray const &r,
                         interval ray_t, double &closestHit);
