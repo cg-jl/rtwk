@@ -3,15 +3,17 @@
 
 #include <cassert>
 #include <tracy/Tracy.hpp>
+#include <vector>
 
 #include "trace_colors.h"
 
 namespace bvh {
 
-// TODO: @memory move all objects here? Last time it was good?
-
-// TODO: @waste We call hitSpan with only 1 node to hit, because we never stop
-// splitting.
+static std::vector<bvh_node> nodes;
+static int addNode(bvh_node node) {
+    nodes.emplace_back(node);
+    return int(nodes.size() - 1);
+}
 
 [[clang::noinline]] static bvh_node buildBVHNode(geometry const **objects,
                                                  int start, int end,
@@ -29,7 +31,7 @@ namespace bvh {
     auto object_span = end - start;
 
     if (object_span == 1) {
-        return bvh_node{bbox, start, nullptr, nullptr};
+        return bvh_node{bbox, start, -1};
     }
 
     int axis = bbox.longest_axis();
@@ -48,15 +50,19 @@ namespace bvh {
 
     auto left = buildBVHNode(objects, start, midIndex, depth + 1);
     auto right = buildBVHNode(objects, midIndex, end, depth + 1);
+    auto leftIndex = addNode(left);
+    [[maybe_unused]] // NOTE: used in assert.
+    auto rightIndex = addNode(right);
+    assert(rightIndex == leftIndex + 1);
 
-    return bvh_node{bbox, start, new bvh_node(left), new bvh_node(right)};
+    return bvh_node{bbox, start, leftIndex};
 }
 
 [[clang::noinline]] static geometry const *hitNode(
     ray const &r, interval ray_t, double &closestHit, bvh_node const &n,
     geometry const *const *objects) {
     if (!n.bbox.hit(r, ray_t)) return nullptr;
-    if (n.left == nullptr) {
+    if (n.left == -1) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
         // improving times by hitting multiple in one go. Since I'm tracing each
         // kind of intersection, it will be interesting to bake statistics of
@@ -66,10 +72,10 @@ namespace bvh {
                    : nullptr;
     }
 
-    auto hit_left = hitNode(r, ray_t, closestHit, *n.left, objects);
+    auto hit_left = hitNode(r, ray_t, closestHit, nodes[n.left], objects);
     auto hit_right =
         hitNode(r, interval(ray_t.min, hit_left ? closestHit : ray_t.max),
-                closestHit, *n.right, objects);
+                closestHit, nodes[n.left + 1], objects);
     return hit_right ?: hit_left;
 }
 
