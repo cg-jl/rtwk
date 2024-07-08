@@ -19,8 +19,7 @@
 struct bvh_node {
     aabb bbox;
 
-    int objectsStart;
-    int objectsEnd;
+    int objectIndex;
 
     bvh_node *left;
     bvh_node *right;

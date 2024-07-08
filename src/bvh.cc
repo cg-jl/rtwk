@@ -10,7 +10,8 @@ namespace bvh {
 
 // TODO: @memory move all objects here? Last time it was good?
 
-// TODO: @waste We call hitSpan with only 1 node to hit, because we never stop splitting.
+// TODO: @waste We call hitSpan with only 1 node to hit, because we never stop
+// splitting.
 
 [[clang::noinline]] static bvh_node buildBVHNode(geometry const **objects,
                                                  int start, int end,
@@ -28,7 +29,7 @@ namespace bvh {
     auto object_span = end - start;
 
     if (object_span == 1) {
-        return bvh_node{bbox, start, end, nullptr, nullptr};
+        return bvh_node{bbox, start, nullptr, nullptr};
     }
 
     int axis = bbox.longest_axis();
@@ -48,7 +49,7 @@ namespace bvh {
     auto left = buildBVHNode(objects, start, midIndex, depth + 1);
     auto right = buildBVHNode(objects, midIndex, end, depth + 1);
 
-    return bvh_node{bbox, start, end, new bvh_node(left), new bvh_node(right)};
+    return bvh_node{bbox, start, new bvh_node(left), new bvh_node(right)};
 }
 
 [[clang::noinline]] static geometry const *hitNode(
@@ -60,9 +61,9 @@ namespace bvh {
         // improving times by hitting multiple in one go. Since I'm tracing each
         // kind of intersection, it will be interesting to bake statistics of
         // each object and use that as timing reference.
-        return hitSpan(std::span{objects + n.objectsStart,
-                                 size_t(n.objectsEnd - n.objectsStart)},
-                       r, ray_t, closestHit);
+        return objects[n.objectIndex]->hit(r, ray_t, closestHit)
+                   ? objects[n.objectIndex]
+                   : nullptr;
     }
 
     auto hit_left = hitNode(r, ray_t, closestHit, *n.left, objects);
