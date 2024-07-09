@@ -64,6 +64,34 @@ bool box::hit(ray const &r, interval ray_t, double &closestHit) const {
     return did_hit;
 }
 
+bool box::traverse(ray const &r, interval &intersect) const {
+    // NOTE: @cutnpaste from aabb::hit
+
+    point3 ray_orig = r.orig;
+    vec3 ray_dir = r.dir;
+    interval cur = universe_interval;
+
+    for (int axis = 0; axis < 3; axis++) {
+        interval const &ax = bbox.axis_interval(axis);
+
+        auto t0 = (ax.min - ray_orig[axis]);
+        auto t1 = (ax.max - ray_orig[axis]);
+
+        if (ray_dir[axis] < 0) {
+            std::swap(t0, t1);
+            t0 = -t0;
+            t1 = -t1;
+        }
+
+        if (t0 > cur.min) cur.min = t0;
+        if (t1 < cur.max) cur.max = t1;
+
+        if (cur.max <= cur.min) return false;
+    }
+
+    return true;
+}
+
 void box::getUVs(uvs &uv, point3 intersection, double _time) const {
     // search for the "box" that borders the point interval, since we know that
     // the point is already within the bounds of the box.

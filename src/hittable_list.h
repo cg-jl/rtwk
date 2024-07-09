@@ -41,6 +41,6 @@ struct hittable_list {
     geometry const *hitSelect(ray const &r, interval ray_t,
                               double &closestHit) const;
 
-    color const *sampleConstantMediums(ray const &ray, interval ray_t,
+    color const *sampleConstantMediums(ray const &ray, double closestHit,
                                        double *hit) const noexcept;
 };

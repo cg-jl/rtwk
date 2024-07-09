@@ -4,6 +4,7 @@
 #include <tracy/Tracy.hpp>
 
 #include "geometry.h"
+#include "interval.h"
 #include "trace_colors.h"
 
 namespace rotateY {
@@ -92,6 +93,16 @@ bool transformed::hit(ray const &r, interval ray_t, double &closestHit) const {
     rotate.transformRayOpposite(tfr);
 
     return object->hit(tfr, ray_t, closestHit);
+}
+
+bool transformed::traverse(ray const &r, interval &intersect) const {
+    // NOTE: @cutnpaste from transformed::hit
+    ZoneNamedNC(_tracy, "transformed traverse", Ctp::Mantle, filters::hit);
+    ray tfr{r};
+    translate.transformRayOpposite(tfr);
+    rotate.transformRayOpposite(tfr);
+
+    return object->traverse(tfr, intersect);
 }
 
 void transformed::getUVs(uvs &uv, point3 p, double time) const {

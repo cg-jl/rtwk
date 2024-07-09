@@ -176,8 +176,7 @@ static color geometrySim(color const &background, ray r, int depth,
 
         // Try sampling a constant medium
         double cmHit;
-        if (auto *cmColor =
-                world.sampleConstantMediums(r, interval{0.001, maxT}, &cmHit)) {
+        if (auto *cmColor = world.sampleConstantMediums(r, maxT, &cmHit)) {
             // Don't need UVs/normal; we have an isotropic material.
             r.orig = r.at(cmHit);
             attenuations.emplaceSolid(*cmColor);

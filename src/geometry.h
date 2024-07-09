@@ -11,6 +11,10 @@ struct uvs {
 // NOTE: @maybe separating them in tags is interesting
 // for hitSelect but not for constantMediums.
 
+// NOTE: @maybe just using traverse everywhere could be an interesting point.
+// No geometry has significant cost to just do both, so perhaps intersecting
+// with an infinite ray and then intersecting the intervals is more appropiate.
+
 struct geometry {
     int relIndex;
 
@@ -21,4 +25,12 @@ struct geometry {
     // NOTE: intersection is only used by sphere & box, time is only used by
     // sphere.
     virtual vec3 getNormal(point3 const &intersection, double time) const = 0;
+
+    // NOTE: @waste `traverse` should be part of an interface that is queried
+    // when building the constant mediums, and not clutter the geometry.
+
+    // End to end traversal of the geometry, just taking into account the
+    // direction and the origin point. The intersection is geometric based
+    // (distance), not relative to the ray's "speed" on each direction.
+    virtual bool traverse(ray const &r, interval &intersect) const = 0;
 };

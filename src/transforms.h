@@ -34,6 +34,7 @@ struct transformed final : public geometry {
                 struct translate translate);
 
     bool hit(ray const &r, interval ray_t, double &closestHit) const;
+    bool traverse(ray const &r, interval &intesect) const;
     void getUVs(uvs &uv, point3 p, double time) const final;
 
     vec3 getNormal(point3 const &intersection, double time) const final;

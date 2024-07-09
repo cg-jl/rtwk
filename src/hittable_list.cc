@@ -51,13 +51,16 @@ void hittable_list::add(constant_medium medium, color albedo) {
 // The compiler may be optimizing for the wrong case (not having a null pointer)
 // here, as well as the hitSelect result.
 color const *hittable_list::sampleConstantMediums(ray const &ray,
-                                                  interval ray_t,
+                                                  double const maxT,
                                                   double *hit) const noexcept {
     ZoneScoped;
     auto rayLength = ray.dir.length();
     color const *selected = nullptr;
 
     double currentHit = infinity;
+
+    auto const minDist = 0.001 * rayLength;
+    auto const maxDist = maxT * rayLength;
 
     // NOTE: cmAlbedos and colors are linked not by refIndex, but are just
     // sorted. @maybe if I get to BVH'ing this (although currently it would be
@@ -66,18 +69,18 @@ color const *hittable_list::sampleConstantMediums(ray const &ray,
     // TODO: @waste @maybe The indices stored in the geometries are wasted here,
     // since we use a different (better) mechanism.
 
-
     for (size_t i = 0; i < cms.size(); ++i) {
         auto const &cm = cms[i];
-        double tstart, tend;
+        interval t;
 
-        if (!cm.geom->hit(ray, universe_interval, tstart)) continue;
-        if (!cm.geom->hit(ray, interval{tstart + 0.0001, infinity}, tend))
-            continue;
+        if (!cm.geom->traverse(ray, t)) continue;
+
+        auto tstart = t.min;
+        auto tend = t.max;
 
         // intertse
-        tstart = std::max(tstart, ray_t.min);
-        tend = std::min(tend, ray_t.max);
+        tstart = std::max(tstart, minDist);
+        tend = std::min(tend, maxDist);
 
         if (tstart >= tend) continue;
 
@@ -85,8 +88,11 @@ color const *hittable_list::sampleConstantMediums(ray const &ray,
         // after this.
         if (tstart > currentHit) continue;
 
-        auto hitDistance =
-            cm.neg_inv_density * log(random_double()) / rayLength;
+        // -1/alpha * log([rand]) / len = t
+        // t * rlen * (-alpha) =  log([rand])
+        // e^(-alpha * t * rlen) = [rand]
+        // [rand] is the diminishing factor.
+        auto hitDistance = cm.neg_inv_density * log(random_double());
 
         auto thit = hitDistance + tstart;
 
@@ -97,11 +103,11 @@ color const *hittable_list::sampleConstantMediums(ray const &ray,
         if (currentHit < thit) continue;
 
         currentHit = thit;
-        // NOTE: @waste We don't need to read the cmAlbedos pointer until we've selected
-        // the index.
+        // NOTE: @waste We don't need to read the cmAlbedos pointer until we've
+        // selected the index.
         selected = &cmAlbedos[i];
     }
 
-    *hit = currentHit;
+    *hit = currentHit / rayLength;
     return selected;
 }

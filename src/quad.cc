@@ -60,3 +60,7 @@ bool quad::hit(ray const &r, interval ray_t, double &closestHit) const {
 vec3 quad::getNormal(point3 const &_intersection, double _time) const {
     return unit_vector(cross(u, v));
 }
+
+// NOTE: @maybe If I end up moving hit to always do both traverses, then this
+// should compute the hit and duplicate it in both fields of `intersect`.
+bool quad::traverse(ray const &r, interval &intersect) const { return false; }

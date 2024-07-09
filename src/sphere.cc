@@ -1,6 +1,7 @@
 #include "sphere.h"
 
 #include <tracy/Tracy.hpp>
+
 #include "trace_colors.h"
 
 point3 sphere_center(sphere const &sph, double time) {
@@ -32,6 +33,33 @@ bool sphere::hit(ray const &r, interval ray_t, double &closestHit) const {
     }
 
     closestHit = root;
+
+    return true;
+}
+
+bool sphere::traverse(ray const &r, interval &intersect) const {
+    // NOTE: @cutnpaste from sphere::hit
+    ZoneNamedNC(_tracy, "sphere traverse", Ctp::Mantle, filters::hit);
+    point3 center = sphere_center(*this, r.time);
+    vec3 oc = center - r.orig;
+    auto a = r.dir.length_squared();
+    // Distance from ray origin to sphere center parallel to the ray
+    // direction
+    auto oc_alongside_ray = dot(r.dir, oc);
+    auto c = oc.length_squared() - radius * radius;
+
+    auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
+    if (discriminant < 0) return false;
+
+    auto sqrtd = std::sqrt(discriminant);
+
+    intersect.min = (oc_alongside_ray - sqrtd);
+    intersect.max = (oc_alongside_ray + sqrtd);
+
+    // min > max? <=> (oc_alongside_ray - sqrtd) / a > (oc_alongside_ray +
+    // sqrtd) / a a is always > 0 => oc_alongside_ray - sqrtd > oc_alongside_ray
+    // + sqrtd
+    // <=> 0 > 2*sqrtd, sqrtd >= 0 hence it's always false.
 
     return true;
 }

@@ -30,6 +30,7 @@ class sphere : public geometry {
     }
 
     bool hit(ray const &r, interval ray_t, double &closestHiw) const;
+    bool traverse(ray const &r, interval &intesect) const;
     void getUVs(uvs &uv, point3 p, double time) const final;
 
 
