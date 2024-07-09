@@ -2,6 +2,7 @@
 
 #include <tracy/Tracy.hpp>
 
+#include "hittable.h"
 #include "trace_colors.h"
 
 point3 sphere_center(sphere const &sph, double time) {
@@ -10,7 +11,7 @@ point3 sphere_center(sphere const &sph, double time) {
     return sph.center1 + time * sph.center_vec;
 }
 
-bool sphere::hit(ray const &r, interval ray_t, double &closestHit) const {
+bool sphere::hit(ray const &r, double &closestHit) const {
     ZoneNamedN(_tracy, "sphere hit", filters::hit);
     point3 center = sphere_center(*this, r.time);
     vec3 oc = center - r.orig;
@@ -27,6 +28,7 @@ bool sphere::hit(ray const &r, interval ray_t, double &closestHit) const {
 
     // Find the nearest root that lies in the acceptable range.
     auto root = (oc_alongside_ray - sqrtd) / a;
+    auto const ray_t = interval{minRayDist, closestHit};
     if (!ray_t.surrounds(root)) {
         root = (oc_alongside_ray + sqrtd) / a;
         if (!ray_t.surrounds(root)) return false;

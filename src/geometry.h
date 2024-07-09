@@ -15,12 +15,15 @@ struct uvs {
 // No geometry has significant cost to just do both, so perhaps intersecting
 // with an infinite ray and then intersecting the intervals is more appropiate.
 
+// NOTE: @maybe now that we don't do calculations on every one of the hits,
+// we can drop the `closestHit` checks inside each hit and only check when we're
+// aggregating.
+
 struct geometry {
     int relIndex;
 
     virtual aabb bounding_box() const = 0;
-    virtual bool hit(ray const &r, interval ray_t,
-                     double &closest_hit) const = 0;
+    virtual bool hit(ray const &r, double &closest_hit) const = 0;
     virtual void getUVs(uvs &uv, point3 intersection, double time) const = 0;
     // NOTE: intersection is only used by sphere & box, time is only used by
     // sphere.

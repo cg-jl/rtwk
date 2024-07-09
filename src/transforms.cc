@@ -86,13 +86,13 @@ aabb transformed::bounding_box() const {
     return aabb(min, max);
 }
 
-bool transformed::hit(ray const &r, interval ray_t, double &closestHit) const {
+bool transformed::hit(ray const &r, double &closestHit) const {
     ZoneNamedN(_tracy, "transformed hit", filters::hit);
     ray tfr{r};
     translate.transformRayOpposite(tfr);
     rotate.transformRayOpposite(tfr);
 
-    return object->hit(tfr, ray_t, closestHit);
+    return object->hit(tfr, closestHit);
 }
 
 bool transformed::traverse(ray const &r, interval &intersect) const {

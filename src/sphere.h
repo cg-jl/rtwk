@@ -17,8 +17,7 @@
 // and add a thread-private 'instantiate' buffer per worker thread where I can
 // push any transformations. When separating list-of-ptrs into tagged arrays,
 // these 'instantiate buffers' must also be separated.
-class sphere : public geometry {
-   public:
+struct sphere final : public geometry {
     // Stationary Sphere
     sphere(point3 const &center, double radius)
         : center1(center), radius(fmax(0, radius)) {}
@@ -29,12 +28,11 @@ class sphere : public geometry {
         center_vec = center2 - center1;
     }
 
-    bool hit(ray const &r, interval ray_t, double &closestHiw) const;
-    bool traverse(ray const &r, interval &intesect) const;
+    bool hit(ray const &r, double &closestHit) const;
+    bool traverse(ray const &r, interval &intersect) const;
     void getUVs(uvs &uv, point3 p, double time) const final;
 
-
-    vec3 getNormal(point3 const& intersection, double time) const final;
+    vec3 getNormal(point3 const &intersection, double time) const final;
 
     aabb bounding_box() const final;
 

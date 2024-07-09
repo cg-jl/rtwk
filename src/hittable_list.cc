@@ -11,17 +11,18 @@
 #include "rtweekend.h"
 #include "trace_colors.h"
 
-geometry const *hittable_list::hitSelect(ray const &r, interval ray_t,
-                                         double &closestHit) const {
+geometry const *hittable_list::hitSelect(ray const &r,
+                                         double *closestHit) const {
     ZoneNamedN(_tracy, "hittable_list hit", filters::surfaceHit);
 
     geometry const *best = nullptr;
 
+    *closestHit = infinity;
+
     {
         ZoneNamedN(_tracy, "hit trees", filters::hit);
         for (auto const &tree : trees) {
-            if (auto const next = tree.hitSelect(r, ray_t, closestHit); next) {
-                ray_t.max = closestHit;
+            if (auto const next = tree.hitSelect(r, *closestHit); next) {
                 best = next;
             }
         }
@@ -29,7 +30,7 @@ geometry const *hittable_list::hitSelect(ray const &r, interval ray_t,
 
     {
         ZoneNamedN(_tracy, "hit individuals", filters::hit);
-        auto const hit_individual = hitSpan(selectGeoms, r, ray_t, closestHit);
+        auto const hit_individual = hitSpan(selectGeoms, r, *closestHit);
         best = hit_individual ?: best;
     }
 
@@ -47,6 +48,8 @@ void hittable_list::add(constant_medium medium, color albedo) {
     cmAlbedos.emplace_back(albedo);
 }
 
+enum bool32 : uint32_t { True = 0xFFFFFFFFul, False = 0x0ul };
+
 // TODO: @waste Consider giving just an (optional) index to cmAlbedos.
 // The compiler may be optimizing for the wrong case (not having a null pointer)
 // here, as well as the hitSelect result.
@@ -59,7 +62,7 @@ color const *hittable_list::sampleConstantMediums(ray const &ray,
 
     double currentHit = infinity;
 
-    auto const minDist = 0.001 * rayLength;
+    auto const minDist = minRayDist * rayLength;
     auto const maxDist = maxT * rayLength;
 
     // NOTE: cmAlbedos and colors are linked not by refIndex, but are just

@@ -2,6 +2,7 @@
 
 #include <tracy/Tracy.hpp>
 
+#include "hittable.h"
 #include "trace_colors.h"
 
 void quad::getUVs(uvs &uv, point3 intersection, double _time) const {
@@ -26,7 +27,7 @@ static bool is_interior(double a, double b) {
     return unit_interval.contains(a) && unit_interval.contains(b);
 }
 
-bool quad::hit(ray const &r, interval ray_t, double &closestHit) const {
+bool quad::hit(ray const &r, double &closestHit) const {
     ZoneNamedN(_tracy, "quad hit", filters::hit);
     auto n = cross(u, v);
     auto normal = unit_vector(n);
@@ -39,7 +40,7 @@ bool quad::hit(ray const &r, interval ray_t, double &closestHit) const {
     // Return false if the hit point parameter t is outside the ray
     // interval.
     auto t = (D - dot(normal, r.orig)) / denom;
-    if (!ray_t.contains(t)) return false;
+    if (!interval{minRayDist, closestHit}.contains(t)) return false;
 
     // Determine the hit point lies within the planar shape using its plane
     // coordinates.

@@ -51,7 +51,7 @@ static int addNode(bvh_node node) {
     auto left = buildBVHNode(objects, start, midIndex, depth + 1);
     auto right = buildBVHNode(objects, midIndex, end, depth + 1);
     auto leftIndex = addNode(left);
-    [[maybe_unused]] // NOTE: used in assert.
+    [[maybe_unused]]  // NOTE: used in assert.
     auto rightIndex = addNode(right);
     assert(rightIndex == leftIndex + 1);
 
@@ -59,23 +59,21 @@ static int addNode(bvh_node node) {
 }
 
 [[clang::noinline]] static geometry const *hitNode(
-    ray const &r, interval ray_t, double &closestHit, bvh_node const &n,
+    ray const &r, double &closestHit, bvh_node const &n,
     geometry const *const *objects) {
-    if (!n.bbox.hit(r, ray_t)) return nullptr;
+    if (!n.bbox.hit(r, interval{minRayDist, closestHit})) return nullptr;
     if (n.left == -1) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
         // improving times by hitting multiple in one go. Since I'm tracing each
         // kind of intersection, it will be interesting to bake statistics of
         // each object and use that as timing reference.
-        return objects[n.objectIndex]->hit(r, ray_t, closestHit)
+        return objects[n.objectIndex]->hit(r, closestHit)
                    ? objects[n.objectIndex]
                    : nullptr;
     }
 
-    auto hit_left = hitNode(r, ray_t, closestHit, nodes[n.left], objects);
-    auto hit_right =
-        hitNode(r, interval(ray_t.min, hit_left ? closestHit : ray_t.max),
-                closestHit, nodes[n.left + 1], objects);
+    auto hit_left = hitNode(r, closestHit, nodes[n.left], objects);
+    auto hit_right = hitNode(r, closestHit, nodes[n.left + 1], objects);
     return hit_right ?: hit_left;
 }
 
@@ -85,9 +83,8 @@ bvh_tree::bvh_tree(std::span<geometry const *> objects)
     : root(bvh::buildBVHNode(&objects[0], 0, objects.size())),
       objects(objects.data()) {}
 
-geometry const *bvh_tree::hitSelect(ray const &r, interval ray_t,
-                                    double &closestHit) const {
+geometry const *bvh_tree::hitSelect(ray const &r, double &closestHit) const {
     // deactivate this zone for now.
     ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
-    return bvh::hitNode(r, ray_t, closestHit, root, objects);
+    return bvh::hitNode(r, closestHit, root, objects);
 }

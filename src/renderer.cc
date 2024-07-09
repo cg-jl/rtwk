@@ -163,7 +163,7 @@ static color geometrySim(color const &background, ray r, int depth,
         double closestHit;
 
         // If the ray hits nothing, return the background color.
-        auto *res = world.hitSelect(r, interval(0.001, infinity), closestHit);
+        auto *res = world.hitSelect(r, &closestHit);
 
         auto maxT = res ? closestHit : infinity;
 

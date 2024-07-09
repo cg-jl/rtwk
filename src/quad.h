@@ -21,11 +21,11 @@ struct quad final : public geometry {
         return aabb(bbox_diagonal1, bbox_diagonal2);
     }
 
-    bool hit(ray const &r, interval ray_t, double &closestHit) const final;
+    bool hit(ray const &r, double &closestHit) const final;
     bool traverse(ray const &r, interval &intesect) const;
 
     void getUVs(uvs &uv, point3 intersection, double _time) const final;
-    vec3 getNormal(point3 const& intersection, double time) const final;
+    vec3 getNormal(point3 const &intersection, double time) const final;
 
     point3 Q;
     vec3 u, v;

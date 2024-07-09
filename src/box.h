@@ -11,8 +11,8 @@ struct box final : public geometry {
 
     void getUVs(uvs &uv, point3 intersection, double _time) const final;
 
-    vec3 getNormal(point3 const& intersection, double time) const final;
+    vec3 getNormal(point3 const &intersection, double time) const final;
 
-    bool hit(ray const &r, interval ray_t, double &closestHit) const;
+    bool hit(ray const &r, double &closestHit) const;
     bool traverse(ray const &r, interval &intesect) const;
 };

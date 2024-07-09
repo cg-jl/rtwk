@@ -25,9 +25,12 @@ struct lightInfo {
         : mat(mat), tex(tex) {}
 };
 
+// Minimum ray distance prepared to remove any zero rounding errors.
+static constexpr double minRayDist = 0.001;
+
 // NOTE: maybe some sort of infra to have a hittable hit() and also restore()
 // prepare(), end() as well to prepare a ray?
 // We should end in a geometry anyway.
 
 geometry const *hitSpan(std::span<geometry const *const> objects, ray const &r,
-                        interval ray_t, double &closestHit);
+                        double &closestHit);

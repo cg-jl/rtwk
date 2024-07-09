@@ -38,8 +38,7 @@ struct hittable_list {
     void add(lightInfo object, geometry *geom);
     void add(constant_medium medium, color albedo);
 
-    geometry const *hitSelect(ray const &r, interval ray_t,
-                              double &closestHit) const;
+    geometry const *hitSelect(ray const &r, double *closestHit) const;
 
     color const *sampleConstantMediums(ray const &ray, double closestHit,
                                        double *hit) const noexcept;
