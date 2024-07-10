@@ -105,9 +105,9 @@ void box::getUVs(uvs &uv, point3 intersection, double _time) const {
         auto vintv = bbox.axis_interval(vaxis);
 
         double beta_distance;
-        if (intersection[axis] == intv.min) {
+        if (std::abs(intersection[axis] - intv.min) < 1e-8) {
             beta_distance = vintv.max;
-        } else if (intersection[axis] == intv.max) {
+        } else if (std::abs(intersection[axis] - intv.max) < 1e-8) {
             beta_distance = vintv.min;
         } else {
             continue;
