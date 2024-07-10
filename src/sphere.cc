@@ -26,12 +26,20 @@ bool sphere::hit(ray const &r, double &closestHit) const {
 
     auto sqrtd = std::sqrt(discriminant);
 
+    // If the ray is inside the sphere, we want the cut that gets
+    // us further, since the other cut is in the other direction.
+    // Otherwise we want the cut that is in the negative direction from the middle point (oc_alongside_ray).
+    // If the ray is pointing away from the sphere, we will catch this
+    // in `ray_t.contains`.
+
+    // c > 0 <=> |oc|^2 > r^2
+    auto selectedSqrt = c < minRayDist ? sqrtd : -sqrtd;
+
     // Find the nearest root that lies in the acceptable range.
-    auto root = (oc_alongside_ray - sqrtd) / a;
+    auto root = (oc_alongside_ray + selectedSqrt) / a;
     auto const ray_t = interval{minRayDist, closestHit};
     if (!ray_t.surrounds(root)) {
-        root = (oc_alongside_ray + sqrtd) / a;
-        if (!ray_t.surrounds(root)) return false;
+        return false;
     }
 
     closestHit = root;
