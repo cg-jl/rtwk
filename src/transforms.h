@@ -2,36 +2,19 @@
 
 #include "geometry.h"
 
-struct translate final {
-    constexpr translate(vec3 offset) : offset(offset) {}
-    constexpr translate() : offset{} {}
-
-    void transformRayOpposite(ray &r) const noexcept;
-    void doTransform(point3 &hitPoint, point3 &normal) const noexcept;
-    void transformPoint(point3 &point) const noexcept;
-
+struct transform final {
     vec3 offset;
-};
-
-struct rotate_y final {
-    constexpr rotate_y() : sin_theta{0}, cos_theta{1} {}
-    rotate_y(double angle);
-
-    void transformRayOpposite(ray &r) const noexcept;
-    void doTransform(point3 &hitPoint, point3 &normal) const noexcept;
-    void transformPoint(point3 &point) const noexcept;
-
     double sin_theta;
     double cos_theta;
+
+    transform(double angleDegrees, vec3 offset) noexcept;
 };
 
 struct transformed final : public geometry {
     geometry const *object;
-    rotate_y const rotate;
-    translate const translate;
+    transform tf;
 
-    transformed(geometry const *object, rotate_y rotate,
-                struct translate translate);
+    transformed(geometry const *object, transform tf);
 
     bool hit(ray const &r, double &closestHit) const;
     bool traverse(ray const &r, interval &intesect) const;

@@ -290,11 +290,11 @@ void cornell_box() {
     world.add(lightInfo(lambert, &white),
 
               new transformed(new box(point3(0, 0, 0), point3(165, 330, 165)),
-                              rotate_y(15), translate(vec3(265, 0, 295))));
+                              transform(15, vec3(265, 0, 295))));
 
     {
         geometry *b = new box(point3(0, 0, 0), point3(165, 165, 165));
-        b = new transformed(b, rotate_y(-18), translate(vec3(130, 0, 65)));
+        b = new transformed(b, transform(-18, vec3(130, 0, 65)));
         world.add(lightInfo(lambert, &white), b);
     }
 
@@ -343,13 +343,13 @@ void cornell_smoke() {
 
     {
         geometry *b = new box(point3(0, 0, 0), point3(165, 330, 165));
-        b = new transformed(b, rotate_y(15), translate(vec3(265, 0, 295)));
+        b = new transformed(b, transform(15, vec3(265, 0, 295)));
         world.add(constant_medium(b, 0.01), color(0, 0, 0));
     }
 
     {
         geometry *b = new box(point3(0, 0, 0), point3(165, 165, 165));
-        b = new transformed(b, rotate_y(-18), translate(vec3(130, 0, 65)));
+        b = new transformed(b, transform(-18, vec3(130, 0, 65)));
         world.add(constant_medium(b, 0.01), color(1, 1, 1));
     };
 
@@ -447,8 +447,8 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         geometry *s = new sphere(random_vec(0, 165), 10);
         s = new transformed{
             s,
-            rotate_y(15),
-            translate(vec3(-100, 270, 395)),
+
+            transform(15, vec3(-100, 270, 395)),
         };
 
         boxes2.emplace_back(s);
