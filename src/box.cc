@@ -1,5 +1,6 @@
 #include "box.h"
 
+#include <tracy/Tracy.hpp>
 #include <utility>
 
 #include "hittable.h"
@@ -48,6 +49,7 @@ static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
 }
 
 bool box::hit(ray const &r, double &closestHit) const {
+    ZoneScopedN("box hit");
     bool did_hit = false;
     if (hit_side(bbox.x, bbox.z, bbox.y, 0, 2, 1, r.dir[0], r.orig[0], r,
                  closestHit)) {
