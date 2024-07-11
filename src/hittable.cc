@@ -1,3 +1,5 @@
+#include "hittable.h"
+
 #include <geometry.h>
 
 #include <span>
@@ -13,8 +15,10 @@ geometry const *hitSpan(std::span<geometry const *const> objects, ray const &r,
     geometry const *best = nullptr;
 
     for (auto const &object : objects) {
-        if (object->hit(r, closestHit)) {
+        double t;
+        if (object->hit(r, t) && interval{minRayDist, closestHit}.contains(t)) {
             best = object;
+            closestHit = t;
         }
     }
 

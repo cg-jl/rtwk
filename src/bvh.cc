@@ -67,9 +67,13 @@ static int addNode(bvh_node node) {
         // improving times by hitting multiple in one go. Since I'm tracing each
         // kind of intersection, it will be interesting to bake statistics of
         // each object and use that as timing reference.
-        return objects[n.objectIndex]->hit(r, closestHit)
-                   ? objects[n.objectIndex]
-                   : nullptr;
+        auto *obj = objects[n.objectIndex];
+        double t;
+        if (obj->hit(r, t) && interval{minRayDist, closestHit}.contains(t)) {
+            closestHit = t;
+            return obj;
+        }
+        return nullptr;
     }
 
     auto hit_left = hitNode(r, closestHit, nodes[n.left], objects);

@@ -40,8 +40,6 @@ bool quad::hit(ray const &r, double &closestHit) const {
     // Return false if the hit point parameter t is outside the ray
     // interval.
     auto t = (D - dot(normal, r.orig)) / denom;
-    if (!interval{minRayDist, closestHit}.contains(t)) return false;
-
     // Determine the hit point lies within the planar shape using its plane
     // coordinates.
     auto intersection = r.at(t);

@@ -33,7 +33,6 @@ static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
     }
 
     auto t = (D - orig) / dir;
-    if (!interval{minRayDist, closestHit}.contains(t)) return false;
 
     // Determine the hit point lies within the planar shape
     // using its plane coordinates.
@@ -50,21 +49,22 @@ static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
 
 bool box::hit(ray const &r, double &closestHit) const {
     ZoneScopedN("box hit");
-    bool did_hit = false;
     if (hit_side(bbox.x, bbox.z, bbox.y, 0, 2, 1, r.dir[0], r.orig[0], r,
                  closestHit)) {
-        did_hit = true;
+        return true;
     }
     if (hit_side(bbox.y, bbox.x, bbox.z, 1, 0, 2, r.dir[1], r.orig[1], r,
                  closestHit)) {
-        did_hit = true;
+        return true;
     }
     if (hit_side(bbox.z, bbox.y, bbox.x, 2, 1, 0, r.dir[2], r.orig[2], r,
                  closestHit)) {
-        did_hit = true;
+        return true;
     }
+    return false;
 
-    return did_hit;
+    // TODO: @waste @maybe I should clone the `traverse` method with an infinite
+    // intersect as the begin point.
 }
 
 bool box::traverse(ray const &r, interval &intersect) const {
@@ -91,6 +91,8 @@ bool box::traverse(ray const &r, interval &intersect) const {
 
         if (cur.max <= cur.min) return false;
     }
+
+    intersect = cur;
 
     return true;
 }
