@@ -49,6 +49,7 @@ static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
 
 bool box::hit(ray const &r, double &closestHit) const {
     ZoneScopedN("box hit");
+
     if (hit_side(bbox.x, bbox.z, bbox.y, 0, 2, 1, r.dir[0], r.orig[0], r,
                  closestHit)) {
         return true;
@@ -68,33 +69,9 @@ bool box::hit(ray const &r, double &closestHit) const {
 }
 
 bool box::traverse(ray const &r, interval &intersect) const {
-    // NOTE: @cutnpaste from aabb::hit
+    intersect = universe_interval;
 
-    point3 ray_orig = r.orig;
-    vec3 ray_dir = r.dir;
-    interval cur = universe_interval;
-
-    for (int axis = 0; axis < 3; axis++) {
-        interval const &ax = bbox.axis_interval(axis);
-
-        auto t0 = (ax.min - ray_orig[axis]);
-        auto t1 = (ax.max - ray_orig[axis]);
-
-        if (ray_dir[axis] < 0) {
-            std::swap(t0, t1);
-            t0 = -t0;
-            t1 = -t1;
-        }
-
-        if (t0 > cur.min) cur.min = t0;
-        if (t1 < cur.max) cur.max = t1;
-
-        if (cur.max <= cur.min) return false;
-    }
-
-    intersect = cur;
-
-    return true;
+    return bbox.traverse(r, intersect);
 }
 
 void box::getUVs(uvs &uv, point3 intersection, double _time) const {

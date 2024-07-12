@@ -12,7 +12,6 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
-
 #include "interval.h"
 #include "ray.h"
 #include "vec3.h"
@@ -49,6 +48,9 @@ class aabb {
     }
 
     bool hit(ray const &r, interval ray_t) const;
+    // Helper method to traverse using an already existing `ray_t` and modifying
+    // it. It clobbers `ray_t`.
+    bool traverse(ray const &r, interval &ray_t) const;
 
     constexpr int longest_axis() const {
         // Returns the index of the longest axis of the bounding box.

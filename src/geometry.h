@@ -23,6 +23,7 @@ struct geometry {
     int relIndex;
 
     virtual aabb bounding_box() const = 0;
+    // TODO: write the result inconditionally everywhere.
     virtual bool hit(ray const &r, double &closest_hit) const = 0;
     virtual void getUVs(uvs &uv, point3 intersection, double time) const = 0;
     // NOTE: intersection is only used by sphere & box, time is only used by
