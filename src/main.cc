@@ -26,6 +26,7 @@
 #include "timer.h"
 #include "transforms.h"
 
+// FIXME: This is broken as of now, it segfaults.
 void bouncing_spheres() {
     hittable_list world;
 
@@ -103,6 +104,7 @@ void bouncing_spheres() {
     cam.render(bvhd_world);
 }
 
+// FIXME: This is broken as of now. The checkered spheres don't appear.
 void checkered_spheres() {
     hittable_list world;
 
@@ -133,6 +135,7 @@ void checkered_spheres() {
     cam.render(world);
 }
 
+// FIXME: This is broken as of now.
 void earth() {
     auto earth_texture = leak(texture::image("earthmap.jpg"));
     auto earth_surface = detail::lambertian;
@@ -157,6 +160,7 @@ void earth() {
     cam.render(hittable_list(globeLights, globe));
 }
 
+// FIXME: This is broken as of now, only the background shows.
 void perlin_spheres() {
     hittable_list world;
 
@@ -184,6 +188,7 @@ void perlin_spheres() {
     cam.render(world);
 }
 
+// FIXME: This is broken, only shows the background.
 void quads() {
     hittable_list world;
 
@@ -261,6 +266,8 @@ void simple_light() {
     cam.render(world);
 }
 
+// FIXME: This works, but is somehow slower than the enormous final_scene. Profile
+// this!
 void cornell_box() {
     hittable_list world;
 
