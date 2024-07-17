@@ -43,10 +43,14 @@ static int addNode(bvh_node node) {
         objects + start, objects + end,
         [axis, partitionPoint](geometry const *a) {
             auto a_axis_interval = a->bounding_box().axis_interval(axis);
-            return a_axis_interval.midPoint() < partitionPoint;
+            return a_axis_interval.midPoint() <= partitionPoint;
         });
 
     auto midIndex = std::distance(objects, it);
+    if (midIndex == start || midIndex == end) {
+        // cannot split these objects
+        return bvh_node{bbox, start, -(end - start)};
+    }
 
     auto left = buildBVHNode(objects, start, midIndex, depth + 1);
     auto right = buildBVHNode(objects, midIndex, end, depth + 1);
@@ -62,18 +66,13 @@ static int addNode(bvh_node node) {
     ray const &r, double &closestHit, bvh_node const &n,
     geometry const *const *objects) {
     if (!n.bbox.hit(r, interval{minRayDist, closestHit})) return nullptr;
-    if (n.left == -1) {
+    if (n.left < 0) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
         // improving times by hitting multiple in one go. Since I'm tracing each
         // kind of intersection, it will be interesting to bake statistics of
         // each object and use that as timing reference.
-        auto *obj = objects[n.objectIndex];
-        double t;
-        if (obj->hit(r, t) && interval{minRayDist, closestHit}.contains(t)) {
-            closestHit = t;
-            return obj;
-        }
-        return nullptr;
+        auto span = std::span{objects + n.objectIndex, size_t(-n.left)};
+        return hitSpan(span, r, closestHit);
     }
 
     auto hit_left = hitNode(r, closestHit, nodes[n.left], objects);

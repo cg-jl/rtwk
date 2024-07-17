@@ -26,7 +26,7 @@
 #include "timer.h"
 #include "transforms.h"
 
-// FIXME: This is broken as of now, it segfaults.
+// FIXME: This is broken as of now, it only shows the background.
 void bouncing_spheres() {
     hittable_list world;
 
@@ -498,7 +498,7 @@ int main() {
 #if TRACY_ENABLE
     switch (10) {
 #else
-    switch (0) {
+    switch (1) {
 #endif
         case 1:
             bouncing_spheres();

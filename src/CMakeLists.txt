@@ -76,16 +76,15 @@ endif()
 
 target_compile_options(rt PRIVATE
     -Wunused
+    -march=native
+    -mavx2
+    -fno-exceptions
 )
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL Debug)
     message(STATUS "Using debug build. OpenMP is disabled.")
 else ()
     target_compile_options(rt PRIVATE
-
-            -march=native
-            -mavx2
-            -fno-exceptions
 
             # NOTE: all of these have been tested to not modify
             # the final image. Mileage may vary!
