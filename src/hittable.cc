@@ -2,6 +2,7 @@
 
 #include <geometry.h>
 
+#include <print>
 #include <span>
 #include <tracy/Tracy.hpp>
 

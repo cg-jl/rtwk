@@ -3,6 +3,8 @@
 #include <texture_impls.h>
 
 #include <cstdint>
+#include <iostream>
+#include <print>
 #include <tracy/Tracy.hpp>
 
 #include "hittable_list.h"

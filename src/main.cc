@@ -26,7 +26,6 @@
 #include "timer.h"
 #include "transforms.h"
 
-// FIXME: This is broken as of now, it only shows the background.
 void bouncing_spheres() {
     hittable_list world;
 
@@ -85,13 +84,16 @@ void bouncing_spheres() {
     // Make sure we retain the hittable data from the trees.
     bvhd_world.objects = std::move(world.objects);
 
+    auto bgcolor = color(0.70, 0.80, 1.00);
+
+
     camera cam;
 
     cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 400;
+    cam.image_width = 800;
     cam.samples_per_pixel = 100;
     cam.max_depth = 50;
-    cam.background = color(0.70, 0.80, 1.00);
+    cam.background = bgcolor;
 
     cam.vfov = 20;
     cam.lookfrom = point3(13, 2, 3);
@@ -101,10 +103,10 @@ void bouncing_spheres() {
     cam.defocus_angle = 0.6;
     cam.focus_dist = 10.0;
 
+    bvhd_world.add(lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))), new sphere(cam.lookfrom, 1000));
     cam.render(bvhd_world);
 }
 
-// FIXME: This is broken as of now. The checkered spheres don't appear.
 void checkered_spheres() {
     hittable_list world;
 
@@ -116,6 +118,7 @@ void checkered_spheres() {
               new sphere(point3(0, -10, 0), 10));
     world.add(lightInfo(detail::lambertian, checker),
               new sphere(point3(0, 10, 0), 10));
+
 
     camera cam;
 
@@ -132,10 +135,10 @@ void checkered_spheres() {
 
     cam.defocus_angle = 0;
 
+    world.add(lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))), new sphere(cam.lookfrom, 1000));
     cam.render(world);
 }
 
-// FIXME: This is broken as of now.
 void earth() {
     auto earth_texture = leak(texture::image("earthmap.jpg"));
     auto earth_surface = detail::lambertian;
@@ -157,10 +160,11 @@ void earth() {
 
     cam.defocus_angle = 0;
 
-    cam.render(hittable_list(globeLights, globe));
+    hittable_list world(globeLights, globe);
+    world.add(lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))), new sphere(cam.lookfrom, 1000));
+    cam.render(world);
 }
 
-// FIXME: This is broken as of now, only the background shows.
 void perlin_spheres() {
     hittable_list world;
 
@@ -185,10 +189,10 @@ void perlin_spheres() {
 
     cam.defocus_angle = 0;
 
+    world.add(lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))), new sphere(cam.lookfrom, 1000));
     cam.render(world);
 }
 
-// FIXME: This is broken, only shows the background.
 void quads() {
     hittable_list world;
 
@@ -228,6 +232,7 @@ void quads() {
 
     cam.defocus_angle = 0;
 
+    world.add(lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))), new sphere(cam.lookfrom, 1000));
     cam.render(world);
 }
 
@@ -266,8 +271,7 @@ void simple_light() {
     cam.render(world);
 }
 
-// FIXME: This works, but is somehow slower than the enormous final_scene. Profile
-// this!
+// NOTE: This has around the same latency as the "final scene" one.
 void cornell_box() {
     hittable_list world;
 
@@ -498,7 +502,7 @@ int main() {
 #if TRACY_ENABLE
     switch (10) {
 #else
-    switch (1) {
+    switch (0) {
 #endif
         case 1:
             bouncing_spheres();
