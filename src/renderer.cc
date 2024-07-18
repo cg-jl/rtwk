@@ -1,9 +1,9 @@
 #include <camera.h>
 #include <renderer.h>
 #include <texture_impls.h>
+#include <trace_colors.h>
 
 #include <cstdint>
-#include <iostream>
 #include <print>
 #include <tracy/Tracy.hpp>
 
@@ -258,7 +258,7 @@ struct countArrays {
 //   if it's in between, any algorithm (saturated or transitory) will behave
 //   mostly the same.
 
-static void scanLine(camera const &cam, hittable_list const &world, int j,
+static void scanLine(camera const &cam, hittable_list const &world, int const j,
                      color *pixels, sampleMat attMat, countArrays counts,
                      color *samples, perlin const &noise) {
     // NOTE: @maybe a matrix only for the solids and vectors for the  other
@@ -275,7 +275,10 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
         int rleImages = 0;
 
         for (int sample = 0; sample < cam.samples_per_pixel; sample++) {
+            // NOTE: @trace The first (bottom) lines (black, 399) are pretty bad (~3.52us)
             ZoneScopedN("pixel sample");
+            ZoneValue(j);
+            ZoneValue(i);
             ray r = get_ray(cam, i, j);
 
             px_sampleq q{attMat.offset(sample, cam.max_depth),
@@ -284,6 +287,10 @@ static void scanLine(camera const &cam, hittable_list const &world, int j,
             auto bg = geometrySim(cam.background, r, cam.max_depth, world, q);
 
             auto att_count = q.tally;
+            ZoneTextL("tally:");
+            ZoneValue(att_count.solids);
+            ZoneValue(att_count.noises);
+            ZoneValue(att_count.images);
 
             if (att_count.solids) {
                 counts.solids[rleSolids++] = {sample, att_count.solids};

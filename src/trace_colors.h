@@ -37,3 +37,5 @@ enum Ctp : int {
     Mantle = 0x292c3c,
     Crust = 0x232634,
 };
+
+#define ZoneTextL(text) ZoneText(text, sizeof(text) - 1)
