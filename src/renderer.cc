@@ -3,6 +3,7 @@
 #include <texture_impls.h>
 #include <trace_colors.h>
 
+#include <atomic>
 #include <cstdint>
 #include <print>
 #include <tracy/Tracy.hpp>
@@ -275,7 +276,8 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
         int rleImages = 0;
 
         for (int sample = 0; sample < cam.samples_per_pixel; sample++) {
-            // NOTE: @trace The first (bottom) lines (black, 399) are pretty bad (~3.52us)
+            // NOTE: @trace The first (bottom) lines (black, 399) are pretty bad
+            // (~3.52us)
             ZoneScopedN("pixel sample");
             ZoneValue(j);
             ZoneValue(i);
@@ -378,8 +380,8 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
     }
 }
 
-void render(camera const &cam, std::atomic<int> &remain_scanlines,
-            std::condition_variable &notifyScanline, size_t stop_at,
+void render(camera const &cam, std::atomic<int> &tileid,
+            std::atomic<int> &remain_scanlines, size_t const stop_at,
             hittable_list const &world, color *pixels) noexcept {
     // NOTE: @waste @mem Could reuse a solids lane (maybe the last/first one)
     // for the final lane.
@@ -390,18 +392,14 @@ void render(camera const &cam, std::atomic<int> &remain_scanlines,
     perlin noise;
 
     for (;;) {
-        auto j = remain_scanlines.load(std::memory_order_acquire);
+        auto j = tileid.fetch_add(1, std::memory_order_acq_rel);
 
-        // contend for our j (CAS)
-        do {
-            if (j == stop_at) return;
-        } while (!remain_scanlines.compare_exchange_weak(
-            j, j - 1, std::memory_order_acq_rel));
-        --j;
+        if (j >= cam.image_width) return;
 
         // TODO: render worker state struct
         scanLine(cam, world, j, pixels, attMat, counts, samples.get(), noise);
 
-        notifyScanline.notify_one();
+        remain_scanlines.fetch_sub(1, std::memory_order_acq_rel);
+        remain_scanlines.notify_one();
     }
 }

@@ -64,7 +64,6 @@ void camera::render(hittable_list const &world) {
     auto pixels =
         std::make_unique<color[]>(size_t(image_width) * size_t(image_height));
 
-    std::condition_variable cv;
     // lock progress mutex before launching the progress thread so we don't
     // end in a deadlock.
 
@@ -72,25 +71,19 @@ void camera::render(hittable_list const &world) {
     static constexpr int stop_at = 0;
     std::atomic<int> remain_scanlines{start};
 
-    auto progress_thread =
-        std::thread([limit = start, &remain_scanlines, &cv]() {
-            std::mutex progress_mux;
-            std::unique_lock<std::mutex> lock(progress_mux);
-            auto last_remain = limit + 1;
-            while (true) {
-                // wait till progress has been done.
-                cv.wait(lock, [last_remain, &remain_scanlines] {
-                    return last_remain >
-                           remain_scanlines.load(std::memory_order_acquire);
-                });
-                auto remain = remain_scanlines.load(std::memory_order_acquire);
-                last_remain = remain;
-                std::clog << "\r\x1b[2K\x1b[?25lScanlines remaining: " << remain
-                          << "\x1b[?25h" << std::flush;
-                if (remain == stop_at) break;
-            }
-            std::clog << "\r\x1b[2K" << std::flush;
-        });
+    auto progress_thread = std::thread([limit = start, &remain_scanlines]() {
+        auto last_remain = limit + 1;
+        while (true) {
+            remain_scanlines.wait(last_remain, std::memory_order_acquire);
+
+            auto remain = remain_scanlines.load(std::memory_order_acquire);
+            last_remain = remain;
+            std::clog << "\r\x1b[2K\x1b[?25lScanlines remaining: " << remain
+                      << "\x1b[?25h" << std::flush;
+            if (remain == stop_at) break;
+        }
+        std::clog << "\r\x1b[2K" << std::flush;
+    });
 
 #ifdef _OPENMP
 #else
@@ -99,9 +92,10 @@ void camera::render(hittable_list const &world) {
 #endif
 
     auto render_timer = new rtwk::timer("Render");
+    std::atomic<int> tileid;
     // worker loop
 #pragma omp parallel
-    { ::render(*this, remain_scanlines, cv, stop_at, world, pixels.get()); }
+    { ::render(*this, tileid, remain_scanlines, stop_at, world, pixels.get()); }
 
     delete render_timer;
     progress_thread.join();
