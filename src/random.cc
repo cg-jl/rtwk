@@ -29,7 +29,7 @@ static int rand_r(unsigned int *seed) {
 // Since it's got a thread local static, we should only have one per thread.
 // Having one per cc file that uses random util is just wasteful.
 double random_double() {
-    static thread_local unsigned int seed;
+    static thread_local unsigned int seed = 0;
     return double(rand_r(&seed) & RAND_MAX) / (double(RAND_MAX) + 1);
 }
 
