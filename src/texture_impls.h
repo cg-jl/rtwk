@@ -4,7 +4,6 @@
 #include "perlin.h"
 #include "texture.h"
 #include "interval.h"
-#include "geometry.h"
 #include "trace_colors.h"
 
 inline color sample_image(rtw_shared_image img, uvs uv) {

@@ -15,9 +15,8 @@ static int addNode(bvh_node node) {
     return int(nodes.size() - 1);
 }
 
-[[clang::noinline]] static bvh_node buildBVHNode(geometry const **objects,
-                                                 int start, int end,
-                                                 int depth = 0) {
+[[clang::noinline]] static bvh_node buildBVHNode(geometry *objects, int start,
+                                                 int end, int depth = 0) {
     static constexpr int minObjectsInTree = 6;
     static_assert(minObjectsInTree > 1,
                   "Min objects in tree must be at least 2, otherwise it will "
@@ -27,7 +26,7 @@ static int addNode(bvh_node node) {
     // Build the bounding box of the span of source objects.
     aabb bbox = empty_aabb;
     for (int i = start; i < end; ++i)
-        bbox = aabb(bbox, objects[i]->bounding_box());
+        bbox = aabb(bbox, objects[i].bounding_box());
     auto object_span = end - start;
 
     if (object_span == 1) {
@@ -41,8 +40,8 @@ static int addNode(bvh_node node) {
 
     auto it = std::partition(
         objects + start, objects + end,
-        [axis, partitionPoint](geometry const *a) {
-            auto a_axis_interval = a->bounding_box().axis_interval(axis);
+        [axis, partitionPoint](geometry const &a) {
+            auto a_axis_interval = a.bounding_box().axis_interval(axis);
             return a_axis_interval.midPoint() <= partitionPoint;
         });
 
@@ -62,9 +61,10 @@ static int addNode(bvh_node node) {
     return bvh_node{bbox, start, leftIndex};
 }
 
-[[clang::noinline]] static geometry const *hitNode(
-    ray const &r, double &closestHit, bvh_node const &n,
-    geometry const *const *objects) {
+[[clang::noinline]] static geometry const *hitNode(ray const &r,
+                                                   double &closestHit,
+                                                   bvh_node const &n,
+                                                   geometry const *objects) {
     if (!n.bbox.hit(r, interval{minRayDist, closestHit})) return nullptr;
     if (n.left < 0) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
@@ -82,7 +82,7 @@ static int addNode(bvh_node node) {
 
 }  // namespace bvh
 
-bvh_tree::bvh_tree(std::span<geometry const *> objects)
+bvh_tree::bvh_tree(std::span<geometry> objects)
     : root(bvh::buildBVHNode(&objects[0], 0, objects.size())),
       objects(objects.data()) {}
 

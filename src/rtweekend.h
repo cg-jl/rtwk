@@ -52,5 +52,8 @@ template <typename T>
 T *leak(T val) {
     return new T(std::move(val));
 }
+struct uvs {
+    double u, v;
+};
 
 #endif

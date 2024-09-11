@@ -1,6 +1,10 @@
 #pragma once
 
-#include "geometry.h"
+#include <aabb.h>
+#include <interval.h>
+#include <ray.h>
+#include <rtweekend.h>
+#include <vec3.h>
 
 struct transform final {
     vec3 offset;
@@ -10,7 +14,9 @@ struct transform final {
     transform(double angleDegrees, vec3 offset) noexcept;
 };
 
-struct transformed final : public geometry {
+struct geometry;
+
+struct transformed {
     geometry const *object;
     transform tf;
 
@@ -18,8 +24,8 @@ struct transformed final : public geometry {
 
     bool hit(ray const &r, double &closestHit) const;
     bool traverse(ray const &r, interval &intesect) const;
-    void getUVs(uvs &uv, point3 p, double time) const final;
+    void getUVs(uvs &uv, point3 p, double time) const;
 
-    vec3 getNormal(point3 const &intersection, double time) const final;
-    aabb bounding_box() const final;
+    vec3 getNormal(point3 const &intersection, double time) const;
+    aabb bounding_box() const;
 };

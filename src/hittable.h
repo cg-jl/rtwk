@@ -32,5 +32,5 @@ static constexpr double minRayDist = 0.001;
 // prepare(), end() as well to prepare a ray?
 // We should end in a geometry anyway.
 
-geometry const *hitSpan(std::span<geometry const *const> objects, ray const &r,
+geometry const *hitSpan(std::span<geometry const> objects, ray const &r,
                         double &closestHit);

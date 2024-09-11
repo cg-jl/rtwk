@@ -33,7 +33,7 @@ void bouncing_spheres() {
         leak(texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
                               leak(texture::solid(color(.9, .9, .9)))));
     world.add(lightInfo(detail::lambertian, checker),
-              new sphere(point3(0, -1000, 0), 1000));
+              sphere(point3(0, -1000, 0), 1000));
 
     for (int a = -11; a < 11; a++) {
         for (int b = -11; b < 11; b++) {
@@ -49,19 +49,19 @@ void bouncing_spheres() {
                     auto sphere_material = detail::lambertian;
                     auto center2 = center + vec3(0, random_double(0, .5), 0);
                     world.add(lightInfo(detail::lambertian, albedo),
-                              new sphere(center, center2, 0.2));
+                              sphere(center, center2, 0.2));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = leak(texture::solid(random_vec(0.5, 1)));
                     auto fuzz = random_double(0, 0.5);
                     auto sphere_material = (material::metal(fuzz));
                     world.add(lightInfo(sphere_material, albedo),
-                              new sphere(center, 0.2));
+                              sphere(center, 0.2));
                 } else {
                     // glass
                     auto sphere_material = (material::dielectric(1.5));
                     world.add(lightInfo(sphere_material, &detail::white),
-                              new sphere(center, 0.2));
+                              sphere(center, 0.2));
                 }
             }
         }
@@ -69,15 +69,15 @@ void bouncing_spheres() {
 
     auto material1 = (material::dielectric(1.5));
     world.add(lightInfo(material1, &detail::white),
-              new sphere(point3(0, 1, 0), 1.0));
+              sphere(point3(0, 1, 0), 1.0));
 
     auto color2 = leak(texture::solid(color(0.4, 0.2, 0.1)));
     auto material2 = detail::lambertian;
-    world.add(lightInfo(material2, color2), new sphere(point3(-4, 1, 0), 1.0));
+    world.add(lightInfo(material2, color2), sphere(point3(-4, 1, 0), 1.0));
 
     auto color3 = leak(texture::solid(color(0.7, 0.6, 0.5)));
     auto material3 = (material::metal(0.0));
-    world.add(lightInfo(material3, color3), new sphere(point3(4, 1, 0), 1.0));
+    world.add(lightInfo(material3, color3), sphere(point3(4, 1, 0), 1.0));
 
     hittable_list bvhd_world;
     bvhd_world.trees.emplace_back(world.selectGeoms);
@@ -85,7 +85,6 @@ void bouncing_spheres() {
     bvhd_world.objects = std::move(world.objects);
 
     auto bgcolor = color(0.70, 0.80, 1.00);
-
 
     camera cam;
 
@@ -103,7 +102,9 @@ void bouncing_spheres() {
     cam.defocus_angle = 0.6;
     cam.focus_dist = 10.0;
 
-    bvhd_world.add(lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))), new sphere(cam.lookfrom, 1000));
+    bvhd_world.add(
+        lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))),
+        sphere(cam.lookfrom, 1000));
     cam.render(bvhd_world);
 }
 
@@ -115,10 +116,9 @@ void checkered_spheres() {
                               leak(texture::solid(color(.9, .9, .9)))));
 
     world.add(lightInfo(detail::lambertian, checker),
-              new sphere(point3(0, -10, 0), 10));
+              sphere(point3(0, -10, 0), 10));
     world.add(lightInfo(detail::lambertian, checker),
-              new sphere(point3(0, 10, 0), 10));
-
+              sphere(point3(0, 10, 0), 10));
 
     camera cam;
 
@@ -135,7 +135,9 @@ void checkered_spheres() {
 
     cam.defocus_angle = 0;
 
-    world.add(lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))), new sphere(cam.lookfrom, 1000));
+    world.add(
+        lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))),
+        sphere(cam.lookfrom, 1000));
     cam.render(world);
 }
 
@@ -143,7 +145,7 @@ void earth() {
     auto earth_texture = leak(texture::image("earthmap.jpg"));
     auto earth_surface = detail::lambertian;
     auto globeLights = lightInfo(earth_surface, earth_texture);
-    auto globe = new sphere(point3(0, 0, 0), 2);
+    auto globe = sphere(point3(0, 0, 0), 2);
 
     camera cam;
 
@@ -161,7 +163,9 @@ void earth() {
     cam.defocus_angle = 0;
 
     hittable_list world(globeLights, globe);
-    world.add(lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))), new sphere(cam.lookfrom, 1000));
+    world.add(
+        lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))),
+        sphere(cam.lookfrom, 1000));
     cam.render(world);
 }
 
@@ -170,9 +174,9 @@ void perlin_spheres() {
 
     auto pertext = leak(texture::noise(4));
     world.add(lightInfo(detail::lambertian, pertext),
-              new sphere(point3(0, -1000, 0), 1000));
+              sphere(point3(0, -1000, 0), 1000));
     world.add(lightInfo(detail::lambertian, pertext),
-              new sphere(point3(0, 2, 0), 2));
+              sphere(point3(0, 2, 0), 2));
 
     camera cam;
 
@@ -189,7 +193,9 @@ void perlin_spheres() {
 
     cam.defocus_angle = 0;
 
-    world.add(lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))), new sphere(cam.lookfrom, 1000));
+    world.add(
+        lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))),
+        sphere(cam.lookfrom, 1000));
     cam.render(world);
 }
 
@@ -207,15 +213,15 @@ void quads() {
 
     // Quads
     world.add(lightInfo(lambert, &left_red),
-              new quad(point3(-3, -2, 5), vec3(0, 0, -4), vec3(0, 4, 0)));
+              quad(point3(-3, -2, 5), vec3(0, 0, -4), vec3(0, 4, 0)));
     world.add(lightInfo(lambert, &back_green),
-              new quad(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0)));
+              quad(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0)));
     world.add(lightInfo(lambert, &right_blue),
-              new quad(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0)));
+              quad(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0)));
     world.add(lightInfo(lambert, &upper_orange),
-              new quad(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4)));
+              quad(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4)));
     world.add(lightInfo(lambert, &lower_teal),
-              new quad(point3(-2, -3, 5), vec3(4, 0, 0), vec3(0, 0, -4)));
+              quad(point3(-2, -3, 5), vec3(4, 0, 0), vec3(0, 0, -4)));
 
     camera cam;
 
@@ -232,7 +238,9 @@ void quads() {
 
     cam.defocus_angle = 0;
 
-    world.add(lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))), new sphere(cam.lookfrom, 1000));
+    world.add(
+        lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))),
+        sphere(cam.lookfrom, 1000));
     cam.render(world);
 }
 
@@ -241,17 +249,16 @@ void simple_light() {
 
     auto pertext = leak(texture::noise(4));
     world.add(lightInfo(detail::lambertian, pertext),
-              new sphere(point3(0, -1000, 0), 1000));
+              sphere(point3(0, -1000, 0), 1000));
 
     world.add(lightInfo(detail::lambertian, pertext),
-              new sphere(point3(0, 2, 0), 2));
+              sphere(point3(0, 2, 0), 2));
 
     auto difflight = detail::diffuse_light;
     auto light_tint = texture::solid(color(4, 4, 4));
+    world.add(lightInfo(difflight, &light_tint), sphere(point3(0, 7, 0), 2));
     world.add(lightInfo(difflight, &light_tint),
-              new sphere(point3(0, 7, 0), 2));
-    world.add(lightInfo(difflight, &light_tint),
-              new quad(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0)));
+              quad(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0)));
 
     camera cam;
 
@@ -284,28 +291,27 @@ void cornell_box() {
     auto lambert = detail::lambertian;
 
     world.add(lightInfo(lambert, &green),
-              new quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
+              quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
     world.add(lightInfo(lambert, &red),
-              new quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
-    world.add(
-        lightInfo(light, &light_tint),
-        new quad(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105)));
+              quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
+    world.add(lightInfo(light, &light_tint),
+              quad(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105)));
     world.add(lightInfo(lambert, &white),
-              new quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
+              quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
+    world.add(lightInfo(lambert, &white),
+              quad(point3(555, 555, 555), vec3(-555, 0, 0), vec3(0, 0, -555)));
+    world.add(lightInfo(lambert, &white),
+              quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)));
+
     world.add(
         lightInfo(lambert, &white),
-        new quad(point3(555, 555, 555), vec3(-555, 0, 0), vec3(0, 0, -555)));
-    world.add(lightInfo(lambert, &white),
-              new quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)));
 
-    world.add(lightInfo(lambert, &white),
-
-              new transformed(new box(point3(0, 0, 0), point3(165, 330, 165)),
-                              transform(15, vec3(265, 0, 295))));
+        transformed(new geometry(box(point3(0, 0, 0), point3(165, 330, 165))),
+                    transform(15, vec3(265, 0, 295))));
 
     {
-        geometry *b = new box(point3(0, 0, 0), point3(165, 165, 165));
-        b = new transformed(b, transform(-18, vec3(130, 0, 65)));
+        geometry b = geometry(box(point3(0, 0, 0), point3(165, 165, 165)));
+        b = transformed(leak(b), transform(-18, vec3(130, 0, 65)));
         world.add(lightInfo(lambert, &white), b);
     }
 
@@ -339,29 +345,28 @@ void cornell_smoke() {
     auto lambert = detail::lambertian;
 
     world.add(lightInfo(lambert, &green),
-              new quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
+              quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
     world.add(lightInfo(lambert, &red),
-              new quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
-    world.add(
-        lightInfo(light, &light_tint),
-        new quad(point3(113, 554, 127), vec3(330, 0, 0), vec3(0, 0, 305)));
+              quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
+    world.add(lightInfo(light, &light_tint),
+              quad(point3(113, 554, 127), vec3(330, 0, 0), vec3(0, 0, 305)));
     world.add(lightInfo(lambert, &white),
-              new quad(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
+              quad(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
     world.add(lightInfo(lambert, &white),
-              new quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
+              quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
     world.add(lightInfo(lambert, &white),
-              new quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)));
+              quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)));
 
     {
-        geometry *b = new box(point3(0, 0, 0), point3(165, 330, 165));
-        b = new transformed(b, transform(15, vec3(265, 0, 295)));
-        world.add(constant_medium(b, 0.01), color(0, 0, 0));
+        geometry b = geometry(box(point3(0, 0, 0), point3(165, 330, 165)));
+        b = transformed(leak(b), transform(15, vec3(265, 0, 295)));
+        world.add(constant_medium(leak(b), 0.01), color(0, 0, 0));
     }
 
     {
-        geometry *b = new box(point3(0, 0, 0), point3(165, 165, 165));
-        b = new transformed(b, transform(-18, vec3(130, 0, 65)));
-        world.add(constant_medium(b, 0.01), color(1, 1, 1));
+        geometry b = geometry(box(point3(0, 0, 0), point3(165, 165, 165)));
+        b = transformed(leak(b), transform(-18, vec3(130, 0, 65)));
+        world.add(constant_medium(leak(b), 0.01), color(1, 1, 1));
     };
 
     camera cam;
@@ -384,7 +389,7 @@ void cornell_smoke() {
 
 void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto build_timer = new rtwk::timer("Building scene");
-    std::vector<geometry *> boxes1;
+    std::vector<geometry> boxes1;
     auto lambert = detail::lambertian;
     auto ground_col = texture::solid(color(0.48, 0.83, 0.53));
 
@@ -401,63 +406,59 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto y1 = random_double(1, 101);
             auto z1 = z0 + w;
 
-            boxes1.emplace_back(
-                new box(point3(x0, y0, z0), point3(x1, y1, z1)));
+            boxes1.emplace_back(box(point3(x0, y0, z0), point3(x1, y1, z1)));
         }
     }
 
     hittable_list world;
     {
         int link = world.objects.size();
-        for (auto box : boxes1) {
-            box->relIndex = link;
+        for (auto &box : boxes1) {
+            box.relIndex = link;
         }
         world.objects.emplace_back(detail::lambertian, &ground_col);
     }
 
-    world.trees.emplace_back(
-        std::span(const_cast<geometry const **>(boxes1.data()), boxes1.size()));
+    world.trees.emplace_back(boxes1);
 
     auto light = detail::diffuse_light;
     auto light_tint = texture::solid(color(7, 7, 7));
-    world.add(
-        lightInfo(light, &light_tint),
-        new quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265)));
+    world.add(lightInfo(light, &light_tint),
+              quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265)));
 
     auto center1 = point3(400, 400, 200);
     auto center2 = center1 + vec3(30, 0, 0);
     auto sphere_material = lambert;
     auto sphere_tint = texture::solid(color(0.7, 0.3, 0.1));
     world.add(lightInfo(sphere_material, &sphere_tint),
-              new sphere(center1, center2, 50));
+              sphere(center1, center2, 50));
 
     world.add(lightInfo((material::dielectric(1.5)), &detail::white),
-              new sphere(point3(260, 150, 45), 50));
+              sphere(point3(260, 150, 45), 50));
     auto fuzzball_tint = texture::solid(color(0.8, 0.8, 0.9));
     world.add(lightInfo((material::metal(1)), &fuzzball_tint),
-              new sphere(point3(0, 150, 145), 50));
+              sphere(point3(0, 150, 145), 50));
 
-    auto boundary = new sphere(point3(360, 150, 145), 70);
+    geometry boundary = sphere(point3(360, 150, 145), 70);
     world.add(lightInfo((material::dielectric(1.5)), &detail::white), boundary);
-    world.add(constant_medium(boundary, 0.2), color(0.2, 0.4, 0.9));
-    boundary = new sphere(point3(0, 0, 0), 5000);
-    world.add(constant_medium(boundary, .0001), color(1, 1, 1));
+    world.add(constant_medium(leak(boundary), 0.2), color(0.2, 0.4, 0.9));
+    boundary = sphere(point3(0, 0, 0), 5000);
+    world.add(constant_medium(leak(boundary), .0001), color(1, 1, 1));
 
     auto emat = lambert;
     auto eimg = leak(texture::image("earthmap.jpg"));
-    world.add(lightInfo(emat, eimg), new sphere(point3(400, 200, 400), 100));
+    world.add(lightInfo(emat, eimg), sphere(point3(400, 200, 400), 100));
     auto pertext = leak(texture::noise(0.2));
-    world.add(lightInfo(lambert, pertext),
-              new sphere(point3(220, 280, 300), 80));
+    world.add(lightInfo(lambert, pertext), sphere(point3(220, 280, 300), 80));
 
     auto white = texture::solid(color(.73, .73, .73));
     int ns = 1000;
-    std::vector<geometry *> boxes2;
+    std::vector<geometry> boxes2;
     boxes2.reserve(ns);
     for (int j = 0; j < ns; j++) {
-        geometry *s = new sphere(random_vec(0, 165), 10);
-        s = new transformed{
-            s,
+        geometry s = geometry(sphere(random_vec(0, 165), 10));
+        s = transformed{
+            leak(s),
 
             transform(15, vec3(-100, 270, 395)),
         };
@@ -465,18 +466,15 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         boxes2.emplace_back(s);
     }
 
-    // ahh I hate casting const through >1 depth.
-    // "casts away qualifiers" but I'm marking them const!!!
-    world.trees.emplace_back(
-        std::span(const_cast<geometry const **>(boxes2.data()), ns));
     {
         // Link all of them to the same tex.
         int link = world.objects.size();
-        for (auto sph : boxes2) {
-            sph->relIndex = link;
+        for (auto &sph : boxes2) {
+            sph.relIndex = link;
         }
         world.objects.emplace_back(lightInfo{detail::lambertian, &white});
     }
+    world.trees.emplace_back(boxes2);
 
     delete build_timer;
 

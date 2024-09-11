@@ -37,8 +37,8 @@ geometry const *hittable_list::hitSelect(ray const &r,
     return best;
 }
 
-void hittable_list::add(lightInfo object, geometry *geom) {
-    geom->relIndex = objects.size();  // Make sure we link the texture/mat data.
+void hittable_list::add(lightInfo object, geometry geom) {
+    geom.relIndex = objects.size();  // Make sure we link the texture/mat data.
     selectGeoms.emplace_back(geom);
     objects.emplace_back(object);
 }

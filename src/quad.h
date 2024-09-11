@@ -9,23 +9,24 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
-#include "geometry.h"
+#include <aabb.h>
+#include <vec3.h>
 
-struct quad final : public geometry {
+struct quad {
     constexpr quad(point3 Q, vec3 u, vec3 v) : Q(Q), u(u), v(v) {}
 
-    aabb bounding_box() const final {
+    aabb bounding_box() const {
         // Compute the bounding box of all four vertices.
         auto bbox_diagonal1 = aabb(Q, Q + u + v);
         auto bbox_diagonal2 = aabb(Q + u, Q + v);
         return aabb(bbox_diagonal1, bbox_diagonal2);
     }
 
-    bool hit(ray const &r, double &closestHit) const final;
+    bool hit(ray const &r, double &closestHit) const;
     bool traverse(ray const &r, interval &intesect) const;
 
-    void getUVs(uvs &uv, point3 intersection, double _time) const final;
-    vec3 getNormal(point3 const &intersection, double time) const final;
+    void getUVs(uvs &uv, point3 intersection, double _time) const;
+    vec3 getNormal(point3 const &intersection, double time) const;
 
     point3 Q;
     vec3 u, v;

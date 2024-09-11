@@ -26,9 +26,9 @@ struct bvh_node {
 
 struct bvh_tree {
     bvh_node root;
-    geometry const *const *objects;
+    geometry const *objects;
 
-    bvh_tree(std::span<geometry const *> objects);
+    bvh_tree(std::span<geometry> objects);
 
     geometry const *hitSelect(ray const &r, double &closestHit) const;
 };

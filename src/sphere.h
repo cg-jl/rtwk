@@ -11,13 +11,16 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
-#include "geometry.h"
+#include <aabb.h>
+#include <interval.h>
+#include <ray.h>
+#include <vec3.h>
 
 // TODO: To instantiate spheres, I should separate instantiatable things
 // and add a thread-private 'instantiate' buffer per worker thread where I can
 // push any transformations. When separating list-of-ptrs into tagged arrays,
 // these 'instantiate buffers' must also be separated.
-struct sphere final : public geometry {
+struct sphere final {
     // Stationary Sphere
     sphere(point3 const &center, double radius)
         : center1(center), radius(fmax(0, radius)) {}
@@ -30,11 +33,11 @@ struct sphere final : public geometry {
 
     bool hit(ray const &r, double &closestHit) const;
     bool traverse(ray const &r, interval &intersect) const;
-    void getUVs(uvs &uv, point3 p, double time) const final;
+    void getUVs(uvs &uv, point3 p, double time) const;
 
-    vec3 getNormal(point3 const &intersection, double time) const final;
+    vec3 getNormal(point3 const &intersection, double time) const;
 
-    aabb bounding_box() const final;
+    aabb bounding_box() const;
 
     point3 center1;
     double radius;

@@ -20,7 +20,7 @@
 
 struct hittable_list {
     std::vector<lightInfo> objects;
-    std::vector<geometry const *> selectGeoms;
+    std::vector<geometry> selectGeoms;
     // TODO: make BVH tree not own their spans.
     // This way we can force more objects to be in the same array vector.
     // We could also have two different vector<hittable*>: One for 'lone'
@@ -30,12 +30,12 @@ struct hittable_list {
     std::vector<color> cmAlbedos{};
 
     hittable_list() {}
-    hittable_list(lightInfo object, geometry *geom) { add(object, geom); }
+    hittable_list(lightInfo object, geometry geom) { add(object, std::move(geom)); }
 
     void clear() { objects.clear(); }
 
     // Links the geomery with the lighting information.
-    void add(lightInfo object, geometry *geom);
+    void add(lightInfo object, geometry geom);
     void add(constant_medium medium, color albedo);
 
     geometry const *hitSelect(ray const &r, double *closestHit) const;

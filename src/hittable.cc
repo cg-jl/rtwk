@@ -8,7 +8,7 @@
 
 #include "trace_colors.h"
 
-geometry const *hitSpan(std::span<geometry const *const> objects, ray const &r,
+geometry const *hitSpan(std::span<geometry const> objects, ray const &r,
                         double &closestHit) {
     ZoneScopedNC("hit span", Ctp::Green);
     ZoneValue(objects.size());
@@ -17,8 +17,9 @@ geometry const *hitSpan(std::span<geometry const *const> objects, ray const &r,
 
     for (auto const &object : objects) {
         double t;
-        if (object->hit(r, t) && interval{minRayDist, closestHit}.contains(t)) {
-            best = object;
+
+        if (object.hit(r, t) && interval{minRayDist, closestHit}.contains(t)) {
+            best = &object;
             closestHit = t;
         }
     }
