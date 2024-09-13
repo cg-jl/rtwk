@@ -9,6 +9,9 @@
 bool aabb::traverse(ray const &r, interval &ray_t) const {
     // NOTE: These load 4x double's, so the rightmost value (memory order) or
     // the leftmost value (register order) won't be used.
+
+    // @perf for nontemporal loads we must have the ray aligned at a 32 byte boundary.
+
     auto adinvs = _mm256_loadu_pd((double *)&r.dir.e);
     auto origs = _mm256_loadu_pd((double *)&r.orig.e);
     auto mins = _mm256_set_pd(0 /* unused */, z.min, y.min, x.min);
