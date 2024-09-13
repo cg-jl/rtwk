@@ -5,17 +5,17 @@
 
 #include "hittable.h"
 
-static void calcUVs(double normal_dir, interval ax_u, interval ax_v,
+static void calcUVs(double normal_dir, vec3 const &min, vec3 const &max,
                     int ax_u_idx, int ax_v_idx, point3 intersection, double &u,
                     double &v) {
-    auto beta_distance = normal_dir > 0 ? ax_v.max : ax_v.min;
-    auto inv_u_mag = 1 / ax_u.size();
-    auto inv_v_mag = 1 / ax_v.size();
-    u = inv_u_mag * (intersection[ax_u_idx] - ax_u.min);
+    auto beta_distance = normal_dir > 0 ? max[ax_v_idx] : min[ax_v_idx];
+    auto inv_u_mag = 1 / (max[ax_u_idx] - min[ax_u_idx]);
+    auto inv_v_mag = 1 / (max[ax_v_idx] - min[ax_v_idx]);
+    u = inv_u_mag * (intersection[ax_u_idx] - min[ax_u_idx]);
     v = -normal_dir * inv_v_mag * (intersection[ax_v_idx] - beta_distance);
 }
 
-static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
+static bool hit_side(point3 const &min, point3 const &max, int ax_i,
                      int ax_u_idx, int ax_v_idx, double dir, double orig,
                      ray const &r, double &closestHit) noexcept {
     // No hit if the ray is parallel to the plane.
@@ -25,10 +25,10 @@ static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
     // Only test the face that opposes the ray direction,
     // the other one is going to be missed.
     if (dir > 0) {
-        D = ax.min;
+        D = min[ax_i];
         normal_dir = 1;
     } else {
-        D = ax.max;
+        D = max[ax_i];
         normal_dir = -1;
     }
 
@@ -38,7 +38,7 @@ static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
     // using its plane coordinates.
     auto intersection = r.at(t);
     double alpha, beta;
-    calcUVs(normal_dir, ax_u, ax_v, ax_u_idx, ax_v_idx, intersection, alpha,
+    calcUVs(normal_dir, min, max, ax_u_idx, ax_v_idx, intersection, alpha,
             beta);
 
     if ((alpha < 0) || (1 < alpha) || (beta < 0) || (1 < beta)) return false;
@@ -50,15 +50,17 @@ static bool hit_side(interval ax, interval ax_u, interval ax_v, int ax_i,
 bool box::hit(ray const &r, double &closestHit) const {
     ZoneScopedN("box hit");
 
-    if (hit_side(bbox.x, bbox.z, bbox.y, 0, 2, 1, r.dir[0], r.orig[0], r,
+    // @cleanup could have hit side just accept the box (or min/max), since
+    // the indices are the same.
+    if (hit_side(bbox.min, bbox.max, 0, 2, 1, r.dir[0], r.orig[0], r,
                  closestHit)) {
         return true;
     }
-    if (hit_side(bbox.y, bbox.x, bbox.z, 1, 0, 2, r.dir[1], r.orig[1], r,
+    if (hit_side(bbox.min, bbox.max, 1, 0, 2, r.dir[1], r.orig[1], r,
                  closestHit)) {
         return true;
     }
-    if (hit_side(bbox.z, bbox.y, bbox.x, 2, 1, 0, r.dir[2], r.orig[2], r,
+    if (hit_side(bbox.min, bbox.max, 2, 1, 0, r.dir[2], r.orig[2], r,
                  closestHit)) {
         return true;
     }

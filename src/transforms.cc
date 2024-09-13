@@ -50,14 +50,14 @@ aabb transformed::bounding_box() const {
     point3 max(-infinity, -infinity, -infinity);
 
     for (auto p : std::array{
-             point3{bbox.x.min, bbox.y.min, bbox.z.max},
-             point3{bbox.x.min, bbox.y.min, bbox.z.min},
-             point3{bbox.x.min, bbox.y.max, bbox.z.max},
-             point3{bbox.x.min, bbox.y.max, bbox.z.min},
-             point3{bbox.x.max, bbox.y.min, bbox.z.max},
-             point3{bbox.x.max, bbox.y.min, bbox.z.min},
-             point3{bbox.x.max, bbox.y.max, bbox.z.max},
-             point3{bbox.x.max, bbox.y.max, bbox.z.min},
+             point3{bbox.min.x(), bbox.min.y(), bbox.max.z()},
+             point3{bbox.min.x(), bbox.min.y(), bbox.min.z()},
+             point3{bbox.min.x(), bbox.max.y(), bbox.max.z()},
+             point3{bbox.min.x(), bbox.max.y(), bbox.min.z()},
+             point3{bbox.max.x(), bbox.min.y(), bbox.max.z()},
+             point3{bbox.max.x(), bbox.min.y(), bbox.min.z()},
+             point3{bbox.max.x(), bbox.max.y(), bbox.max.z()},
+             point3{bbox.max.x(), bbox.max.y(), bbox.min.z()},
          }) {
         auto tester = p;
 

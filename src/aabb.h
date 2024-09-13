@@ -18,12 +18,13 @@
 
 class aabb {
    public:
-    interval x, y, z;
+    vec3 min, max;
 
     // The default AABB is empty, since intervals are empty by default.
     constexpr aabb() = default;
 
-    constexpr aabb(interval x, interval y, interval z) : x(x), y(y), z(z) {
+    constexpr aabb(interval x, interval y, interval z)
+        : min(x.min, y.min, z.min), max(x.max, y.max, z.max) {
         pad_to_minimums();
     }
 
@@ -31,20 +32,30 @@ class aabb {
         // Treat the two points a and b as extrema for the bounding box, so we
         // don't require a particular minimum/maximum coordinate order.
 
-        x = (a[0] <= b[0]) ? interval(a[0], b[0]) : interval(b[0], a[0]);
-        y = (a[1] <= b[1]) ? interval(a[1], b[1]) : interval(b[1], a[1]);
-        z = (a[2] <= b[2]) ? interval(a[2], b[2]) : interval(b[2], a[2]);
+        for (int axis = 0; axis < 3; ++axis) {
+            min[axis] = a[axis];
+            max[axis] = b[axis];
+        }
+
+        for (int axis = 0; axis < 3; ++axis) {
+            if (min[axis] > max[axis]) std::swap(min[axis], max[axis]);
+        }
 
         pad_to_minimums();
     }
 
-    constexpr aabb(aabb const &box0, aabb const &box1)
-        : x(box0.x, box1.x), y(box0.y, box1.y), z(box0.z, box1.z) {}
+    constexpr aabb(aabb const &box0, aabb const &box1) {
+        for (int axis = 0; axis < 3; ++axis) {
+            min[axis] = std::min(box0.min[axis], box1.min[axis]);
+        }
 
-    constexpr interval const &axis_interval(int n) const {
-        if (n == 1) return y;
-        if (n == 2) return z;
-        return x;
+        for (int axis = 0; axis < 3; ++axis) {
+            max[axis] = std::max(box0.max[axis], box1.max[axis]);
+        }
+    }
+
+    constexpr interval axis_interval(int n) const {
+        return interval{min[n], max[n]};
     }
 
     bool hit(ray const &r, interval ray_t) const;
@@ -55,10 +66,14 @@ class aabb {
     constexpr int longest_axis() const {
         // Returns the index of the longest axis of the bounding box.
 
-        if (x.size() > y.size())
-            return x.size() > z.size() ? 0 : 2;
-        else
-            return y.size() > z.size() ? 1 : 2;
+        double xsizes[3];
+        for (int axis = 0; axis < 3; ++axis) {
+            xsizes[axis] = max[axis] - min[axis];
+        }
+
+        auto it = std::max_element(xsizes, xsizes + 3);
+
+        return std::distance(xsizes, it);
     }
 
    private:
@@ -66,10 +81,15 @@ class aabb {
         // Adjust the AABB so that no side is narrower than some delta, padding
         // if necessary.
 
-        double delta = 0.0001;
-        if (x.size() < delta) x = x.expand(delta);
-        if (y.size() < delta) y = y.expand(delta);
-        if (z.size() < delta) z = z.expand(delta);
+        constexpr double delta = 0.0001;
+
+        for (int axis = 0; axis < 3; ++axis) {
+            auto size = max[axis] - min[axis];
+            if (size < delta) {
+                min[axis] -= delta / 2;
+                max[axis] += delta / 2;
+            }
+        }
     }
 };
 
@@ -79,7 +99,7 @@ static constexpr aabb universe_aabb =
     aabb{universe_interval, universe_interval, universe_interval};
 
 constexpr aabb operator+(aabb bbox, vec3 offset) {
-    return aabb(bbox.x + offset.x(), bbox.y + offset.y(), bbox.z + offset.z());
+    return aabb(bbox.min + offset, bbox.max + offset);
 }
 
 constexpr aabb operator+(vec3 offset, aabb bbox) { return bbox + offset; }

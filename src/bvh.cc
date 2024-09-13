@@ -65,7 +65,8 @@ static int addNode(bvh_node node) {
                                                    double &closestHit,
                                                    bvh_node const &n,
                                                    geometry const *objects) {
-    if (!n.bbox.hit(r, interval{minRayDist, closestHit})) return nullptr;
+    interval i{minRayDist, closestHit};
+    if (!n.bbox.traverse(r, i)) return nullptr;
     if (n.left < 0) {
         // TODO: With something like SAH (Surface Area Heuristic), we should see
         // improving times by hitting multiple in one go. Since I'm tracing each

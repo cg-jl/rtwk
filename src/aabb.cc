@@ -10,12 +10,15 @@ bool aabb::traverse(ray const &r, interval &ray_t) const {
     // NOTE: These load 4x double's, so the rightmost value (memory order) or
     // the leftmost value (register order) won't be used.
 
-    // @perf for nontemporal loads we must have the ray aligned at a 32 byte boundary.
+    // @perf for nontemporal loads we must have the ray aligned at a 32 byte
+    // boundary.
 
     auto adinvs = _mm256_loadu_pd((double *)&r.dir.e);
     auto origs = _mm256_loadu_pd((double *)&r.orig.e);
-    auto mins = _mm256_set_pd(0 /* unused */, z.min, y.min, x.min);
-    auto maxes = _mm256_set_pd(0 /* unused */, z.max, y.max, x.max);
+    // @perf 'mins' has in its leftmost slot (register order) the first for
+    // maxes. 'maxes' has in its leftmost slot (register order) garbage.
+    auto mins = _mm256_loadu_pd((double *)&min.e);
+    auto maxes = _mm256_loadu_pd((double *)&max.e);
 
     auto t0s = (mins - origs) / adinvs;
     auto t1s = (maxes - origs) / adinvs;
@@ -23,7 +26,8 @@ bool aabb::traverse(ray const &r, interval &ray_t) const {
     auto tmins = _mm256_min_pd(t0s, t1s);
     auto tmaxs = _mm256_max_pd(t0s, t1s);
 
-    // NOTE: @perf The compiler seems to be generating smarter code than I am for this last comparison loop step.
+    // NOTE: @perf The compiler seems to be generating smarter code than I am
+    // for this last comparison loop step.
 
     for (int axis = 0; axis < 3; ++axis) {
         auto t0 = ((double *)&tmins)[axis];
