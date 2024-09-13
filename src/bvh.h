@@ -16,16 +16,9 @@
 
 #include <span>
 
-struct bvh_node {
-    aabb bbox;
-
-    int objectIndex;
-
-    int left;
-};
-
 struct bvh_tree {
-    bvh_node root;
+    int root;
+    int node_count;
     geometry const *objects;
 
     bvh_tree(std::span<geometry> objects);
