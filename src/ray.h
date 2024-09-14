@@ -14,6 +14,11 @@
 
 #include "vec3.h"
 
+// @perf the time portion is only fixed once per simulation.
+
+// @perf to align the ray to a 32-byte boundary, I have to push the `time`
+// variable to a different place. I don't need the alignment right now since I'm
+// already using the cache to store the ray temporally.
 struct ray {
     constexpr ray() = default;
     constexpr ray(point3 orig, vec3 dir, double time)

@@ -16,9 +16,8 @@
 #include "ray.h"
 #include "vec3.h"
 
-class aabb {
-   public:
-    vec3 min, max;
+struct aabb {
+    vec3 min alignas(32), max alignas(32);
 
     // The default AABB is empty, since intervals are empty by default.
     constexpr aabb() = default;

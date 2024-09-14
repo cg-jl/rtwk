@@ -1,10 +1,14 @@
 #include "aabb.h"
 
+#include <immintrin.h>
 #include <x86intrin.h>
 
 #include <tracy/Tracy.hpp>
 
 #include "trace_colors.h"
+
+// @perf My L1 cache size (per CPU) is: 32kiB!
+// L3 is 4MiB and L2 is 512kiB.
 
 bool aabb::traverse(ray const &r, interval &ray_t) const {
     // NOTE: These load 4x double's, so the rightmost value (memory order) or
@@ -17,8 +21,8 @@ bool aabb::traverse(ray const &r, interval &ray_t) const {
     auto origs = _mm256_loadu_pd((double *)&r.orig.e);
     // @perf 'mins' has in its leftmost slot (register order) the first for
     // maxes. 'maxes' has in its leftmost slot (register order) garbage.
-    auto mins = _mm256_loadu_pd((double *)&min.e);
-    auto maxes = _mm256_loadu_pd((double *)&max.e);
+    auto mins = (__m256d)_mm256_stream_load_si256((double *)&min.e);
+    auto maxes = (__m256d)_mm256_stream_load_si256((double *)&max.e);
 
     auto t0s = (mins - origs) / adinvs;
     auto t1s = (maxes - origs) / adinvs;

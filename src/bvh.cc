@@ -33,8 +33,8 @@ static std::vector<int> node_ends;
 // We want the pointers to be aligned to 32 bytes as well, so might need to use
 // a vector that has the memory aligned to use the _mm256_stream_load trick.
 
-// TODO: @perf std::vector uses `new`, which aligns the pointer to the required aligment,
-// according to <https://stackoverflow.com/a/3658666>.
+// TODO: @perf std::vector uses `new`, which aligns the pointer to the required
+// aligment, according to <https://stackoverflow.com/a/3658666>.
 
 static std::vector<aabb> boxes;
 static std::vector<bvh_node> nodes;
