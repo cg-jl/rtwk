@@ -95,13 +95,14 @@ static int maxDepth = 0;
     return parent;
 }
 
-static geometry const *hitTree(ray const &r, double &closestHit, int node_index,
-                               int node_count, geometry const *objects) {
+static geometry const *hitTree(ray const &r, double &closestHit,
+                               geometry const *objects) {
     geometry const *result = nullptr;
 
     // test all relevant nodes against the ray.
 
-    auto tree_end = node_ends[node_index];
+    auto tree_end = node_ends.size();
+    int node_index = 0;
     while (node_index < tree_end) {
         interval i{minRayDist, closestHit};
         if (!boxes[node_index].traverse(r, i)) {
@@ -137,14 +138,17 @@ static geometry const *hitTree(ray const &r, double &closestHit, int node_index,
 
 }  // namespace bvh
 
-bvh_tree::bvh_tree(std::span<geometry> objects)
-    : root(bvh::buildBVHNode(&objects[0], 0, objects.size())),
-      objects(objects.data()) {
-    node_count = bvh::nodes.size() - root;
+// TODO: mave static BVH info to hittable_list.
+
+static std::vector<geometry> bvh_geoms;
+void registerBVH(std::span<geometry> objects) {
+    auto start = bvh_geoms.size();
+    bvh_geoms.append_range(objects);
+    bvh::buildBVHNode(bvh_geoms.data(), start, bvh_geoms.size());
 }
 
-geometry const *bvh_tree::hitSelect(ray const &r, double &closestHit) const {
+geometry const *hitBVH(ray const &r, double &closestHit) {
     // deactivate this zone for now.
     ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
-    return bvh::hitTree(r, closestHit, root, node_count, objects);
+    return bvh::hitTree(r, closestHit, bvh_geoms.data());
 }

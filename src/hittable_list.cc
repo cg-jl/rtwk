@@ -4,6 +4,7 @@
 #include <print>
 #include <tracy/Tracy.hpp>
 
+#include "bvh.h"
 #include "constant_medium.h"
 #include "geometry.h"
 #include "hittable.h"
@@ -21,11 +22,7 @@ geometry const *hittable_list::hitSelect(ray const &r,
 
     {
         ZoneNamedN(_tracy, "hit trees", filters::hit);
-        for (auto const &tree : trees) {
-            if (auto const next = tree.hitSelect(r, *closestHit); next) {
-                best = next;
-            }
-        }
+        best = hitBVH(r, *closestHit);
     }
 
     {

@@ -25,3 +25,6 @@ struct bvh_tree {
 
     geometry const *hitSelect(ray const &r, double &closestHit) const;
 };
+
+void registerBVH(std::span<geometry> objects);
+geometry const *hitBVH(ray const&, double &);

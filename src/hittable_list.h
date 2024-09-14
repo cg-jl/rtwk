@@ -21,11 +21,6 @@
 struct hittable_list {
     std::vector<lightInfo> objects;
     std::vector<geometry> selectGeoms;
-    // TODO: make BVH tree not own their spans.
-    // This way we can force more objects to be in the same array vector.
-    // We could also have two different vector<hittable*>: One for 'lone'
-    // objects and one for the ones in trees.
-    std::vector<bvh_tree> trees;
     std::vector<constant_medium> cms{};
     std::vector<color> cmAlbedos{};
 

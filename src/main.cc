@@ -26,8 +26,9 @@
 #include "timer.h"
 #include "transforms.h"
 
-// @bug There is some UB lurking around in the code because the release version produces
-// artifacts on the top left of the image, but the debug version doesn't.
+// @bug There is some UB lurking around in the code because the release version
+// produces artifacts on the top left of the image, but the debug version
+// doesn't.
 
 void bouncing_spheres() {
     hittable_list world;
@@ -83,9 +84,7 @@ void bouncing_spheres() {
     world.add(lightInfo(material3, color3), sphere(point3(4, 1, 0), 1.0));
 
     hittable_list bvhd_world;
-    bvhd_world.trees.emplace_back(world.selectGeoms);
-    // Make sure we retain the hittable data from the trees.
-    bvhd_world.objects = std::move(world.objects);
+    registerBVH(world.selectGeoms);
 
     auto bgcolor = color(0.70, 0.80, 1.00);
 
@@ -422,7 +421,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         world.objects.emplace_back(detail::lambertian, &ground_col);
     }
 
-    world.trees.emplace_back(boxes1);
+    registerBVH(boxes1);
 
     auto light = detail::diffuse_light;
     auto light_tint = texture::solid(color(7, 7, 7));
@@ -477,7 +476,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         }
         world.objects.emplace_back(lightInfo{detail::lambertian, &white});
     }
-    world.trees.emplace_back(boxes2);
+    registerBVH(boxes2);
 
     delete build_timer;
 
