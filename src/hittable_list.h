@@ -19,13 +19,16 @@
 #include "hittable.h"
 
 struct hittable_list {
+    bvh::tree_builder treebld;
     std::vector<lightInfo> objects;
     std::vector<geometry> selectGeoms;
     std::vector<constant_medium> cms{};
     std::vector<color> cmAlbedos{};
 
     hittable_list() {}
-    hittable_list(lightInfo object, geometry geom) { add(object, std::move(geom)); }
+    hittable_list(lightInfo object, geometry geom) {
+        add(object, std::move(geom));
+    }
 
     void clear() { objects.clear(); }
 

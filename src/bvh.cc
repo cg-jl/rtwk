@@ -9,25 +9,6 @@
 
 namespace bvh {
 
-// the node layout is <parent> <left> ... <right> ...
-// (pre-order). This allows us to traverse the tree as if it were an array,
-// skipping forwards to the end of a subtree when required.
-
-// @perf the data structuers here need a bit of checking latencies.
-// separating AABBs is definitely the right move, but separating bvh_node to be
-// just a range and storing the ends elsewhere, when we know the node end index
-// for a leaf node, is kind of a @waste. We still have to make the memory hit in
-// any of the branches, so we may as well fetch the 8 bytes early.
-
-struct bvh_node {
-    int objectIndex;  // if == -1, then the node is a parent and we should not
-                      // use this struct. otherwise, this is the range for the
-                      // objects that the leaf node represents.
-    int objectCount;
-};
-
-static std::vector<int> node_ends;
-
 // @perf currently bounding boxes occupy a cacheline each (48 bytes). Aligning
 // them to 32 bytes means they will occupy an entire cacheline, wanted or not.
 // We want the pointers to be aligned to 32 bytes as well, so might need to use
@@ -36,20 +17,15 @@ static std::vector<int> node_ends;
 // TODO: @perf std::vector uses `new`, which aligns the pointer to the required
 // aligment, according to <https://stackoverflow.com/a/3658666>.
 
-static std::vector<aabb> boxes;
-static std::vector<bvh_node> nodes;
-static int addNode(aabb box, bvh_node node) {
-    boxes.emplace_back(std::forward<aabb &&>(box));
-    nodes.emplace_back(node);
-    node_ends.emplace_back(nodes.size());
-    return int(nodes.size() - 1);
+static int addNode(tree_builder &bld, aabb box, bvh_node node) {
+    bld.boxes.emplace_back(std::forward<aabb &&>(box));
+    bld.nodes.emplace_back(node);
+    bld.node_ends.emplace_back(bld.nodes.size());
+    return int(bld.nodes.size() - 1);
 }
 
-static int maxDepth = 0;
-
-[[clang::noinline]] static int buildBVHNode(geometry *objects, int start,
+[[clang::noinline]] static int buildBVHNode(tree_builder &bld, int start,
                                             int end, int depth = 0) {
-    maxDepth = std::max(depth, maxDepth);
     static constexpr int minObjectsInTree = 6;
     static_assert(minObjectsInTree > 1,
                   "Min objects in tree must be at least 2, otherwise it will "
@@ -59,11 +35,11 @@ static int maxDepth = 0;
     // Build the bounding box of the span of source objects.
     aabb bbox = empty_aabb;
     for (int i = start; i < end; ++i)
-        bbox = aabb(bbox, objects[i].bounding_box());
+        bbox = aabb(bbox, bld.geoms[i].bounding_box());
     auto object_span = end - start;
 
     if (object_span == 1) {
-        return addNode(std::move(bbox), bvh_node{start, 1});
+        return addNode(bld, std::move(bbox), bvh_node{start, 1});
     }
 
     int axis = bbox.longest_axis();
@@ -72,49 +48,48 @@ static int maxDepth = 0;
     auto partitionPoint = bbox.axis_interval(axis).midPoint();
 
     auto it = std::partition(
-        objects + start, objects + end,
+        bld.geoms.data() + start, bld.geoms.data() + end,
         [axis, partitionPoint](geometry const &a) {
             auto a_axis_interval = a.bounding_box().axis_interval(axis);
             return a_axis_interval.midPoint() <= partitionPoint;
         });
 
-    auto midIndex = std::distance(objects, it);
+    auto midIndex = std::distance(bld.geoms.data(), it);
     if (midIndex == start || midIndex == end) {
         // cannot split these objects
-        return addNode(std::move(bbox), bvh_node{start, (end - start)});
+        return addNode(bld, std::move(bbox), bvh_node{start, (end - start)});
     }
 
-    auto parent = addNode(std::move(bbox), bvh_node{-1, 0});
+    auto parent = addNode(bld, std::move(bbox), bvh_node{-1, 0});
 
-    buildBVHNode(objects, start, midIndex, depth + 1);
-    buildBVHNode(objects, midIndex, end, depth + 1);
+    buildBVHNode(bld, start, midIndex, depth + 1);
+    buildBVHNode(bld, midIndex, end, depth + 1);
 
-    nodes[parent].objectIndex = -1;
-    node_ends[parent] = nodes.size();
+    bld.nodes[parent].objectIndex = -1;
+    bld.node_ends[parent] = bld.nodes.size();
 
     return parent;
 }
 
-static geometry const *hitTree(ray const &r, double &closestHit,
-                               geometry const *objects) {
+static geometry const *hitTree(tree t, ray const &r, double &closestHit) {
     geometry const *result = nullptr;
 
     // test all relevant nodes against the ray.
 
-    auto tree_end = node_ends.size();
+    auto tree_end = t.boxes.size();
     int node_index = 0;
     while (node_index < tree_end) {
         interval i{minRayDist, closestHit};
-        if (!boxes[node_index].traverse(r, i)) {
-            node_index = node_ends[node_index];
+        if (!t.boxes[node_index].traverse(r, i)) {
+            node_index = t.node_ends[node_index];
             continue;
         }
 
-        auto const n = nodes[node_index];
+        auto const n = t.nodes[node_index];
 
         if (n.objectIndex != -1) {
             auto span =
-                std::span{objects + n.objectIndex, size_t(n.objectCount)};
+                std::span{t.geoms + n.objectIndex, size_t(n.objectCount)};
             auto hit = hitSpan(span, r, closestHit);
             result = hit ?: result;
         }
@@ -140,15 +115,15 @@ static geometry const *hitTree(ray const &r, double &closestHit,
 
 // TODO: mave static BVH info to hittable_list.
 
-static std::vector<geometry> bvh_geoms;
-void registerBVH(std::span<geometry> objects) {
-    auto start = bvh_geoms.size();
-    bvh_geoms.append_range(objects);
-    bvh::buildBVHNode(bvh_geoms.data(), start, bvh_geoms.size());
+void bvh::tree_builder::registerBVH(std::span<geometry> objects) {
+    auto start = geoms.size();
+    geoms.append_range(objects);
+    bvh::buildBVHNode(*this, start, geoms.size());
 }
 
-geometry const *hitBVH(ray const &r, double &closestHit) {
+geometry const *bvh::tree::hitBVH(ray const &r,
+                                  double &closestHit) const noexcept {
     // deactivate this zone for now.
     ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
-    return bvh::hitTree(r, closestHit, bvh_geoms.data());
+    return bvh::hitTree(*this, r, closestHit);
 }

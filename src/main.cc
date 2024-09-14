@@ -84,7 +84,7 @@ void bouncing_spheres() {
     world.add(lightInfo(material3, color3), sphere(point3(4, 1, 0), 1.0));
 
     hittable_list bvhd_world;
-    registerBVH(world.selectGeoms);
+    bvhd_world.treebld.registerBVH(world.selectGeoms);
 
     auto bgcolor = color(0.70, 0.80, 1.00);
 
@@ -421,7 +421,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         world.objects.emplace_back(detail::lambertian, &ground_col);
     }
 
-    registerBVH(boxes1);
+    world.treebld.registerBVH(boxes1);
 
     auto light = detail::diffuse_light;
     auto light_tint = texture::solid(color(7, 7, 7));
@@ -476,7 +476,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
         }
         world.objects.emplace_back(lightInfo{detail::lambertian, &white});
     }
-    registerBVH(boxes2);
+    world.treebld.registerBVH(boxes2);
 
     delete build_timer;
 

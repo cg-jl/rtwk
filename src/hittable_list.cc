@@ -22,7 +22,7 @@ geometry const *hittable_list::hitSelect(ray const &r,
 
     {
         ZoneNamedN(_tracy, "hit trees", filters::hit);
-        best = hitBVH(r, *closestHit);
+        best = bvh::tree(treebld).hitBVH(r, *closestHit);
     }
 
     {
