@@ -79,8 +79,7 @@ static geometry const *hitTree(tree t, ray const &r, double &closestHit) {
     auto tree_end = t.boxes.size();
     int node_index = 0;
     while (node_index < tree_end) {
-        interval i{minRayDist, closestHit};
-        if (!t.boxes[node_index].traverse(r, i)) {
+        if (!t.boxes[node_index].hit(r, interval{minRayDist, closestHit})) {
             node_index = t.node_ends[node_index];
             continue;
         }
@@ -112,8 +111,6 @@ static geometry const *hitTree(tree t, ray const &r, double &closestHit) {
 }
 
 }  // namespace bvh
-
-// TODO: mave static BVH info to hittable_list.
 
 void bvh::tree_builder::registerBVH(std::span<geometry> objects) {
     auto start = geoms.size();
