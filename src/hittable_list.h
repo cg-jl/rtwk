@@ -34,6 +34,7 @@ struct hittable_list {
 
     // Links the geomery with the lighting information.
     void add(lightInfo object, geometry geom);
+    void addTree(lightInfo object, geometry geom);
     void add(constant_medium medium, color albedo);
 
     geometry const *hitSelect(ray const &r, double *closestHit) const;

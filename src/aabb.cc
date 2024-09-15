@@ -3,6 +3,7 @@
 #include <immintrin.h>
 #include <x86intrin.h>
 
+#include <bit>
 #include <tracy/Tracy.hpp>
 
 #include "trace_colors.h"
@@ -24,6 +25,7 @@ bool aabb::traverse(ray const &r, interval &ray_t) const {
     auto mins = (__m256d)_mm256_stream_load_si256((double *)&min.e);
     auto maxes = (__m256d)_mm256_stream_load_si256((double *)&max.e);
 
+    // <garbo> <tx[2]> <tx[1]> <tx[0]> (register order)
     auto t0s = (mins - origs) / adinvs;
     auto t1s = (maxes - origs) / adinvs;
 
@@ -31,7 +33,7 @@ bool aabb::traverse(ray const &r, interval &ray_t) const {
     auto tmaxs = _mm256_max_pd(t0s, t1s);
 
     // NOTE: @perf The compiler seems to be generating smarter code than I am
-    // for this last comparison loop step.
+    // for this last comparison loop step (minsd, maxsd three times :P).
 
     for (int axis = 0; axis < 3; ++axis) {
         auto t0 = ((double *)&tmins)[axis];

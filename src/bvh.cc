@@ -74,6 +74,10 @@ static int addNode(tree_builder &bld, aabb box, bvh_node node) {
 static geometry const *hitTree(tree t, ray const &r, double &closestHit) {
     geometry const *result = nullptr;
 
+    // @perf This has a 'self time' of ~50%. Can I reduce it?
+    // Median sample has ~300ns of latency, presumably due to memory fetches.
+    // Perhaps inlining (or hinting) hitSpan is the answer?
+
     // test all relevant nodes against the ray.
 
     auto tree_end = t.boxes.size();
@@ -112,9 +116,7 @@ static geometry const *hitTree(tree t, ray const &r, double &closestHit) {
 
 }  // namespace bvh
 
-void bvh::tree_builder::registerBVH(std::span<geometry> objects) {
-    auto start = geoms.size();
-    geoms.append_range(objects);
+void bvh::tree_builder::finish(size_t start) noexcept {
     bvh::buildBVHNode(*this, start, geoms.size());
 }
 

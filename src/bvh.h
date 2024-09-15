@@ -40,10 +40,8 @@ struct tree_builder {
     std::vector<bvh_node> nodes;
     std::vector<geometry> geoms;
 
-    // @perf I could remove the overhead from copying the objects if I just add
-    // into the geoms vec directly, with start() and end() or something where a
-    // call to end() executes the register
-    void registerBVH(std::span<geometry> objects);
+    constexpr size_t start() const { return geoms.size(); }
+    void finish(size_t start) noexcept;
 };
 struct tree {
     std::span<aabb const> boxes;

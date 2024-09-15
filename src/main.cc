@@ -39,6 +39,8 @@ void bouncing_spheres() {
     world.add(lightInfo(detail::lambertian, checker),
               sphere(point3(0, -1000, 0), 1000));
 
+    auto spheres = world.treebld.start();
+
     for (int a = -11; a < 11; a++) {
         for (int b = -11; b < 11; b++) {
             auto choose_mat = random_double();
@@ -52,20 +54,20 @@ void bouncing_spheres() {
                         leak(texture::solid(random_vec() * random_vec()));
                     auto sphere_material = detail::lambertian;
                     auto center2 = center + vec3(0, random_double(0, .5), 0);
-                    world.add(lightInfo(detail::lambertian, albedo),
-                              sphere(center, center2, 0.2));
+                    world.addTree(lightInfo(detail::lambertian, albedo),
+                                  sphere(center, center2, 0.2));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = leak(texture::solid(random_vec(0.5, 1)));
                     auto fuzz = random_double(0, 0.5);
                     auto sphere_material = (material::metal(fuzz));
-                    world.add(lightInfo(sphere_material, albedo),
-                              sphere(center, 0.2));
+                    world.addTree(lightInfo(sphere_material, albedo),
+                                  sphere(center, 0.2));
                 } else {
                     // glass
                     auto sphere_material = (material::dielectric(1.5));
-                    world.add(lightInfo(sphere_material, &detail::white),
-                              sphere(center, 0.2));
+                    world.addTree(lightInfo(sphere_material, &detail::white),
+                                  sphere(center, 0.2));
                 }
             }
         }
@@ -83,8 +85,7 @@ void bouncing_spheres() {
     auto material3 = (material::metal(0.0));
     world.add(lightInfo(material3, color3), sphere(point3(4, 1, 0), 1.0));
 
-    hittable_list bvhd_world;
-    bvhd_world.treebld.registerBVH(world.selectGeoms);
+    world.treebld.finish(spheres);
 
     auto bgcolor = color(0.70, 0.80, 1.00);
 
@@ -104,10 +105,10 @@ void bouncing_spheres() {
     cam.defocus_angle = 0.6;
     cam.focus_dist = 10.0;
 
-    bvhd_world.add(
+    world.add(
         lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))),
         sphere(cam.lookfrom, 1000));
-    cam.render(bvhd_world);
+    cam.render(world);
 }
 
 void checkered_spheres() {
@@ -391,13 +392,14 @@ void cornell_smoke() {
 
 void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto build_timer = new rtwk::timer("Building scene");
-    std::vector<geometry> boxes1;
     auto lambert = detail::lambertian;
     auto ground_col = texture::solid(color(0.48, 0.83, 0.53));
+    hittable_list world;
 
     // NOTE: @waste could link all of these to the same light info.
     int boxes_per_side = 20;
-    boxes1.reserve(boxes_per_side * boxes_per_side);
+    auto boxes1 = world.treebld.start();
+    world.treebld.geoms.reserve(boxes1 + boxes_per_side * boxes_per_side);
     for (int i = 0; i < boxes_per_side; i++) {
         for (int j = 0; j < boxes_per_side; j++) {
             auto w = 100.0;
@@ -408,20 +410,20 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto y1 = random_double(1, 101);
             auto z1 = z0 + w;
 
-            boxes1.emplace_back(box(point3(x0, y0, z0), point3(x1, y1, z1)));
+            world.treebld.geoms.emplace_back(
+                box(point3(x0, y0, z0), point3(x1, y1, z1)));
         }
     }
 
-    hittable_list world;
     {
         int link = world.objects.size();
-        for (auto &box : boxes1) {
+        for (auto &box : std::span{world.treebld.geoms}.subspan(boxes1)) {
             box.relIndex = link;
         }
         world.objects.emplace_back(detail::lambertian, &ground_col);
     }
 
-    world.treebld.registerBVH(boxes1);
+    world.treebld.finish(boxes1);
 
     auto light = detail::diffuse_light;
     auto light_tint = texture::solid(color(7, 7, 7));
@@ -455,8 +457,8 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     auto white = texture::solid(color(.73, .73, .73));
     int ns = 1000;
-    std::vector<geometry> boxes2;
-    boxes2.reserve(ns);
+    auto boxes2 = world.treebld.start();
+    world.treebld.geoms.reserve(boxes2 + ns);
     for (int j = 0; j < ns; j++) {
         geometry s = geometry(sphere(random_vec(0, 165), 10));
         s = transformed{
@@ -465,18 +467,18 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             transform(15, vec3(-100, 270, 395)),
         };
 
-        boxes2.emplace_back(s);
+        world.treebld.geoms.emplace_back(s);
     }
 
     {
         // Link all of them to the same tex.
         int link = world.objects.size();
-        for (auto &sph : boxes2) {
+        for (auto &sph : std::span{world.treebld.geoms}.subspan(boxes2)) {
             sph.relIndex = link;
         }
         world.objects.emplace_back(lightInfo{detail::lambertian, &white});
     }
-    world.treebld.registerBVH(boxes2);
+    world.treebld.finish(boxes2);
 
     delete build_timer;
 

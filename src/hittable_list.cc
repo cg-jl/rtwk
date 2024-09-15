@@ -39,6 +39,11 @@ void hittable_list::add(lightInfo object, geometry geom) {
     selectGeoms.emplace_back(geom);
     objects.emplace_back(object);
 }
+void hittable_list::addTree(lightInfo object, geometry geom) {
+    geom.relIndex = objects.size();  // Make sure we link the texture/mat data.
+    treebld.geoms.emplace_back(geom);
+    objects.emplace_back(object);
+}
 
 void hittable_list::add(constant_medium medium, color albedo) {
     cms.emplace_back(medium);
