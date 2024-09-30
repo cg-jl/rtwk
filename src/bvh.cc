@@ -71,7 +71,16 @@ static int addNode(tree_builder &bld, aabb box, bvh_node node) {
     return parent;
 }
 
-static geometry const *hitTree(tree t, ray const &r, double &closestHit) {
+}  // namespace bvh
+
+void bvh::tree_builder::finish(size_t start) noexcept {
+    bvh::buildBVHNode(*this, start, geoms.size());
+}
+
+geometry const *bvh::tree::hitBVH(ray const &r,
+                                  double &closestHit) const noexcept {
+    // deactivate this zone for now.
+    ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
     geometry const *result = nullptr;
 
     // @perf This has a 'self time' of ~50%. Can I reduce it?
@@ -80,19 +89,18 @@ static geometry const *hitTree(tree t, ray const &r, double &closestHit) {
 
     // test all relevant nodes against the ray.
 
-    auto tree_end = t.boxes.size();
+    auto tree_end = boxes.size();
     int node_index = 0;
     while (node_index < tree_end) {
-        if (!t.boxes[node_index].hit(r, interval{minRayDist, closestHit})) {
-            node_index = t.node_ends[node_index];
+        if (!boxes[node_index].hit(r, interval{minRayDist, closestHit})) {
+            node_index = node_ends[node_index];
             continue;
         }
 
-        auto const n = t.nodes[node_index];
+        auto const n = nodes[node_index];
 
         if (n.objectIndex != -1) {
-            auto span =
-                std::span{t.geoms + n.objectIndex, size_t(n.objectCount)};
+            auto span = std::span{geoms + n.objectIndex, size_t(n.objectCount)};
             auto hit = hitSpan(span, r, closestHit);
             result = hit ?: result;
         }
@@ -112,17 +120,4 @@ static geometry const *hitTree(tree t, ray const &r, double &closestHit) {
     }
 
     return result;
-}
-
-}  // namespace bvh
-
-void bvh::tree_builder::finish(size_t start) noexcept {
-    bvh::buildBVHNode(*this, start, geoms.size());
-}
-
-geometry const *bvh::tree::hitBVH(ray const &r,
-                                  double &closestHit) const noexcept {
-    // deactivate this zone for now.
-    ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
-    return bvh::hitTree(*this, r, closestHit);
 }
