@@ -33,7 +33,7 @@ struct sphere final {
 
     bool hit(ray const &r, double &closestHit) const;
     bool traverse(ray const &r, interval &intersect) const;
-    void getUVs(uvs &uv, point3 p, double time) const;
+    static uvs getUVs(vec3 normal);
 
     vec3 getNormal(point3 const &intersection, double time) const;
 

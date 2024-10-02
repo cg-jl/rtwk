@@ -5,7 +5,11 @@
 #include "hittable.h"
 #include "trace_colors.h"
 
-void quad::getUVs(uvs &uv, point3 intersection, double _time) const {
+uvs quad::getUVs(point3 intersection) const {
+
+	// I know normal, u, v make an orthonormal basis
+    // I have to make a base change, from [x y z] to [n u v], then extract the u and the v
+
     vec3 pq = intersection - Q;
     auto v_squared = v.length_squared();
     auto u_squared = u.length_squared();
@@ -14,8 +18,10 @@ void quad::getUVs(uvs &uv, point3 intersection, double _time) const {
     auto dot_uq = dot(u, pq);
     auto dot_vq = dot(v, pq);
     // (a×b)⋅(c×d) = (a⋅c)(b⋅d) - (a⋅d)(b⋅c)
+    uvs uv;
     uv.u = (dot_uq * v_squared - dot_uv * dot_vq) / cross_uv_lensq;
     uv.v = (u_squared * dot_vq - dot_uq * dot_uv) / cross_uv_lensq;
+    return uv;
 }
 
 static bool is_interior(double a, double b) {
@@ -43,9 +49,8 @@ bool quad::hit(ray const &r, double &closestHit) const {
     // Determine the hit point lies within the planar shape using its plane
     // coordinates.
     auto intersection = r.at(t);
-    uvs uv;
     // NOTE: time argument is not needed.
-    getUVs(uv, intersection, 0);
+    auto uv = getUVs(intersection);
 
     if (!is_interior(uv.u, uv.v)) return false;
 

@@ -76,7 +76,7 @@ bool box::traverse(ray const &r, interval &intersect) const {
     return bbox.traverse(r, intersect);
 }
 
-void box::getUVs(uvs &uv, point3 intersection, double _time) const {
+uvs box::getUVs( point3 intersection) const {
     // search for the "box" that borders the point interval, since we know that
     // the point is already within the bounds of the box.
     for (int axis = 0; axis < 3; ++axis) {
@@ -97,9 +97,10 @@ void box::getUVs(uvs &uv, point3 intersection, double _time) const {
         }
         auto inv_u_mag = 1 / uintv.size();
         auto inv_v_mag = 1 / vintv.size();
+        uvs uv;
         uv.u = inv_u_mag * (intersection[uaxis] - uintv.min);
         uv.v = -inv_v_mag * (intersection[vaxis] - beta_distance);
-        return;
+        return uv;
     }
     std::unreachable();
 }

@@ -62,16 +62,24 @@ struct geometry {
         }
     }
 
-    void getUVs(uvs &uv, point3 intersection, double time) const {
+    // Calculates the UVs given an intersection and a normal.  They are passed
+    // as restrict references because we want to maintain their uniqueness
+    // semantics, but we know only one of them is going to be accessed.
+    uvs getUVs(point3 const &__restrict__ intersection,
+               point3 const &__restrict__ normal) const {
+        geometry const *g = this;
+        while (kind == kind::transform) [[unlikely]] {
+            g = g->data.transform.object;
+        }
         switch (kind) {
             case kind::transform:
-                return data.transform.getUVs(uv, intersection, time);
+                std::unreachable();
             case kind::box:
-                return data.box.getUVs(uv, intersection, time);
+                return g->data.box.getUVs(intersection);
             case kind::sphere:
-                return data.sphere.getUVs(uv, intersection, time);
+                return sphere::getUVs(normal);
             case kind::quad:
-                return data.quad.getUVs(uv, intersection, time);
+                return g->data.quad.getUVs(intersection);
         }
     }
 

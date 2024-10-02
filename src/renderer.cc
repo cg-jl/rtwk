@@ -201,7 +201,7 @@ static color geometrySim(color const &background, ray r, int depth,
         {
             ZoneScopedN("getUVs");
             ZoneColor(tracy::Color::SteelBlue);
-            res->getUVs(uv, p, r.time);
+            uv = res->getUVs(p, normal);
         }
 
         vec3 scattered;

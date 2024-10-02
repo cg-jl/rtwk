@@ -10,7 +10,7 @@ struct box final {
 
     box(point3 a, point3 b) : bbox(a, b) {}
 
-    void getUVs(uvs &uv, point3 intersection, double _time) const;
+    uvs getUVs(point3 intersection) const;
 
     vec3 getNormal(point3 const &intersection, double time) const;
 

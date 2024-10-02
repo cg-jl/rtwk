@@ -70,22 +70,20 @@ bool sphere::traverse(ray const &r, interval &intersect) const {
     return true;
 }
 
-// p: a given point on the sphere of radius one, centered at the origin.
+// normal: Surface normal at the hit point.
 // u: returned value [0,1] of angle around the Y axis from X=-1.
 // v: returned value [0,1] of angle from Y=-1 to Y=+1.
 //     <1 0 0> yields <0.50 0.50>       <-1  0  0> yields <0.00 0.50>
 //     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
 //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
-void sphere::getUVs(uvs &uv, point3 p, double time) const {
-    auto center = sphere_center(*this, time);
-
-    auto normal = (p - center) / radius;
-
+uvs sphere::getUVs(vec3 normal) {
     auto theta = std::acos(-normal.y());
     auto phi = std::atan2(-normal.z(), normal.x()) + pi;
 
+	uvs uv;
     uv.u = phi / (2 * pi);
     uv.v = theta / pi;
+	return uv;
 }
 
 aabb sphere::bounding_box() const {
