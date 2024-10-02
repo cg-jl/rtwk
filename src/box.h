@@ -12,7 +12,7 @@ struct box final {
 
     uvs getUVs(point3 intersection) const;
 
-    vec3 getNormal(point3 const &intersection, double time) const;
+    vec3 getNormal(point3 intersection) const;
 
     bool hit(ray const &r, double &closestHit) const;
     bool traverse(ray const &r, interval &intesect) const;

@@ -105,7 +105,7 @@ uvs box::getUVs( point3 intersection) const {
     std::unreachable();
 }
 
-vec3 box::getNormal(point3 const &intersection, double _time) const {
+vec3 box::getNormal(point3 const intersection) const {
     for (int axis = 0; axis < 3; ++axis) {
         if (bbox.axis_interval(axis).atBorder(intersection[axis])) {
             vec3 n(0, 0, 0);

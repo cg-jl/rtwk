@@ -35,7 +35,7 @@ struct sphere final {
     bool traverse(ray const &r, interval &intersect) const;
     static uvs getUVs(vec3 normal);
 
-    vec3 getNormal(point3 const &intersection, double time) const;
+    vec3 getNormal(point3 const intersection, double time) const;
 
     aabb bounding_box() const;
 

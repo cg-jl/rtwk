@@ -26,7 +26,7 @@ struct quad {
     bool traverse(ray const &r, interval &intesect) const;
 
     uvs getUVs(point3 intersection) const;
-    vec3 getNormal(point3 const &intersection, double time) const;
+    vec3 getNormal() const;
 
     point3 Q;
     vec3 u, v;

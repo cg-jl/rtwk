@@ -94,6 +94,6 @@ aabb sphere::bounding_box() const {
     return aabb(box1, box2);
 }
 
-vec3 sphere::getNormal(point3 const &intersection, double time) const {
+vec3 sphere::getNormal(point3 const intersection, double time) const {
     return (intersection - sphere_center(*this, time)) / radius;
 }

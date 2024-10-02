@@ -90,11 +90,11 @@ struct geometry {
             case kind::transform:
                 return data.transform.getNormal(intersection, time);
             case kind::box:
-                return data.box.getNormal(intersection, time);
+                return data.box.getNormal(intersection);
             case kind::sphere:
                 return data.sphere.getNormal(intersection, time);
             case kind::quad:
-                return data.quad.getNormal(intersection, time);
+                return data.quad.getNormal();
         }
     };
 

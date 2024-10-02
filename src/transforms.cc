@@ -89,7 +89,7 @@ bool transformed::traverse(ray const &r, interval &intersect) const {
     return object->traverse(tfr, intersect);
 }
 
-vec3 transformed::getNormal(point3 const &intersection, double time) const {
+vec3 transformed::getNormal(point3 const& intersection, double time) const {
     // NOTE: Since `hit` transforms into the transformed space, we have to get
     // back to the local space.
     point3 p = intersection;

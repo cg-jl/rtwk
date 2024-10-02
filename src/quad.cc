@@ -61,7 +61,7 @@ bool quad::hit(ray const &r, double &closestHit) const {
     return true;
 }
 
-vec3 quad::getNormal(point3 const &_intersection, double _time) const {
+vec3 quad::getNormal() const {
     return unit_vector(cross(u, v));
 }
 
