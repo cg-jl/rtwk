@@ -11,20 +11,13 @@ struct transform final {
     double sin_theta;
     double cos_theta;
 
+    constexpr transform() = default;
+
     transform(double angleDegrees, vec3 offset) noexcept;
-};
 
-struct geometry;
 
-struct transformed {
-    geometry const *object;
-    transform tf;
-
-    transformed(geometry const *object, transform tf);
-
-    bool hit(ray const &r, double &closestHit) const;
-    bool traverse(ray const &r, interval &intesect) const;
-
-    vec3 getNormal(point3 const &intersection, double time) const;
-    aabb bounding_box() const;
+    point3 applyInverse(point3 p) const noexcept;
+    point3 applyForward(point3 p) const noexcept;
+    ray applyInverse(ray r) const noexcept;
+    aabb applyForward(aabb) const noexcept;
 };

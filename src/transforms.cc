@@ -27,25 +27,21 @@ static point3 applyForward(point3 local, double sin_theta, double cos_theta) {
 
 }  // namespace rotateY
 
-static void transformRayOpposite(transform const &tf, ray &r) noexcept {
-    // translate back
-    r.orig = r.orig - tf.offset;
-    // rotate back
-    r.orig = rotateY::applyInverse(r.orig, tf.sin_theta, tf.cos_theta);
-    r.dir = rotateY::applyInverse(r.dir, tf.sin_theta, tf.cos_theta);
+// @perf could make these available in the header file :]
+
+point3 transform::applyForward(point3 p) const noexcept {
+    p = rotateY::applyForward(p, sin_theta, cos_theta);
+    p += offset;
+    return p;
 }
 
-static void transformPoint(transform const &tf, point3 &point) noexcept {
-    point = rotateY::applyForward(point, tf.sin_theta, tf.cos_theta);
-    point += tf.offset;
+point3 transform::applyInverse(point3 p) const noexcept {
+    p = p - offset;
+    p = rotateY::applyInverse(p, sin_theta, cos_theta);
+    return p;
 }
 
-transformed::transformed(geometry const *object, transform tf)
-    : object(object), tf(tf) {}
-
-aabb transformed::bounding_box() const {
-    aabb bbox = object->bounding_box();
-
+aabb transform::applyForward(aabb bbox) const noexcept {
     point3 min(infinity, infinity, infinity);
     point3 max(-infinity, -infinity, -infinity);
 
@@ -59,9 +55,7 @@ aabb transformed::bounding_box() const {
              point3{bbox.max.x(), bbox.max.y(), bbox.max.z()},
              point3{bbox.max.x(), bbox.max.y(), bbox.min.z()},
          }) {
-        auto tester = p;
-
-        transformPoint(tf, tester);
+        auto tester = applyForward(p);
 
         for (int c = 0; c < 3; c++) {
             min[c] = fmin(min[c], tester[c]);
@@ -72,35 +66,16 @@ aabb transformed::bounding_box() const {
     return aabb(min, max);
 }
 
-bool transformed::hit(ray const &r, double &closestHit) const {
-    ZoneNamedN(_tracy, "transformed hit", filters::hit);
-    ray tfr{r};
-    transformRayOpposite(tf, tfr);
-
-    return object->hit(tfr, closestHit);
+ray transform::applyInverse(ray r) const noexcept {
+    // translate back
+    r.orig = r.orig - offset;
+    // rotate back
+    r.orig = rotateY::applyInverse(r.orig, sin_theta, cos_theta);
+    r.dir = rotateY::applyInverse(r.dir, sin_theta, cos_theta);
+    return r;
 }
 
-bool transformed::traverse(ray const &r, interval &intersect) const {
-    // NOTE: @cutnpaste from transformed::hit
-    ZoneNamedNC(_tracy, "transformed traverse", Ctp::Mantle, filters::hit);
-    ray tfr{r};
-    transformRayOpposite(tf, tfr);
 
-    return object->traverse(tfr, intersect);
-}
-
-vec3 transformed::getNormal(point3 const& intersection, double time) const {
-    // NOTE: Since `hit` transforms into the transformed space, we have to get
-    // back to the local space.
-    point3 p = intersection;
-    p = p - tf.offset;
-    p = rotateY::applyInverse(p, tf.sin_theta, tf.cos_theta);
-
-    auto normal = object->getNormal(p, time);
-
-    p = rotateY::applyForward(p, tf.sin_theta, tf.cos_theta);
-    return normal;
-}
 transform::transform(double angleDegrees, vec3 offset) noexcept
     : offset(offset) {
     auto angleRad = degrees_to_radians(angleDegrees);

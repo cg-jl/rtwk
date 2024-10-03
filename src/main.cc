@@ -10,6 +10,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <cassert>
 #include <print>
 
 #include "box.h"
@@ -25,6 +26,18 @@
 #include "texture.h"
 #include "timer.h"
 #include "transforms.h"
+
+template <typename T>
+std::span<T const> make_single_span(T value) {
+    auto ptr = new T(std::move(value));
+    return {ptr, 1};
+}
+
+geometry transformed(geometry g, transform tf) {
+    assert(g.tfs.empty());
+    g.tfs = make_single_span(tf);
+    return g;
+}
 
 // @bug There is some UB lurking around in the code because the release version
 // produces artifacts on the top left of the image, but the debug version
@@ -306,15 +319,14 @@ void cornell_box() {
     world.add(lightInfo(lambert, &white),
               quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)));
 
-    world.add(
-        lightInfo(lambert, &white),
+    world.add(lightInfo(lambert, &white),
+              transformed(box(point3(0, 0, 0), point3(165, 330, 165)),
 
-        transformed(new geometry(box(point3(0, 0, 0), point3(165, 330, 165))),
-                    transform(15, vec3(265, 0, 295))));
+                          transform(15, vec3(265, 0, 295))));
 
     {
         geometry b = geometry(box(point3(0, 0, 0), point3(165, 165, 165)));
-        b = transformed(leak(b), transform(-18, vec3(130, 0, 65)));
+        b = transformed(b, transform(-18, vec3(130, 0, 65)));
         world.add(lightInfo(lambert, &white), b);
     }
 
@@ -362,13 +374,13 @@ void cornell_smoke() {
 
     {
         geometry b = geometry(box(point3(0, 0, 0), point3(165, 330, 165)));
-        b = transformed(leak(b), transform(15, vec3(265, 0, 295)));
+        b = transformed(b, transform(15, vec3(265, 0, 295)));
         world.add(constant_medium(leak(b), 0.01), color(0, 0, 0));
     }
 
     {
         geometry b = geometry(box(point3(0, 0, 0), point3(165, 165, 165)));
-        b = transformed(leak(b), transform(-18, vec3(130, 0, 65)));
+        b = transformed(b, transform(-18, vec3(130, 0, 65)));
         world.add(constant_medium(leak(b), 0.01), color(1, 1, 1));
     };
 
@@ -461,11 +473,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     world.treebld.geoms.reserve(boxes2 + ns);
     for (int j = 0; j < ns; j++) {
         geometry s = geometry(sphere(random_vec(0, 165), 10));
-        s = transformed{
-            leak(s),
-
-            transform(15, vec3(-100, 270, 395)),
-        };
+        s = transformed(s, transform(15, vec3(-100, 270, 395)));
 
         world.treebld.geoms.emplace_back(s);
     }
