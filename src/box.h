@@ -2,7 +2,6 @@
 
 #include <aabb.h>
 #include <rtweekend.h>
-#include "transforms.h"
 
 struct box final {
     aabb bbox;

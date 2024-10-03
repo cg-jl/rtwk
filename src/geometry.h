@@ -1,7 +1,5 @@
 #pragma once
 
-#include <span>
-
 #include "aabb.h"
 #include "box.h"
 #include "quad.h"

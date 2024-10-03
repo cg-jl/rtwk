@@ -2,7 +2,6 @@
 
 #include <tracy/Tracy.hpp>
 
-#include "hittable.h"
 #include "trace_colors.h"
 
 uvs quad::getUVs(point3 intersection) const {

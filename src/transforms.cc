@@ -3,10 +3,7 @@
 #include <array>
 #include <tracy/Tracy.hpp>
 
-#include "geometry.h"
-#include "interval.h"
 #include "rtweekend.h"
-#include "trace_colors.h"
 
 namespace rotateY {
 

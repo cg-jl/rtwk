@@ -2,8 +2,7 @@
 #include "texture.h"
 
 #include <tracy/Tracy.hpp>
-
-#include "texture_impls.h"
+#include "rtweekend.h"
 
 texture texture::checker(double scale, texture const *even,
                          texture const *odd) {
