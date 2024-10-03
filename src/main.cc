@@ -27,15 +27,9 @@
 #include "timer.h"
 #include "transforms.h"
 
-template <typename T>
-std::span<T const> make_single_span(T value) {
-    auto ptr = new T(std::move(value));
-    return {ptr, 1};
-}
-
 geometry transformed(geometry g, transform tf) {
-    assert(g.tfs.empty());
-    g.tfs = make_single_span(tf);
+    assert(!g.opt_tf);
+    g.opt_tf = new transform(tf);
     return g;
 }
 

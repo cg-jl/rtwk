@@ -25,7 +25,13 @@ struct geometry {
     int relIndex;
     enum class kind : int { box, sphere, quad } kind;
 
-    std::span<transform const> tfs;
+
+    // @perf I cannot make the transform always be valid.
+    // Right now `geometry` occupies 128 bytes (2 cachelines).
+    // Both adding an always valid pointer and inlining the `transform` increases
+    // render time by 20%. The only option is to separate the transform from the geometry
+    // and/or transform the rays in bulk.
+    transform const *opt_tf = nullptr;
     union {
         sphere sphere;
         quad quad;
@@ -51,9 +57,8 @@ struct geometry {
                 break;
         }
 
-        for (size_t i = tfs.size(); i > 0;) {
-            --i;
-            bbox = tfs[i].applyForward(bbox);
+        if (opt_tf) {
+            bbox = opt_tf->applyForward(bbox);
         }
 
         return bbox;
@@ -61,8 +66,8 @@ struct geometry {
 
     // TODO: write the result inconditionally everywhere.
     bool hit(ray r, double &closestHit) const {
-        for (auto const &tf : tfs) {
-            r = tf.applyInverse(r);
+        if (opt_tf) {
+            r = opt_tf->applyInverse(r);
         }
         switch (kind) {
             case kind::box:
@@ -89,13 +94,9 @@ struct geometry {
         }
     }
 
-    // NOTE: intersection is only used by sphere & box, time is only used by
-    // sphere.
     vec3 getNormal(point3 intersection, double time) const {
-        for (auto const &tf : tfs) {
-            // NOTE: Since `hit` transforms into the transformed space, we have
-            // to get back to the local space.
-            intersection = tf.applyInverse(intersection);
+        if (opt_tf) {
+            intersection = opt_tf->applyInverse(intersection);
         }
 
         switch (kind) {
@@ -116,8 +117,8 @@ struct geometry {
     // (distance), not relative to the ray's "speed" on each direction.
     bool traverse(ray r, interval &intersect) const {
 
-        for (auto const &tf : tfs) {
-            r = tf.applyInverse(r);
+        if (opt_tf) {
+            r = opt_tf->applyInverse(r);
         }
 
         switch (kind) {
