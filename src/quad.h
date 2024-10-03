@@ -11,6 +11,7 @@
 
 #include <aabb.h>
 #include <vec3.h>
+#include "transforms.h"
 
 struct quad {
     constexpr quad(point3 Q, vec3 u, vec3 v) : Q(Q), u(u), v(v) {}
@@ -27,6 +28,8 @@ struct quad {
 
     uvs getUVs(point3 intersection) const;
     vec3 getNormal() const;
+
+    static quad applyTransform(quad q, transform tf) noexcept;
 
     point3 Q;
     vec3 u, v;

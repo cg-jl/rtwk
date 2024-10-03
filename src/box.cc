@@ -33,6 +33,7 @@ static bool hit_side(point3 const &min, point3 const &max, int ax_i,
     }
 
     auto t = (D - orig) / dir;
+    closestHit = t;
 
     // Determine the hit point lies within the planar shape
     // using its plane coordinates.
@@ -43,7 +44,6 @@ static bool hit_side(point3 const &min, point3 const &max, int ax_i,
 
     if ((alpha < 0) || (1 < alpha) || (beta < 0) || (1 < beta)) return false;
 
-    closestHit = t;
     return true;
 }
 

@@ -25,13 +25,6 @@ struct geometry {
     int relIndex;
     enum class kind : int { box, sphere, quad } kind;
 
-
-    // @perf I cannot make the transform always be valid.
-    // Right now `geometry` occupies 128 bytes (2 cachelines).
-    // Both adding an always valid pointer and inlining the `transform` increases
-    // render time by 20%. The only option is to separate the transform from the geometry
-    // and/or transform the rays in bulk.
-    transform const *opt_tf = nullptr;
     union {
         sphere sphere;
         quad quad;
@@ -42,33 +35,35 @@ struct geometry {
     geometry(quad q) : kind(kind::quad), data{.quad = q} {}
     geometry(box b) : kind(kind::box), data{.box = b} {}
 
-    aabb bounding_box() const {
-        aabb bbox;
-
+    void applyTransform(transform tf) {
         switch (kind) {
-            case kind::box:
-                bbox = data.box.bounding_box();
+            case kind::sphere:
+                data.sphere = sphere::applyTransform(data.sphere, tf);
                 break;
             case kind::quad:
-                bbox = data.quad.bounding_box();
+                data.quad = quad::applyTransform(data.quad, tf);
                 break;
+            case kind::box:
+                data.box.bbox = tf.applyForward(data.box.bbox);
+                break;
+        }
+    }
+
+    aabb bounding_box() const {
+        switch (kind) {
+            case kind::box:
+                return data.box.bounding_box();
+            case kind::quad:
+                return data.quad.bounding_box();
             case kind::sphere:
-                bbox = data.sphere.bounding_box();
-                break;
+                return data.sphere.bounding_box();
         }
-
-        if (opt_tf) {
-            bbox = opt_tf->applyForward(bbox);
-        }
-
-        return bbox;
+        std::unreachable();
     }
 
     // TODO: write the result inconditionally everywhere.
     bool hit(ray r, double &closestHit) const {
-        if (opt_tf) {
-            r = opt_tf->applyInverse(r);
-        }
+        // geometry is already transformed, so we can skip and set the actual point.
         switch (kind) {
             case kind::box:
                 return data.box.hit(r, closestHit);
@@ -95,10 +90,6 @@ struct geometry {
     }
 
     vec3 getNormal(point3 intersection, double time) const {
-        if (opt_tf) {
-            intersection = opt_tf->applyInverse(intersection);
-        }
-
         switch (kind) {
             case kind::box:
                 return data.box.getNormal(intersection);
@@ -116,11 +107,6 @@ struct geometry {
     // direction and the origin point. The intersection is geometric based
     // (distance), not relative to the ray's "speed" on each direction.
     bool traverse(ray r, interval &intersect) const {
-
-        if (opt_tf) {
-            r = opt_tf->applyInverse(r);
-        }
-
         switch (kind) {
             case kind::box:
                 return data.box.traverse(r, intersect);

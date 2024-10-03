@@ -28,8 +28,7 @@
 #include "transforms.h"
 
 geometry transformed(geometry g, transform tf) {
-    assert(!g.opt_tf);
-    g.opt_tf = new transform(tf);
+    g.applyTransform(tf);
     return g;
 }
 

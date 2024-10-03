@@ -68,3 +68,12 @@ vec3 quad::getNormal() const {
 // NOTE: @maybe If I end up moving hit to always do both traverses, then this
 // should compute the hit and duplicate it in both fields of `intersect`.
 bool quad::traverse(ray const &r, interval &intersect) const { return false; }
+
+
+quad quad::applyTransform(quad q, transform tf) noexcept {
+    auto oldQ = q.Q;
+    q.Q = tf.applyForward(q.Q);
+    q.u = tf.applyForward(oldQ + q.u) - q.Q;
+    q.v = tf.applyForward(oldQ + q.v) - q.Q;
+    return q;
+}

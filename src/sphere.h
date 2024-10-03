@@ -15,6 +15,7 @@
 #include <interval.h>
 #include <ray.h>
 #include <vec3.h>
+#include "transforms.h"
 
 // TODO: To instantiate spheres, I should separate instantiatable things
 // and add a thread-private 'instantiate' buffer per worker thread where I can
@@ -38,6 +39,8 @@ struct sphere final {
     vec3 getNormal(point3 const intersection, double time) const;
 
     aabb bounding_box() const;
+
+    static sphere applyTransform(sphere a, transform tf) noexcept;
 
     point3 center1;
     double radius;

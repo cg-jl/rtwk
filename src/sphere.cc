@@ -80,10 +80,10 @@ uvs sphere::getUVs(vec3 normal) {
     auto theta = std::acos(-normal.y());
     auto phi = std::atan2(-normal.z(), normal.x()) + pi;
 
-	uvs uv;
+    uvs uv;
     uv.u = phi / (2 * pi);
     uv.v = theta / pi;
-	return uv;
+    return uv;
 }
 
 aabb sphere::bounding_box() const {
@@ -96,4 +96,11 @@ aabb sphere::bounding_box() const {
 
 vec3 sphere::getNormal(point3 const intersection, double time) const {
     return (intersection - sphere_center(*this, time)) / radius;
+}
+
+sphere sphere::applyTransform(sphere a, transform tf) noexcept {
+    auto previous = a.center1;
+    a.center1 = tf.applyForward(a.center1);
+    a.center_vec = tf.applyForward(previous + a.center_vec) - a.center1;
+    return a;
 }
