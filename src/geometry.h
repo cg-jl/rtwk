@@ -111,7 +111,9 @@ struct geometry {
             case kind::sphere:
                 return data.sphere.traverse(r, intersect);
             case kind::quad:
-                return data.quad.traverse(r, intersect);
+                // @waste I could remove a lot of branch mispredictions
+                // if I use a different model for traverse that does not include quad.
+                return false;
         }
     };
 };
