@@ -7,13 +7,6 @@
 
 namespace rotateY {
 
-static point3 applyInverse(point3 orig, double sin_theta, double cos_theta) {
-    point3 p = orig;
-    p[0] = cos_theta * orig[0] - sin_theta * orig[2];
-    p[2] = sin_theta * orig[0] + cos_theta * orig[2];
-
-    return p;
-}
 
 static point3 applyForward(point3 local, double sin_theta, double cos_theta) {
     auto p = local;
@@ -32,11 +25,6 @@ point3 transform::applyForward(point3 p) const noexcept {
     return p;
 }
 
-point3 transform::applyInverse(point3 p) const noexcept {
-    p = p - offset;
-    p = rotateY::applyInverse(p, sin_theta, cos_theta);
-    return p;
-}
 
 aabb transform::applyForward(aabb bbox) const noexcept {
     point3 min(infinity, infinity, infinity);
@@ -61,15 +49,6 @@ aabb transform::applyForward(aabb bbox) const noexcept {
     }
 
     return aabb(min, max);
-}
-
-ray transform::applyInverse(ray r) const noexcept {
-    // translate back
-    r.orig = r.orig - offset;
-    // rotate back
-    r.orig = rotateY::applyInverse(r.orig, sin_theta, cos_theta);
-    r.dir = rotateY::applyInverse(r.dir, sin_theta, cos_theta);
-    return r;
 }
 
 
