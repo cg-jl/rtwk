@@ -288,6 +288,9 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
 
             auto bg = geometrySim(cam.background, r, cam.max_depth, world, q);
 
+            // @perf It may be better to log these counts separately so that
+            // I can paint them in a 2D/3D frame.
+
             auto att_count = q.tally;
             ZoneTextL("tally:");
             ZoneValue(att_count.solids);
