@@ -1,10 +1,15 @@
 #pragma once
 
+#include <span>
+#include <tracy/Tracy.hpp>
+
 #include "aabb.h"
+#include "hittable.h"
 #include "box.h"
 #include "quad.h"
 #include "ray.h"
 #include "sphere.h"
+#include "trace_colors.h"
 #include "transforms.h"
 #include "vec3.h"
 
@@ -134,3 +139,22 @@ struct traversable_geometry {
         }
     }
 };
+
+inline geometry const *hitSpan(std::span<geometry const> objects, ray const &r,
+                        double &closestHit) {
+    ZoneScopedNC("hit span", Ctp::Green);
+    ZoneValue(objects.size());
+
+    geometry const *best = nullptr;
+
+    for (auto const &object : objects) {
+        double t;
+
+        if (object.hit(r, t) && interval{minRayDist, closestHit}.contains(t)) {
+            best = &object;
+            closestHit = t;
+        }
+    }
+
+    return best;
+}

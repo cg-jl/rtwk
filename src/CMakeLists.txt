@@ -14,7 +14,6 @@ add_executable(rt
     constant_medium.cc
     external/stb_image.cc
     external/stb_image_write.cc
-    hittable.cc
     hittable_list.cc
     main.cc 
     material.cc
