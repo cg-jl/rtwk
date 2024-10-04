@@ -8,7 +8,6 @@ include(FetchContent)
 
 add_executable(rt 
     aabb.cc
-    box.cc
     bvh.cc
     camera.cc
     constant_medium.cc

@@ -5,7 +5,6 @@
 
 #include "aabb.h"
 #include "hittable.h"
-#include "box.h"
 #include "quad.h"
 #include "ray.h"
 #include "sphere.h"
@@ -31,12 +30,12 @@ struct geometry {
     union {
         sphere sphere;
         quad quad;
-        box box;
+        aabb box;
     } data;
 
     geometry(sphere sph) : kind(kind::sphere), data{.sphere = sph} {}
     geometry(quad q) : kind(kind::quad), data{.quad = q} {}
-    geometry(box b) : kind(kind::box), data{.box = b} {}
+    geometry(aabb b) : kind(kind::box), data{.box = b} {}
 
     void applyTransform(transform tf) {
         switch (kind) {
@@ -47,7 +46,7 @@ struct geometry {
                 data.quad = quad::applyTransform(data.quad, tf);
                 break;
             case kind::box:
-                data.box.bbox = tf.applyForward(data.box.bbox);
+                data.box = tf.applyForward(data.box);
                 break;
         }
     }
@@ -55,7 +54,7 @@ struct geometry {
     aabb bounding_box() const {
         switch (kind) {
             case kind::box:
-                return data.box.bounding_box();
+                return data.box;
             case kind::quad:
                 return data.quad.bounding_box();
             case kind::sphere:
@@ -109,12 +108,12 @@ struct traversable_geometry {
     enum class kind : int { box, sphere } kind;
     union {
         sphere sphere;
-        box box;
+        aabb box;
     } data;
 
     traversable_geometry(sphere sph)
         : kind(kind::sphere), data{.sphere = sph} {}
-    traversable_geometry(box box) : kind(kind::box), data{.box = box} {}
+    traversable_geometry(aabb box) : kind(kind::box), data{.box = box} {}
 
     // End to end traversal of the geometry, just taking into account the
     // direction and the origin point. The intersection is geometric based
@@ -141,7 +140,7 @@ struct traversable_geometry {
 };
 
 inline geometry const *hitSpan(std::span<geometry const> objects, ray const &r,
-                        double &closestHit) {
+                               double &closestHit) {
     ZoneScopedNC("hit span", Ctp::Green);
     ZoneValue(objects.size());
 

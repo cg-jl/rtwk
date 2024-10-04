@@ -14,6 +14,7 @@
 
 #include "interval.h"
 #include "ray.h"
+#include "rtweekend.h"
 #include "vec3.h"
 
 struct aabb {
@@ -58,9 +59,12 @@ struct aabb {
     }
 
     bool hit(ray const &r, interval ray_t) const;
+    bool hit(ray const &r, double &closestHit) const;
     // Helper method to traverse using an already existing `ray_t` and modifying
     // it. It clobbers `ray_t`.
     bool traverse(ray const &r, interval &ray_t) const;
+    uvs getUVs(point3 intersection) const;
+    point3 getNormal(point3 intersection) const;
 
     constexpr int longest_axis() const {
         // Returns the index of the longest axis of the bounding box.

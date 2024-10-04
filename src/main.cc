@@ -13,7 +13,6 @@
 #include <cassert>
 #include <print>
 
-#include "box.h"
 #include "camera.h"
 #include "constant_medium.h"
 #include "geometry.h"
@@ -313,12 +312,12 @@ void cornell_box() {
               quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)));
 
     world.add(lightInfo(lambert, &white),
-              transformed(box(point3(0, 0, 0), point3(165, 330, 165)),
+              transformed(aabb(point3(0, 0, 0), point3(165, 330, 165)),
 
                           transform(15, vec3(265, 0, 295))));
 
     {
-        geometry b = geometry(box(point3(0, 0, 0), point3(165, 165, 165)));
+        geometry b = geometry(aabb(point3(0, 0, 0), point3(165, 165, 165)));
         b = transformed(b, transform(-18, vec3(130, 0, 65)));
         world.add(lightInfo(lambert, &white), b);
     }
@@ -366,7 +365,7 @@ void cornell_smoke() {
               quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)));
 
     {
-        geometry b = geometry(box(point3(0, 0, 0), point3(165, 330, 165)));
+        geometry b = geometry(aabb(point3(0, 0, 0), point3(165, 330, 165)));
         b = transformed(b, transform(15, vec3(265, 0, 295)));
         world.add(
             constant_medium(leak(traversable_geometry::from_geometry(b)), 0.01),
@@ -374,7 +373,7 @@ void cornell_smoke() {
     }
 
     {
-        geometry b = geometry(box(point3(0, 0, 0), point3(165, 165, 165)));
+        geometry b = geometry(aabb(point3(0, 0, 0), point3(165, 165, 165)));
         b = transformed(b, transform(-18, vec3(130, 0, 65)));
         world.add(
             constant_medium(leak(traversable_geometry::from_geometry(b)), 0.01),
@@ -420,7 +419,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
             auto z1 = z0 + w;
 
             world.treebld.geoms.emplace_back(
-                box(point3(x0, y0, z0), point3(x1, y1, z1)));
+                aabb(point3(x0, y0, z0), point3(x1, y1, z1)));
         }
     }
 
