@@ -67,13 +67,6 @@ color const *hittable_list::sampleConstantMediums(ray const &ray,
     auto const minDist = minRayDist * rayLength;
     auto const maxDist = maxT * rayLength;
 
-    // NOTE: cmAlbedos and colors are linked not by refIndex, but are just
-    // sorted. @maybe if I get to BVH'ing this (although currently it would be
-    // detrimental), then I would need to store their indices here.
-
-    // TODO: @waste @maybe The indices stored in the geometries are wasted here,
-    // since we use a different (better) mechanism.
-
     for (size_t i = 0; i < cms.size(); ++i) {
         auto const &cm = cms[i];
         interval t;

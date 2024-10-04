@@ -8,14 +8,14 @@
 #include "transforms.h"
 #include "vec3.h"
 
-// NOTE: @maybe separating them in tags is interesting
+//  @maybe separating them in tags is interesting
 // for hitSelect but not for constantMediums.
 
-// NOTE: @maybe just using traverse everywhere could be an interesting point.
+//  @maybe just using traverse everywhere could be an interesting point.
 // No geometry has significant cost to just do both, so perhaps intersecting
 // with an infinite ray and then intersecting the intervals is more appropiate.
 
-// NOTE: @maybe now that we don't do calculations on every one of the hits,
+//  @maybe now that we don't do calculations on every one of the hits,
 // we can drop the `closestHit` checks inside each hit and only check when we're
 // aggregating.
 
@@ -61,7 +61,8 @@ struct geometry {
 
     // TODO: write the result inconditionally everywhere.
     bool hit(ray r, double &closestHit) const {
-        // geometry is already transformed, so we can skip and set the actual point.
+        // geometry is already transformed, so we can skip and set the actual
+        // point.
         switch (kind) {
             case kind::box:
                 return data.box.hit(r, closestHit);
@@ -97,9 +98,18 @@ struct geometry {
                 return data.quad.getNormal();
         }
     };
+};
 
-    // NOTE: @waste `traverse` should be part of an interface that is queried
-    // when building the constant mediums, and not clutter the geometry.
+struct traversable_geometry {
+    enum class kind : int { box, sphere } kind;
+    union {
+        sphere sphere;
+        box box;
+    } data;
+
+    traversable_geometry(sphere sph)
+        : kind(kind::sphere), data{.sphere = sph} {}
+    traversable_geometry(box box) : kind(kind::box), data{.box = box} {}
 
     // End to end traversal of the geometry, just taking into account the
     // direction and the origin point. The intersection is geometric based
@@ -110,10 +120,17 @@ struct geometry {
                 return data.box.traverse(r, intersect);
             case kind::sphere:
                 return data.sphere.traverse(r, intersect);
-            case kind::quad:
-                // @waste I could remove a lot of branch mispredictions
-                // if I use a different model for traverse that does not include quad.
-                return false;
         }
     };
+
+    static traversable_geometry from_geometry(geometry g) {
+        switch (g.kind) {
+            case geometry::kind::box:
+                return g.data.box;
+            case geometry::kind::sphere:
+                return g.data.sphere;
+            case geometry::kind::quad:
+                std::unreachable();
+        }
+    }
 };

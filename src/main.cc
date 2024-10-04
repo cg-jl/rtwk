@@ -368,13 +368,17 @@ void cornell_smoke() {
     {
         geometry b = geometry(box(point3(0, 0, 0), point3(165, 330, 165)));
         b = transformed(b, transform(15, vec3(265, 0, 295)));
-        world.add(constant_medium(leak(b), 0.01), color(0, 0, 0));
+        world.add(
+            constant_medium(leak(traversable_geometry::from_geometry(b)), 0.01),
+            color(0, 0, 0));
     }
 
     {
         geometry b = geometry(box(point3(0, 0, 0), point3(165, 165, 165)));
         b = transformed(b, transform(-18, vec3(130, 0, 65)));
-        world.add(constant_medium(leak(b), 0.01), color(1, 1, 1));
+        world.add(
+            constant_medium(leak(traversable_geometry::from_geometry(b)), 0.01),
+            color(1, 1, 1));
     };
 
     camera cam;
@@ -450,9 +454,13 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     geometry boundary = sphere(point3(360, 150, 145), 70);
     world.add(lightInfo((material::dielectric(1.5)), &detail::white), boundary);
-    world.add(constant_medium(leak(boundary), 0.2), color(0.2, 0.4, 0.9));
+    world.add(constant_medium(
+                  leak(traversable_geometry::from_geometry(boundary)), 0.2),
+              color(0.2, 0.4, 0.9));
     boundary = sphere(point3(0, 0, 0), 5000);
-    world.add(constant_medium(leak(boundary), .0001), color(1, 1, 1));
+    world.add(constant_medium(
+                  leak(traversable_geometry::from_geometry(boundary)), .0001),
+              color(1, 1, 1));
 
     auto emat = lambert;
     auto eimg = leak(texture::image("earthmap.jpg"));
