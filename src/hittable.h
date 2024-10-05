@@ -22,5 +22,17 @@ struct lightInfo {
         : mat(mat), tex(tex) {}
 };
 
+// wrapper around a `double` that is negative when it's not there.
+// @cleanup remove this in favor of just returning -1?
+struct hit_result {
+    double value = -1;
+    constexpr hit_result() : value(-1) {}
+    constexpr hit_result(double v) : value(v) {}
+    // avoid `return false` from implicitly converting through double.
+    constexpr hit_result(bool v) = delete;
+    void invalidate() { value *= -1; }
+    constexpr bool isValid() const { return value >= 0; }
+};
+
 // Minimum ray distance prepared to remove any zero rounding errors.
 static constexpr double minRayDist = 0.001;

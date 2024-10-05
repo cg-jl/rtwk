@@ -52,11 +52,19 @@ bool aabb::hit(ray const &r, interval ray_t) const {
     return traverse(r, ray_t);
 }
 
-bool aabb::hit(ray const &r, double &closestHit) const {
+double aabb::hit(ray const &r) const {
     auto intv = universe_interval;
     auto ok = traverse(r, intv);
-    closestHit = intv.min;
-    return ok;
+    // @perf ok is just `intv.min < intv.max`, so -sign(intv.min - intv.max)
+    // should be good. -sign because we want intv.min == intv.max to yield -1,
+    // sign(0) = 0 -> -sign(0) = 1. Since we swap the sign we also have to swap
+    // the subtraction.
+    // If `traverse` returned bool64 we could negate the bool64 to get 11111...
+    // and then use `copysign` to copy the sign over to the result. We can also
+    // get "bool64" by multiplying/shifting.
+    auto res = intv.min;
+    res = ok ? res : -res;
+    return res;
 }
 
 vec3 aabb::getNormal(point3 intersection) const {

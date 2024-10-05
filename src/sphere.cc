@@ -11,7 +11,7 @@ point3 sphere_center(sphere const &sph, double time) {
     return sph.center1 + time * sph.center_vec;
 }
 
-bool sphere::hit(ray const &r, double &closestHit) const {
+double sphere::hit(ray r) const {
     ZoneNamedN(_tracy, "sphere hit", filters::hit);
     point3 center = sphere_center(*this, r.time);
     vec3 oc = center - r.orig;
@@ -22,7 +22,7 @@ bool sphere::hit(ray const &r, double &closestHit) const {
     auto c = oc.length_squared() - radius * radius;
 
     auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
-    if (discriminant < 0) return false;
+    if (discriminant < 0) return 0;
 
     auto sqrtd = std::sqrt(discriminant);
 
@@ -38,9 +38,7 @@ bool sphere::hit(ray const &r, double &closestHit) const {
     // Find the nearest root that lies in the acceptable range.
     auto root = (oc_alongside_ray + selectedSqrt) / a;
 
-    closestHit = root;
-
-    return true;
+    return root;
 }
 
 bool sphere::traverse(ray const &r, interval &intersect) const {

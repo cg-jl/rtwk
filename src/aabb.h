@@ -12,6 +12,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include "hittable.h"
 #include "interval.h"
 #include "ray.h"
 #include "rtweekend.h"
@@ -59,7 +60,7 @@ struct aabb {
     }
 
     bool hit(ray const &r, interval ray_t) const;
-    bool hit(ray const &r, double &closestHit) const;
+    double hit(ray const &r) const;
     // Helper method to traverse using an already existing `ray_t` and modifying
     // it. It clobbers `ray_t`.
     bool traverse(ray const &r, interval &ray_t) const;

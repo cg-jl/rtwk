@@ -63,17 +63,22 @@ struct geometry {
         std::unreachable();
     }
 
+    // @perf could make a return value double that is negative when invalid.
+    // This way I can always return by value instead of writing to a pointer,
+    // which removes redundant loads.
+
+    // Returns something less than `minRayDist` when the ray does not hit.
     // TODO: write the result inconditionally everywhere.
-    bool hit(ray r, double &closestHit) const {
+    double hit(ray r) const {
         // geometry is already transformed, so we can skip and set the actual
         // point.
         switch (kind) {
             case kind::box:
-                return data.box.hit(r, closestHit);
+                return data.box.hit(r);
             case kind::sphere:
-                return data.sphere.hit(r, closestHit);
+                return data.sphere.hit(r);
             case kind::quad:
-                return data.quad.hit(r, closestHit);
+                return data.quad.hit(r);
         }
     }
 
@@ -147,11 +152,10 @@ inline geometry const *hitSpan(std::span<geometry const> objects, ray const &r,
     geometry const *best = nullptr;
 
     for (auto const &object : objects) {
-        double t;
-
-        if (object.hit(r, t) && interval{minRayDist, closestHit}.contains(t)) {
+        auto res = object.hit(r);
+        if (interval{minRayDist, closestHit}.contains(res)) {
             best = &object;
-            closestHit = t;
+            closestHit = res;
         }
     }
 

@@ -5,9 +5,8 @@
 #include "trace_colors.h"
 
 uvs quad::getUVs(point3 intersection) const {
-
-	// I know normal, u, v make an orthonormal basis
-    // I have to make a base change, from [x y z] to [n u v], then extract the u and the v
+    // I have to make a base change, from [x y z] to [n u v], then extract the u
+    // and the v
 
     vec3 pq = intersection - Q;
     auto v_squared = v.length_squared();
@@ -32,7 +31,7 @@ static bool is_interior(double a, double b) {
     return unit_interval.contains(a) && unit_interval.contains(b);
 }
 
-bool quad::hit(ray const &r, double &closestHit) const {
+double quad::hit(ray const r) const {
     ZoneNamedN(_tracy, "quad hit", filters::hit);
     auto n = cross(u, v);
     auto normal = unit_vector(n);
@@ -40,7 +39,7 @@ bool quad::hit(ray const &r, double &closestHit) const {
     auto denom = dot(normal, r.dir);
 
     // No hit if the ray is parallel to the plane.
-    if (fabs(denom) < 1e-8) return false;
+    if (fabs(denom) < 1e-8) return 0;
 
     // Return false if the hit point parameter t is outside the ray
     // interval.
@@ -48,26 +47,20 @@ bool quad::hit(ray const &r, double &closestHit) const {
     // Determine the hit point lies within the planar shape using its plane
     // coordinates.
     auto intersection = r.at(t);
-    // NOTE: time argument is not needed.
     auto uv = getUVs(intersection);
 
-    if (!is_interior(uv.u, uv.v)) return false;
+    if (!is_interior(uv.u, uv.v)) return {};
 
     // Ray hits the 2D shape; set the rest of the hit record and return
     // true.
-    closestHit = t;
-
-    return true;
+    return t;
 }
 
-vec3 quad::getNormal() const {
-    return unit_vector(cross(u, v));
-}
+vec3 quad::getNormal() const { return unit_vector(cross(u, v)); }
 
 // NOTE: @maybe If I end up moving hit to always do both traverses, then this
 // should compute the hit and duplicate it in both fields of `intersect`.
 bool quad::traverse(ray const &r, interval &intersect) const { return false; }
-
 
 quad quad::applyTransform(quad q, transform tf) noexcept {
     auto oldQ = q.Q;

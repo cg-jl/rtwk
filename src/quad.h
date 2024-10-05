@@ -11,6 +11,7 @@
 
 #include <aabb.h>
 #include <vec3.h>
+
 #include "transforms.h"
 
 struct quad {
@@ -23,7 +24,7 @@ struct quad {
         return aabb(bbox_diagonal1, bbox_diagonal2);
     }
 
-    bool hit(ray const &r, double &closestHit) const;
+    double hit(ray r) const;
     bool traverse(ray const &r, interval &intesect) const;
 
     uvs getUVs(point3 intersection) const;

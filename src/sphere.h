@@ -15,6 +15,7 @@
 #include <interval.h>
 #include <ray.h>
 #include <vec3.h>
+
 #include "transforms.h"
 
 // TODO: To instantiate spheres, I should separate instantiatable things
@@ -32,7 +33,7 @@ struct sphere final {
         center_vec = center2 - center1;
     }
 
-    bool hit(ray const &r, double &closestHit) const;
+    double hit(ray r) const;
     bool traverse(ray const &r, interval &intersect) const;
     static uvs getUVs(vec3 normal);
 
