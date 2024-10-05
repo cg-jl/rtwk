@@ -13,20 +13,6 @@
 
 using uint32 = uint32_t;
 
-// NOTE: doesn't manage the lifetimes of `T`.
-template <typename T>
-struct boundedDynArr {
-    T *elems{};
-    size_t count{};
-#if _DEBUG
-    size_t cap;
-#endif
-
-    auto as_span() const { return std::span{elems, count}; }
-
-    void push_back(T val) { elems[count++] = val; }
-};
-
 using deferNoise = std::pair<texture::noise_data, point3>;
 
 // TODO: @maybe I could collect images by their pointer?
@@ -44,14 +30,6 @@ struct sampleMat {
             .images = new deferImage[spp * maxDepth],
         };
     }
-
-    sampleMat offset(uint32 sample, uint32 maxDepth) const noexcept {
-        return {
-            .solids = solids + sample * maxDepth,
-            .noises = noises + sample * maxDepth,
-            .images = images + sample * maxDepth,
-        };
-    }
 };
 
 struct px_sampleq {
@@ -61,9 +39,9 @@ struct px_sampleq {
         int images;
 
         void accept(commitSave const &other) {
-            solids |= other.solids;
-            noises |= other.noises;
-            images |= other.images;
+            solids += other.solids;
+            noises += other.noises;
+            images += other.images;
         }
     };
 
@@ -93,16 +71,6 @@ struct px_sampleq {
 
     commitSave commit() { return tally; }
     void reset() { tally = {}; }
-
-    constexpr std::span<color> solids() const {
-        return {ptrs.solids, size_t(tally.solids)};
-    }
-    constexpr std::span<deferNoise> noises() const {
-        return {ptrs.noises, size_t(tally.noises)};
-    }
-    constexpr std::span<deferImage> images() const {
-        return {ptrs.images, size_t(tally.images)};
-    }
 };
 static vec3 sample_square() {
     // Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit
@@ -276,6 +244,8 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
         int rleNoises = 0;
         int rleImages = 0;
 
+        px_sampleq::commitSave tally{};
+
         for (int sample = 0; sample < cam.samples_per_pixel; sample++) {
             // NOTE: @trace The first (bottom) lines (black, 399) are pretty bad
             // (~3.52us)
@@ -284,10 +254,16 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
             ZoneValue(i);
             ray r = get_ray(cam, i, j);
 
-            px_sampleq q{attMat.offset(sample, cam.max_depth),
-                         px_sampleq::commitSave{}};
+            auto offset_mat = attMat;
+
+            offset_mat.images += tally.images;
+            offset_mat.noises += tally.noises;
+            offset_mat.solids += tally.solids;
+
+            px_sampleq q{offset_mat, px_sampleq::commitSave{}};
 
             auto bg = geometrySim(cam.background, r, cam.max_depth, world, q);
+            tally.accept(q.tally);
 
             // @perf It may be better to log these counts separately so that
             // I can paint them in a 2D/3D frame.
@@ -314,17 +290,13 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
         // NOTE: @maybe consider filling the color matrix with 1s where samples
         // shouldn't be recorded. That way loops could be fixed at least.
 
-        // NOTE: @waste There's no point in having lanes for noises/images
-        // if I still have to encode the samples and lengths. They are also much
-        // less frequent than their solid counterparts. @maybe having one vector
-        // each and sampling those in bulk is better.
-
         {
             ZoneScopedNC("attenuation samples", Ctp::Peach);
             {
                 ZoneScopedN("noises");
                 ZoneColor(tracy::Color::Blue4);
 
+                int start = 0;
                 for (int rleI = 0; rleI < rleNoises; ++rleI) {
                     auto [sample, count] = counts.noises[rleI];
                     color res = samples[sample];
@@ -334,10 +306,11 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
                     // @maybe Keeping an iterable set of which samples don't
                     // have zero of these may be also interesting, to skip
                     // loading zeros without relying on the loop.
-                    for (auto const &[noiseData, p] : std::span(
-                             attMat.noises + sample * cam.max_depth, count)) {
+                    for (auto const &[noiseData, p] :
+                         std::span(attMat.noises + start, count)) {
                         res = res * sample_noise(noiseData, p, noise);
                     }
+                    start += count;
                     samples[sample] = res;
                 }
             }
@@ -348,13 +321,15 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
                 // sample_image)
                 ZoneScopedN("images");
                 ZoneColor(tracy::Color::Lavender);
+                int start = 0;
                 for (int rleI = 0; rleI < rleImages; ++rleI) {
                     auto [sample, count] = counts.images[rleI];
                     color res = samples[sample];
-                    for (auto const &[image, uv] : std::span(
-                             attMat.images + sample * cam.max_depth, count)) {
+                    for (auto const &[image, uv] :
+                         std::span(attMat.images + start, count)) {
                         res = res * sample_image(image, uv);
                     }
+                    start += count;
                     samples[sample] = res;
                 }
             }
@@ -362,15 +337,17 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
             {
                 ZoneScopedN("solids");
                 ZoneColor(Ctp::Pink);
+                int start = 0;
                 for (int rleI = 0; rleI < rleSolids; ++rleI) {
                     auto [sample, count] = counts.solids[rleI];
                     color res = samples[sample];
 
-                    for (auto const &col : std::span(
-                             attMat.solids + sample * cam.max_depth, count)) {
+                    for (auto const &col :
+                         std::span(attMat.solids + start, count)) {
                         res = res * col;
                     }
 
+                    start += count;
                     samples[sample] = res;
                 }
             }
@@ -401,7 +378,8 @@ void render(camera const &cam, std::atomic<int> &tileid,
         if (j >= cam.image_width) return;
 
         // TODO: render worker state struct
-        scanLine(cam, world, j, pixels, attMat, counts, samples.get(), *noise.get());
+        scanLine(cam, world, j, pixels, attMat, counts, samples.get(),
+                 *noise.get());
 
         remain_scanlines.fetch_sub(1, std::memory_order_acq_rel);
         remain_scanlines.notify_one();
