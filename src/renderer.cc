@@ -18,6 +18,7 @@ using deferNoise = std::pair<texture::noise_data, point3>;
 // TODO: @maybe I could collect images by their pointer?
 using deferImage = std::pair<rtw_shared_image, uvs>;
 
+// @cleanup this is no longer a matrix, just arrays
 struct sampleMat {
     color *solids;
     deferNoise *noises;
@@ -228,9 +229,26 @@ struct countArrays {
 //   if it's in between, any algorithm (saturated or transitory) will behave
 //   mostly the same.
 
+struct Scanline_Buffers {
+    sampleMat attMat;
+    countArrays counts;
+    color *multiplyBuffer;
+    color *samples;
+
+    static Scanline_Buffers request(uint32 spp, uint32 maxDepth) {
+        return {
+            .attMat = sampleMat::request(spp, maxDepth),
+            .counts = countArrays::request(spp),
+            // @cleanup could make these part of the same allocation
+            .multiplyBuffer = new color[spp * maxDepth],
+            .samples = new color[spp],
+        };
+    }
+};
+
 static void scanLine(camera const &cam, hittable_list const &world, int const j,
-                     color *pixels, sampleMat attMat, countArrays counts,
-                     color *samples, perlin const &noise) {
+                     color *pixels, Scanline_Buffers buffers,
+                     perlin const &noise) {
     // NOTE: @maybe a matrix only for the solids and vectors for the  other
     // types works better. geometrySim could also return whether it is
     // cancelling/light/background to find what the last (or first) color
@@ -254,7 +272,7 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
             ZoneValue(i);
             ray r = get_ray(cam, i, j);
 
-            auto offset_mat = attMat;
+            auto offset_mat = buffers.attMat;
 
             offset_mat.images += tally.images;
             offset_mat.noises += tally.noises;
@@ -275,16 +293,16 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
             ZoneValue(att_count.images);
 
             if (att_count.solids) {
-                counts.solids[rleSolids++] = {sample, att_count.solids};
+                buffers.counts.solids[rleSolids++] = {sample, att_count.solids};
             }
             if (att_count.noises) {
-                counts.noises[rleNoises++] = {sample, att_count.noises};
+                buffers.counts.noises[rleNoises++] = {sample, att_count.noises};
             }
             if (att_count.images) {
-                counts.images[rleImages++] = {sample, att_count.images};
+                buffers.counts.images[rleImages++] = {sample, att_count.images};
             }
 
-            samples[sample] = bg;
+            buffers.samples[sample] = bg;
         }
 
         // NOTE: @maybe consider filling the color matrix with 1s where samples
@@ -296,65 +314,96 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
                 ZoneScopedN("noises");
                 ZoneColor(tracy::Color::Blue4);
 
-                int start = 0;
-                for (int rleI = 0; rleI < rleNoises; ++rleI) {
-                    auto [sample, count] = counts.noises[rleI];
-                    color res = samples[sample];
-                    // NOTE: @maybe Separating each attenuation matrix for each
-                    // type of texture may have impact in loading the length
-                    // here.
-                    // @maybe Keeping an iterable set of which samples don't
-                    // have zero of these may be also interesting, to skip
-                    // loading zeros without relying on the loop.
-                    for (auto const &[noiseData, p] :
-                         std::span(attMat.noises + start, count)) {
-                        res = res * sample_noise(noiseData, p, noise);
+                {
+                    // @perf I can further simplify this because
+                    // `sample_noise`'s components are all the same, so I could
+                    // just fill an array of doubles.
+                    ZoneScopedN("sample");
+                    for (int i = 0; i < tally.noises; ++i) {
+                        auto const &[noiseData, p] = buffers.attMat.noises[i];
+                        buffers.multiplyBuffer[i] =
+                            sample_noise(noiseData, p, noise);
                     }
-                    start += count;
-                    samples[sample] = res;
+                }
+
+                // @cutnpaste with images, solids.
+                {
+                    ZoneScopedN("mul");
+                    int start = 0;
+                    for (int rleI = 0; rleI < rleNoises; ++rleI) {
+                        auto [sample, count] = buffers.counts.noises[rleI];
+                        color res = buffers.samples[sample];
+                        // NOTE: @maybe Separating each attenuation matrix for
+                        // each type of texture may have impact in loading the
+                        // length here.
+                        for (auto const &col :
+                             std::span(buffers.multiplyBuffer + start, count)) {
+                            res = res * col;
+                        }
+                        start += count;
+                        buffers.samples[sample] = res;
+                    }
                 }
             }
 
             {
-                // NOTE: This is pretty slow. The loop takes most of the credit,
-                // where Tracy shows a ton of stalls (99% in loop, 1% in
-                // sample_image)
                 ZoneScopedN("images");
                 ZoneColor(tracy::Color::Lavender);
-                int start = 0;
-                for (int rleI = 0; rleI < rleImages; ++rleI) {
-                    auto [sample, count] = counts.images[rleI];
-                    color res = samples[sample];
-                    for (auto const &[image, uv] :
-                         std::span(attMat.images + start, count)) {
-                        res = res * sample_image(image, uv);
+
+                {
+                    // @perf This is mostly memcpy so we shouldn't really be using a sample buffer, since
+                    // we're hitting the image penalty twice.
+                    ZoneScopedN("sample");
+                    for (int i = 0; i < tally.images; ++i) {
+                        auto const &[image, uv] = buffers.attMat.images[i];
+                        buffers.multiplyBuffer[i] = sample_image(image, uv);
                     }
-                    start += count;
-                    samples[sample] = res;
+                }
+
+                // @cutnpaste with noises ,solids.
+                {
+                    ZoneScopedN("mul");
+                    //  @perf @recheck This is pretty slow. The loop takes most
+                    //  of the
+                    // credit, where Tracy shows a ton of stalls (99% in loop,
+                    // 1% in sample_image)
+                    int start = 0;
+                    for (int rleI = 0; rleI < rleImages; ++rleI) {
+                        auto [sample, count] = buffers.counts.images[rleI];
+                        color res = buffers.samples[sample];
+                        for (auto const col :
+                             std::span(buffers.multiplyBuffer + start, count)) {
+                            res = res * col;
+                        }
+                        start += count;
+                        buffers.samples[sample] = res;
+                    }
                 }
             }
 
             {
                 ZoneScopedN("solids");
                 ZoneColor(Ctp::Pink);
+
+                // @cutnpaste with noises, images.
                 int start = 0;
                 for (int rleI = 0; rleI < rleSolids; ++rleI) {
-                    auto [sample, count] = counts.solids[rleI];
-                    color res = samples[sample];
+                    auto [sample, count] = buffers.counts.solids[rleI];
+                    color res = buffers.samples[sample];
 
                     for (auto const &col :
-                         std::span(attMat.solids + start, count)) {
+                         std::span(buffers.attMat.solids + start, count)) {
                         res = res * col;
                     }
 
                     start += count;
-                    samples[sample] = res;
+                    buffers.samples[sample] = res;
                 }
             }
         }
 
         for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
-            pixel_color += samples[sample];
+            pixel_color += buffers.samples[sample];
         }
 
         pixels[j * cam.image_width + i] = cam.pixel_samples_scale * pixel_color;
@@ -366,9 +415,9 @@ void render(camera const &cam, std::atomic<int> &tileid,
             hittable_list const &world, color *pixels) noexcept {
     // NOTE: @waste @mem Could reuse a solids lane (maybe the last/first one)
     // for the final lane.
-    auto samples = std::make_unique<color[]>(size_t(cam.samples_per_pixel));
-    auto attMat = sampleMat::request(cam.samples_per_pixel, cam.max_depth);
-    auto counts = countArrays::request(cam.samples_per_pixel);
+
+    auto buffers =
+        Scanline_Buffers::request(cam.samples_per_pixel, cam.max_depth);
 
     auto noise = std::make_unique<perlin>();
 
@@ -378,8 +427,7 @@ void render(camera const &cam, std::atomic<int> &tileid,
         if (j >= cam.image_width) return;
 
         // TODO: render worker state struct
-        scanLine(cam, world, j, pixels, attMat, counts, samples.get(),
-                 *noise.get());
+        scanLine(cam, world, j, pixels, buffers, *noise.get());
 
         remain_scanlines.fetch_sub(1, std::memory_order_acq_rel);
         remain_scanlines.notify_one();
