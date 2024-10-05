@@ -101,6 +101,7 @@ geometry const *bvh::tree::hitBVH(ray const &r,
 
         if (n.objectIndex != -1) {
             auto span = std::span{geoms + n.objectIndex, size_t(n.objectCount)};
+            // @perf What if I make hitSpan just not overwrite by taking an `in_best`?
             auto hit = hitSpan(span, r, closestHit);
             result = hit ?: result;
         }

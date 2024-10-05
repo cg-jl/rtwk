@@ -13,18 +13,17 @@
 
 #include "vec3.h"
 
-class perlin {
-   public:
-    perlin();
+struct perlin {
+    static constexpr size_t point_count = 256;
 
-    ~perlin();
+    perlin();
 
     double noise(point3 const &p) const;
 
     double turb(point3 const &p, int depth) const;
 
-    vec3 *randvec;
-    int *perm_x;
-    int *perm_y;
-    int *perm_z;
+    vec3 randvec[point_count];
+    int perm_x[point_count];
+    int perm_y[point_count];
+    int perm_z[point_count];
 };

@@ -33,31 +33,20 @@ static void permute(int *p, int n) {
     }
 }
 
-static int *perlin_generate_perm() {
-    auto p = new int[point_count];
+static void perlin_generate_perm(int (*p)[point_count]) {
+    for (int i = 0; i < point_count; i++) (*p)[i] = i;
 
-    for (int i = 0; i < point_count; i++) p[i] = i;
-
-    permute(p, point_count);
-
-    return p;
+    permute(*p, point_count);
 }
 
 perlin::perlin() {
-    randvec = new vec3[point_count];
     for (int i = 0; i < point_count; i++) {
         randvec[i] = unit_vector(random_vec(-1, 1));
     }
 
-    perm_x = perlin_generate_perm();
-    perm_y = perlin_generate_perm();
-    perm_z = perlin_generate_perm();
-}
-perlin::~perlin() {
-    delete[] randvec;
-    delete[] perm_x;
-    delete[] perm_y;
-    delete[] perm_z;
+    perlin_generate_perm(&perm_x);
+    perlin_generate_perm(&perm_y);
+    perlin_generate_perm(&perm_z);
 }
 double perlin::noise(point3 const &p) const {
     auto u = p.x() - floor(p.x());

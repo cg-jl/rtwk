@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <print>
 #include <tracy/Tracy.hpp>
 
@@ -392,7 +393,7 @@ void render(camera const &cam, std::atomic<int> &tileid,
     auto attMat = sampleMat::request(cam.samples_per_pixel, cam.max_depth);
     auto counts = countArrays::request(cam.samples_per_pixel);
 
-    perlin noise;
+    auto noise = std::make_unique<perlin>();
 
     for (;;) {
         auto j = tileid.fetch_add(1, std::memory_order_acq_rel);
@@ -400,7 +401,7 @@ void render(camera const &cam, std::atomic<int> &tileid,
         if (j >= cam.image_width) return;
 
         // TODO: render worker state struct
-        scanLine(cam, world, j, pixels, attMat, counts, samples.get(), noise);
+        scanLine(cam, world, j, pixels, attMat, counts, samples.get(), *noise.get());
 
         remain_scanlines.fetch_sub(1, std::memory_order_acq_rel);
         remain_scanlines.notify_one();
