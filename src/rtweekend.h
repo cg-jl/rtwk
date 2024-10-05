@@ -48,10 +48,6 @@ struct range {
     uint32_t start, end;
 };
 
-template <typename T>
-T *leak(T val) {
-    return new T(std::move(val));
-}
 struct uvs {
     double u, v;
 };

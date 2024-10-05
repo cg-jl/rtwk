@@ -2,7 +2,6 @@
 #include "texture.h"
 
 #include <tracy/Tracy.hpp>
-#include "rtweekend.h"
 
 texture texture::checker(double scale, texture const *even,
                          texture const *odd) {
@@ -20,7 +19,7 @@ texture texture::image(char const *filename) {
     data d;
     // make sure we leak it so that we don't accidentally
     // free the memory.
-    auto img = leak(rtw_image(filename));
+    auto img = new rtw_image(filename);
     new (&d.image) rtw_shared_image(img->share());
     return texture(tag::image, std::move(d));
 }

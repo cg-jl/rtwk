@@ -21,6 +21,7 @@
 #include "material.h"
 #include "quad.h"
 #include "rtweekend.h"
+#include "segm_alloc.h"
 #include "sphere.h"
 #include "texture.h"
 #include "timer.h"
@@ -31,9 +32,18 @@ geometry transformed(geometry g, transform tf) {
     return g;
 }
 
-// @bug There is some UB lurking around in the code because the release version
-// produces artifacts on the top left of the image, but the debug version
-// doesn't.
+static segment::Leak_Allocator ator;
+
+template <typename T>
+T *leak(T val) {
+    auto *ptr = ator.alloc<T>();
+    new (ptr) T(std::move(val));
+    return ptr;
+}
+
+// @bug There is some UB lurking around in the code because the release
+// version produces artifacts on the top left of the image, but the debug
+// version doesn't.
 
 void bouncing_spheres() {
     hittable_list world;

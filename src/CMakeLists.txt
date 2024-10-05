@@ -21,6 +21,7 @@ add_executable(rt
     random.cc
     renderer.cc
     rtw_stb_image.cc
+    segm_alloc.cc
     sphere.cc
     texture.cc
     timer.cc
