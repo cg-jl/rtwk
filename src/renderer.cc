@@ -232,7 +232,7 @@ struct countArrays {
 struct Scanline_Buffers {
     sampleMat attMat;
     countArrays counts;
-    color *multiplyBuffer;
+    double *multiplyBuffer;
     color *samples;
 
     static Scanline_Buffers request(uint32 spp, uint32 maxDepth) {
@@ -240,7 +240,7 @@ struct Scanline_Buffers {
             .attMat = sampleMat::request(spp, maxDepth),
             .counts = countArrays::request(spp),
             // @cleanup could make these part of the same allocation
-            .multiplyBuffer = new color[spp * maxDepth],
+            .multiplyBuffer = new double[spp * maxDepth],
             .samples = new color[spp],
         };
     }
@@ -333,12 +333,9 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
                     for (int rleI = 0; rleI < rleNoises; ++rleI) {
                         auto [sample, count] = buffers.counts.noises[rleI];
                         color res = buffers.samples[sample];
-                        // NOTE: @maybe Separating each attenuation matrix for
-                        // each type of texture may have impact in loading the
-                        // length here.
-                        for (auto const &col :
+                        for (auto grayscale :
                              std::span(buffers.multiplyBuffer + start, count)) {
-                            res = res * col;
+                            res = res * grayscale;
                         }
                         start += count;
                         buffers.samples[sample] = res;
@@ -350,34 +347,19 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
                 ZoneScopedN("images");
                 ZoneColor(tracy::Color::Lavender);
 
-                {
-                    // @perf This is mostly memcpy so we shouldn't really be using a sample buffer, since
-                    // we're hitting the image penalty twice.
-                    ZoneScopedN("sample");
-                    for (int i = 0; i < tally.images; ++i) {
-                        auto const &[image, uv] = buffers.attMat.images[i];
-                        buffers.multiplyBuffer[i] = sample_image(image, uv);
+                //  @perf This is pretty slow. The loop takes most
+                //  of the credit, where Tracy shows two big stalls on loop
+                //  entry & exit. Self time is ~50%
+                int start = 0;
+                for (int rleI = 0; rleI < rleImages; ++rleI) {
+                    auto [sample, count] = buffers.counts.images[rleI];
+                    color res = buffers.samples[sample];
+                    for (auto const &[image, uv] :
+                         std::span(buffers.attMat.images + start, count)) {
+                        res = res * sample_image(image, uv);
                     }
-                }
-
-                // @cutnpaste with noises ,solids.
-                {
-                    ZoneScopedN("mul");
-                    //  @perf @recheck This is pretty slow. The loop takes most
-                    //  of the
-                    // credit, where Tracy shows a ton of stalls (99% in loop,
-                    // 1% in sample_image)
-                    int start = 0;
-                    for (int rleI = 0; rleI < rleImages; ++rleI) {
-                        auto [sample, count] = buffers.counts.images[rleI];
-                        color res = buffers.samples[sample];
-                        for (auto const col :
-                             std::span(buffers.multiplyBuffer + start, count)) {
-                            res = res * col;
-                        }
-                        start += count;
-                        buffers.samples[sample] = res;
-                    }
+                    start += count;
+                    buffers.samples[sample] = res;
                 }
             }
 

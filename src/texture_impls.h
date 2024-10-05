@@ -1,9 +1,9 @@
 #pragma once
 #include <tracy/Tracy.hpp>
 
+#include "interval.h"
 #include "perlin.h"
 #include "texture.h"
-#include "interval.h"
 #include "trace_colors.h"
 
 inline color sample_image(rtw_shared_image img, uvs uv) {
@@ -24,13 +24,12 @@ inline color sample_image(rtw_shared_image img, uvs uv) {
     return {px[0], px[1], px[2]};
 }
 
-inline color sample_noise(texture::noise_data const &data, point3 const &p,
-                          perlin const &perlin) {
+inline double sample_noise(texture::noise_data const &data, point3 const &p,
+                           perlin const &perlin) {
     ZoneScopedN("noise");
     ZoneColor(Ctp::Blue);
 
-    return color(.5, .5, .5) *
-           (1 + std::sin(data.scale * p.z() + 10 * perlin.turb(p, 7)));
+    return .5 * (1 + std::sin(data.scale * p.z() + 10 * perlin.turb(p, 7)));
 }
 
 inline texture const *checkerSelect(texture::checker_data const &data,
