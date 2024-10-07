@@ -18,8 +18,8 @@
 // density. The albedo can be linked through geom->refIndex.
 
 struct constant_medium {
-    traversable_geometry const *geom;
+    traversable_geometry geom;
     double neg_inv_density;
-    constant_medium(traversable_geometry const *boundary, double density)
+    constant_medium(traversable_geometry boundary, double density)
         : geom(boundary), neg_inv_density(-1 / density) {}
 };

@@ -66,7 +66,7 @@ color const *hittable_list::sampleConstantMediums(ray const &ray,
         auto const &cm = cms[i];
         interval t;
 
-        if (!cm.geom->traverse(ray, t)) continue;
+        if (!cm.geom.traverse(ray, t)) continue;
 
         auto tstart = t.min;
         auto tend = t.max;
