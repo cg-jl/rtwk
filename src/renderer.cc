@@ -149,10 +149,8 @@ static color geometrySim(color const &background, ray r, int depth,
         }
         ZoneScopedN("ray frame");
 
-        double closestHit;
-
         // If the ray hits nothing, return the background color.
-        auto *res = world.hitSelect(r, &closestHit);
+        auto [res, closestHit] = world.hitSelect(r);
 
         auto maxT = res ? closestHit : infinity;
 

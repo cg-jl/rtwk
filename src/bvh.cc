@@ -3,7 +3,7 @@
 
 #include <cassert>
 #include <tracy/Tracy.hpp>
-#include <vector>
+#include <utility>
 
 #include "trace_colors.h"
 
@@ -77,8 +77,8 @@ void bvh::tree_builder::finish(size_t start) noexcept {
     bvh::buildBVHNode(*this, start, geoms.size());
 }
 
-geometry const *bvh::tree::hitBVH(ray const &r,
-                                  double &closestHit) const noexcept {
+std::pair<geometry const *, double> bvh::tree::hitBVH(
+    ray const &r, double closestHit) const noexcept {
     // deactivate this zone for now.
     ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
     geometry const *result = nullptr;
@@ -93,6 +93,7 @@ geometry const *bvh::tree::hitBVH(ray const &r,
     int node_index = 0;
     while (node_index < tree_end) {
         if (!boxes[node_index].hit(r, interval{minRayDist, closestHit})) {
+            if (node_ends[node_index] <= node_index) std::unreachable();
             node_index = node_ends[node_index];
             continue;
         }
@@ -101,9 +102,7 @@ geometry const *bvh::tree::hitBVH(ray const &r,
 
         if (n.objectIndex != -1) {
             auto span = std::span{geoms + n.objectIndex, size_t(n.objectCount)};
-            // @perf What if I make hitSpan just not overwrite by taking an `in_best`?
-            auto hit = hitSpan(span, r, closestHit);
-            result = hit ?: result;
+            std::tie(result, closestHit) = hitSpan(span, r, result, closestHit);
         }
         // the next node to process is adjacent to the current one:
         // Either it's the left node from this node, or the right subtree from
@@ -120,5 +119,5 @@ geometry const *bvh::tree::hitBVH(ray const &r,
         node_index += 1;
     }
 
-    return result;
+    return {result, closestHit};
 }

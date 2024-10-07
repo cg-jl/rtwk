@@ -12,26 +12,21 @@
 #include "rtweekend.h"
 #include "trace_colors.h"
 
-geometry const *hittable_list::hitSelect(ray const &r,
-                                         double *closestHit) const {
+std::pair<geometry const *, double> hittable_list::hitSelect(
+    ray const &r) const {
     ZoneNamedN(_tracy, "hittable_list hit", filters::surfaceHit);
 
-    geometry const *best = nullptr;
+    geometry const *best;
+    double closestHit;
 
-    *closestHit = infinity;
-
-    {
-        ZoneNamedN(_tracy, "hit trees", filters::hit);
-        best = bvh::tree(treebld).hitBVH(r, *closestHit);
-    }
+    std::tie(best, closestHit) = bvh::tree(treebld).hitBVH(r, infinity);
 
     {
         ZoneNamedN(_tracy, "hit individuals", filters::hit);
-        auto const hit_individual = hitSpan(selectGeoms, r, *closestHit);
-        best = hit_individual ?: best;
+        std::tie(best, closestHit) = hitSpan(selectGeoms, r, best, closestHit);
     }
 
-    return best;
+    return {best, closestHit};
 }
 
 void hittable_list::add(lightInfo object, geometry geom) {

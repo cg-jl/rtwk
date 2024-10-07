@@ -144,12 +144,11 @@ struct traversable_geometry {
     }
 };
 
-inline geometry const *hitSpan(std::span<geometry const> objects, ray const &r,
-                               double &closestHit) {
+inline std::pair<geometry const *, double> hitSpan(
+    std::span<geometry const> objects, ray const &r, geometry const *best,
+    double closestHit) {
     ZoneScopedNC("hit span", Ctp::Green);
     ZoneValue(objects.size());
-
-    geometry const *best = nullptr;
 
     for (auto const &object : objects) {
         auto res = object.hit(r);
@@ -159,5 +158,5 @@ inline geometry const *hitSpan(std::span<geometry const> objects, ray const &r,
         }
     }
 
-    return best;
+    return {best, closestHit};
 }

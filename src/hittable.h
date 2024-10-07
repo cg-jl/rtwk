@@ -22,6 +22,12 @@ struct lightInfo {
         : mat(mat), tex(tex) {}
 };
 
+struct geometry;
+struct geometryFound {
+    geometry const *ptr;
+    double hit;
+};
+
 // wrapper around a `double` that is negative when it's not there.
 // @cleanup remove this in favor of just returning -1?
 struct hit_result {
