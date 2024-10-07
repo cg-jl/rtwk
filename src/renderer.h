@@ -1,9 +1,6 @@
 #pragma once
 
-#include <camera.h>
+#include "settings.h"
+#include "hittable_list.h"
 
-#include <atomic>
-
-void render(camera const &cam, std::atomic<int> &tileid,
-            std::atomic<int> &remain_scanlines, size_t stop_at,
-            hittable_list const &world, color *pixels) noexcept;
+void render(hittable_list const &world, settings const &s);

@@ -13,13 +13,13 @@
 #include <cassert>
 #include <print>
 
-#include "camera.h"
 #include "constant_medium.h"
 #include "geometry.h"
 #include "hittable.h"
 #include "hittable_list.h"
 #include "material.h"
 #include "quad.h"
+#include "renderer.h"
 #include "rtweekend.h"
 #include "segm_alloc.h"
 #include "sphere.h"
@@ -104,26 +104,26 @@ void bouncing_spheres() {
 
     auto bgcolor = color(0.70, 0.80, 1.00);
 
-    camera cam;
+    settings s;
 
-    cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 800;
-    cam.samples_per_pixel = 100;
-    cam.max_depth = 50;
-    cam.background = bgcolor;
+    s.aspect_ratio = 16.0 / 9.0;
+    s.image_width = 800;
+    s.samples_per_pixel = 100;
+    s.max_depth = 50;
+    s.background = bgcolor;
 
-    cam.vfov = 20;
-    cam.lookfrom = point3(13, 2, 3);
-    cam.lookat = point3(0, 0, 0);
-    cam.vup = vec3(0, 1, 0);
+    s.vfov = 20;
+    s.lookfrom = point3(13, 2, 3);
+    s.lookat = point3(0, 0, 0);
+    s.vup = vec3(0, 1, 0);
 
-    cam.defocus_angle = 0.6;
-    cam.focus_dist = 10.0;
+    s.defocus_angle = 0.6;
+    s.focus_dist = 10.0;
 
     world.add(
-        lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))),
-        sphere(cam.lookfrom, 1000));
-    cam.render(world);
+        lightInfo(detail::diffuse_light, leak(texture::solid(s.background))),
+        sphere(s.lookfrom, 1000));
+    render(world, s);
 }
 
 void checkered_spheres() {
@@ -138,25 +138,25 @@ void checkered_spheres() {
     world.add(lightInfo(detail::lambertian, checker),
               sphere(point3(0, 10, 0), 10));
 
-    camera cam;
+    settings s;
 
-    cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 400;
-    cam.samples_per_pixel = 100;
-    cam.max_depth = 50;
-    cam.background = color(0.70, 0.80, 1.00);
+    s.aspect_ratio = 16.0 / 9.0;
+    s.image_width = 400;
+    s.samples_per_pixel = 100;
+    s.max_depth = 50;
+    s.background = color(0.70, 0.80, 1.00);
 
-    cam.vfov = 20;
-    cam.lookfrom = point3(13, 2, 3);
-    cam.lookat = point3(0, 0, 0);
-    cam.vup = vec3(0, 1, 0);
+    s.vfov = 20;
+    s.lookfrom = point3(13, 2, 3);
+    s.lookat = point3(0, 0, 0);
+    s.vup = vec3(0, 1, 0);
 
-    cam.defocus_angle = 0;
+    s.defocus_angle = 0;
 
     world.add(
-        lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))),
-        sphere(cam.lookfrom, 1000));
-    cam.render(world);
+        lightInfo(detail::diffuse_light, leak(texture::solid(s.background))),
+        sphere(s.lookfrom, 1000));
+    render(world, s);
 }
 
 void earth() {
@@ -165,26 +165,26 @@ void earth() {
     auto globeLights = lightInfo(earth_surface, earth_texture);
     auto globe = sphere(point3(0, 0, 0), 2);
 
-    camera cam;
+    settings s;
 
-    cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 400;
-    cam.samples_per_pixel = 100;
-    cam.max_depth = 50;
-    cam.background = color(0.70, 0.80, 1.00);
+    s.aspect_ratio = 16.0 / 9.0;
+    s.image_width = 400;
+    s.samples_per_pixel = 100;
+    s.max_depth = 50;
+    s.background = color(0.70, 0.80, 1.00);
 
-    cam.vfov = 20;
-    cam.lookfrom = point3(0, 0, 12);
-    cam.lookat = point3(0, 0, 0);
-    cam.vup = vec3(0, 1, 0);
+    s.vfov = 20;
+    s.lookfrom = point3(0, 0, 12);
+    s.lookat = point3(0, 0, 0);
+    s.vup = vec3(0, 1, 0);
 
-    cam.defocus_angle = 0;
+    s.defocus_angle = 0;
 
     hittable_list world(globeLights, globe);
     world.add(
-        lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))),
-        sphere(cam.lookfrom, 1000));
-    cam.render(world);
+        lightInfo(detail::diffuse_light, leak(texture::solid(s.background))),
+        sphere(s.lookfrom, 1000));
+    render(world, s);
 }
 
 void perlin_spheres() {
@@ -196,25 +196,25 @@ void perlin_spheres() {
     world.add(lightInfo(detail::lambertian, pertext),
               sphere(point3(0, 2, 0), 2));
 
-    camera cam;
+    settings s;
 
-    cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 400;
-    cam.samples_per_pixel = 100;
-    cam.max_depth = 50;
-    cam.background = color(0.70, 0.80, 1.00);
+    s.aspect_ratio = 16.0 / 9.0;
+    s.image_width = 400;
+    s.samples_per_pixel = 100;
+    s.max_depth = 50;
+    s.background = color(0.70, 0.80, 1.00);
 
-    cam.vfov = 20;
-    cam.lookfrom = point3(13, 2, 3);
-    cam.lookat = point3(0, 0, 0);
-    cam.vup = vec3(0, 1, 0);
+    s.vfov = 20;
+    s.lookfrom = point3(13, 2, 3);
+    s.lookat = point3(0, 0, 0);
+    s.vup = vec3(0, 1, 0);
 
-    cam.defocus_angle = 0;
+    s.defocus_angle = 0;
 
     world.add(
-        lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))),
-        sphere(cam.lookfrom, 1000));
-    cam.render(world);
+        lightInfo(detail::diffuse_light, leak(texture::solid(s.background))),
+        sphere(s.lookfrom, 1000));
+    render(world, s);
 }
 
 void quads() {
@@ -241,25 +241,25 @@ void quads() {
     world.add(lightInfo(lambert, &lower_teal),
               quad(point3(-2, -3, 5), vec3(4, 0, 0), vec3(0, 0, -4)));
 
-    camera cam;
+    settings s;
 
-    cam.aspect_ratio = 1.0;
-    cam.image_width = 400;
-    cam.samples_per_pixel = 100;
-    cam.max_depth = 50;
-    cam.background = color(0.70, 0.80, 1.00);
+    s.aspect_ratio = 1.0;
+    s.image_width = 400;
+    s.samples_per_pixel = 100;
+    s.max_depth = 50;
+    s.background = color(0.70, 0.80, 1.00);
 
-    cam.vfov = 80;
-    cam.lookfrom = point3(0, 0, 9);
-    cam.lookat = point3(0, 0, 0);
-    cam.vup = vec3(0, 1, 0);
+    s.vfov = 80;
+    s.lookfrom = point3(0, 0, 9);
+    s.lookat = point3(0, 0, 0);
+    s.vup = vec3(0, 1, 0);
 
-    cam.defocus_angle = 0;
+    s.defocus_angle = 0;
 
     world.add(
-        lightInfo(detail::diffuse_light, leak(texture::solid(cam.background))),
-        sphere(cam.lookfrom, 1000));
-    cam.render(world);
+        lightInfo(detail::diffuse_light, leak(texture::solid(s.background))),
+        sphere(s.lookfrom, 1000));
+    render(world, s);
 }
 
 void simple_light() {
@@ -278,22 +278,22 @@ void simple_light() {
     world.add(lightInfo(difflight, &light_tint),
               quad(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0)));
 
-    camera cam;
+    settings s;
 
-    cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 400;
-    cam.samples_per_pixel = 100;
-    cam.max_depth = 50;
-    cam.background = color(0, 0, 0);
+    s.aspect_ratio = 16.0 / 9.0;
+    s.image_width = 400;
+    s.samples_per_pixel = 100;
+    s.max_depth = 50;
+    s.background = color(0, 0, 0);
 
-    cam.vfov = 20;
-    cam.lookfrom = point3(26, 3, 6);
-    cam.lookat = point3(0, 2, 0);
-    cam.vup = vec3(0, 1, 0);
+    s.vfov = 20;
+    s.lookfrom = point3(26, 3, 6);
+    s.lookat = point3(0, 2, 0);
+    s.vup = vec3(0, 1, 0);
 
-    cam.defocus_angle = 0;
+    s.defocus_angle = 0;
 
-    cam.render(world);
+    render(world, s);
 }
 
 // NOTE: This has around the same latency as the "final scene" one.
@@ -332,7 +332,7 @@ void cornell_box() {
         world.add(lightInfo(lambert, &white), b);
     }
 
-    camera cam;
+    settings cam;
 
     cam.aspect_ratio = 1.0;
     cam.image_width = 600;
@@ -347,7 +347,7 @@ void cornell_box() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world);
+    render(world, cam);
 }
 
 void cornell_smoke() {
@@ -390,7 +390,7 @@ void cornell_smoke() {
             color(1, 1, 1));
     };
 
-    camera cam;
+    settings cam;
 
     cam.aspect_ratio = 1.0;
     cam.image_width = 600;
@@ -405,7 +405,7 @@ void cornell_smoke() {
 
     cam.defocus_angle = 0;
 
-    cam.render(world);
+    render(world, cam);
 }
 
 void final_scene(int image_width, int samples_per_pixel, int max_depth) {
@@ -500,22 +500,22 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     delete build_timer;
 
-    camera cam;
+    settings s;
 
-    cam.aspect_ratio = 1.0;
-    cam.image_width = image_width;
-    cam.samples_per_pixel = samples_per_pixel;
-    cam.max_depth = max_depth;
-    cam.background = color(0, 0, 0);
+    s.aspect_ratio = 1.0;
+    s.image_width = image_width;
+    s.samples_per_pixel = samples_per_pixel;
+    s.max_depth = max_depth;
+    s.background = color(0, 0, 0);
 
-    cam.vfov = 40;
-    cam.lookfrom = point3(478, 278, -600);
-    cam.lookat = point3(278, 278, 0);
-    cam.vup = vec3(0, 1, 0);
+    s.vfov = 40;
+    s.lookfrom = point3(478, 278, -600);
+    s.lookat = point3(278, 278, 0);
+    s.vup = vec3(0, 1, 0);
 
-    cam.defocus_angle = 0;
+    s.defocus_angle = 0;
 
-    cam.render(world);
+    render(world, s);
 }
 
 int main() {

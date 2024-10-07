@@ -9,7 +9,6 @@ include(FetchContent)
 add_executable(rt 
     aabb.cc
     bvh.cc
-    camera.cc
     constant_medium.cc
     external/stb_image.cc
     external/stb_image_write.cc

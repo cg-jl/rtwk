@@ -1,15 +1,18 @@
-#include <camera.h>
+#include <external/stb_image_write.h>
 #include <renderer.h>
 #include <texture_impls.h>
 #include <trace_colors.h>
 
 #include <atomic>
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <print>
+#include <thread>
 #include <tracy/Tracy.hpp>
 
 #include "hittable_list.h"
+#include "timer.h"
 
 using uint32 = uint32_t;
 
@@ -17,6 +20,19 @@ using deferNoise = std::pair<texture::noise_data, point3>;
 
 // TODO: @maybe I could collect images by their pointer?
 using deferImage = std::pair<rtw_shared_image, uvs>;
+
+struct camera {
+    int image_height;  // Rendered image height
+    double
+        pixel_samples_scale;  // Color scale factor for a sum of pixel samples
+    point3 center;            // Camera center
+    point3 pixel00_loc;       // Location of pixel 0, 0
+    vec3 pixel_delta_u;       // Offset to pixel to the right
+    vec3 pixel_delta_v;       // Offset to pixel below
+    vec3 u, v, w;             // Camera frame basis vectors
+    vec3 defocus_disk_u;      // Defocus disk horizontal radius
+    vec3 defocus_disk_v;      // Defocus disk vertical radius
+};
 
 // @cleanup this is no longer a matrix, just arrays
 struct sampleMat {
@@ -91,7 +107,7 @@ static point3 defocus_disk_sample(camera const &cam) {
            (p[1] * cam.defocus_disk_v);
 }
 
-static ray get_ray(camera const &cam, int i, int j) {
+static ray get_ray(settings const &s, camera const &cam, int i, int j) {
     // Construct a camera ray originating from the defocus disk and directed
     // at a randomly sampled point around the pixel location i, j.
 
@@ -101,7 +117,7 @@ static ray get_ray(camera const &cam, int i, int j) {
                         ((j + offset.y()) * cam.pixel_delta_v);
 
     auto ray_origin =
-        (cam.defocus_angle <= 0) ? cam.center : defocus_disk_sample(cam);
+        (s.defocus_angle <= 0) ? cam.center : defocus_disk_sample(cam);
     auto ray_direction = pixel_sample - ray_origin;
     auto ray_time = random_double();
 
@@ -246,16 +262,16 @@ struct Scanline_Buffers {
     }
 };
 
-static void scanLine(camera const &cam, hittable_list const &world, int const j,
-                     color *pixels, Scanline_Buffers buffers,
-                     perlin const &noise) {
+static void scanLine(settings const &s, camera const &cam,
+                     hittable_list const &world, int const j, color *pixels,
+                     Scanline_Buffers buffers, perlin const &noise) {
     // NOTE: @maybe a matrix only for the solids and vectors for the  other
     // types works better. geometrySim could also return whether it is
     // cancelling/light/background to find what the last (or first) color
     // multiplier is, and store it in one go. This would allow to do all the
     // lane multiplies in one loop.
 
-    for (int i = 0; i < cam.image_width; i++) {
+    for (int i = 0; i < s.image_width; i++) {
         color pixel_color(0, 0, 0);
 
         int rleSolids = 0;
@@ -264,13 +280,13 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
 
         px_sampleq::commitSave tally{};
 
-        for (int sample = 0; sample < cam.samples_per_pixel; sample++) {
+        for (int sample = 0; sample < s.samples_per_pixel; sample++) {
             // NOTE: @trace The first (bottom) lines (black, 399) are pretty bad
             // (~3.52us)
             ZoneScopedN("pixel sample");
             ZoneValue(j);
             ZoneValue(i);
-            ray r = get_ray(cam, i, j);
+            ray r = get_ray(s, cam, i, j);
 
             auto offset_mat = buffers.attMat;
 
@@ -280,7 +296,7 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
 
             px_sampleq q{offset_mat, px_sampleq::commitSave{}};
 
-            auto bg = geometrySim(cam.background, r, cam.max_depth, world, q);
+            auto bg = geometrySim(s.background, r, s.max_depth, world, q);
             tally.accept(q.tally);
 
             // @perf It may be better to log these counts separately so that
@@ -384,34 +400,157 @@ static void scanLine(camera const &cam, hittable_list const &world, int const j,
             }
         }
 
-        for (int sample = 0; sample < cam.samples_per_pixel; ++sample) {
+        for (int sample = 0; sample < s.samples_per_pixel; ++sample) {
             pixel_color += buffers.samples[sample];
         }
 
-        pixels[j * cam.image_width + i] = cam.pixel_samples_scale * pixel_color;
+        pixels[j * s.image_width + i] = cam.pixel_samples_scale * pixel_color;
     }
 }
 
-void render(camera const &cam, std::atomic<int> &tileid,
-            std::atomic<int> &remain_scanlines, size_t const stop_at,
-            hittable_list const &world, color *pixels) noexcept {
+static void renderThread(settings const &s, camera const &cam,
+                         std::atomic<int> &__restrict__ tileid,
+                         std::atomic<int> &__restrict__ remain_scanlines,
+                         size_t const stop_at, hittable_list const &world,
+                         color *pixels) noexcept {
     // NOTE: @waste @mem Could reuse a solids lane (maybe the last/first one)
     // for the final lane.
 
-    auto buffers =
-        Scanline_Buffers::request(cam.samples_per_pixel, cam.max_depth);
+    auto buffers = Scanline_Buffers::request(s.samples_per_pixel, s.max_depth);
 
     auto noise = std::make_unique<perlin>();
 
     for (;;) {
         auto j = tileid.fetch_add(1, std::memory_order_acq_rel);
 
-        if (j >= cam.image_width) return;
+        if (j >= s.image_width) return;
 
         // TODO: render worker state struct
-        scanLine(cam, world, j, pixels, buffers, *noise.get());
+        scanLine(s, cam, world, j, pixels, buffers, *noise.get());
 
         remain_scanlines.fetch_sub(1, std::memory_order_acq_rel);
         remain_scanlines.notify_one();
     }
+}
+
+static camera make_camera(settings const &s) {
+    camera cam;
+    cam.image_height = int(s.image_width / s.aspect_ratio);
+    cam.image_height = (cam.image_height < 1) ? 1 : cam.image_height;
+
+    cam.pixel_samples_scale = 1.0 / s.samples_per_pixel;
+
+    cam.center = s.lookfrom;
+
+    // Determine viewport dimensions.
+    auto theta = degrees_to_radians(s.vfov);
+    auto h = tan(theta / 2);
+    auto viewport_height = 2 * h * s.focus_dist;
+    auto viewport_width =
+        viewport_height * (double(s.image_width) / cam.image_height);
+
+    // Calculate the u,v,w unit basis vectors for the camera coordinate
+    // frame.
+    cam.w = unit_vector(s.lookfrom - s.lookat);
+    cam.u = unit_vector(cross(s.vup, cam.w));
+    cam.v = cross(cam.w, cam.u);
+
+    // Calculate the vectors across the horizontal and down the vertical
+    // viewport edges.
+    vec3 viewport_u =
+        viewport_width * cam.u;  // Vector across viewport horizontal edge
+    vec3 viewport_v =
+        viewport_height * -cam.v;  // Vector down viewport vertical edge
+
+    // Calculate the horizontal and vertical delta vectors from pixel to
+    // pixel.
+    cam.pixel_delta_u = viewport_u / s.image_width;
+    cam.pixel_delta_v = viewport_v / cam.image_height;
+
+    // Calculate the location of the upper left pixel.
+    auto viewport_upper_left =
+        cam.center - (s.focus_dist * cam.w) - viewport_u / 2 - viewport_v / 2;
+    cam.pixel00_loc =
+        viewport_upper_left + 0.5 * (cam.pixel_delta_u + cam.pixel_delta_v);
+
+    // Calculate the camera defocus disk basis vectors.
+    auto defocus_radius =
+        s.focus_dist * tan(degrees_to_radians(s.defocus_angle / 2));
+    cam.defocus_disk_u = cam.u * defocus_radius;
+    cam.defocus_disk_v = cam.v * defocus_radius;
+    return cam;
+}
+
+void render(hittable_list const &world, settings const &s) {
+    auto cam = make_camera(s);
+    auto pixels = std::make_unique<color[]>(size_t(s.image_width) *
+                                            size_t(cam.image_height));
+
+    // lock progress mutex before launching the progress thread so we don't
+    // end in a deadlock.
+
+    int start = cam.image_height;
+    static constexpr int stop_at = 0;
+    std::atomic<int> remain_scanlines alignas(64){start};
+
+    auto progress_thread = std::thread([limit = start, &remain_scanlines]() {
+        auto last_remain = limit + 1;
+        while (true) {
+            remain_scanlines.wait(last_remain, std::memory_order_acquire);
+
+            auto remain = remain_scanlines.load(std::memory_order_acquire);
+            last_remain = remain;
+            std::clog << "\r\x1b[2K\x1b[?25lScanlines remaining: " << remain
+                      << "\x1b[?25h" << std::flush;
+            if (remain == stop_at) break;
+        }
+        std::clog << "\r\x1b[2K" << std::flush;
+    });
+
+#ifdef _OPENMP
+#else
+    // TODO: if I keep adding atomic things, then single threaded
+    // performance will be lost.
+#endif
+
+    auto render_timer = new rtwk::timer("Render");
+    std::atomic<int> tileid alignas(64);
+    // worker loop
+#pragma omp parallel
+    {
+        ::renderThread(s, cam, tileid, remain_scanlines, stop_at, world,
+                       pixels.get());
+    }
+
+    delete render_timer;
+    progress_thread.join();
+
+    std::clog << "\r\x1b[2KWriting image...\n";
+
+    // 1. Encode the image into RGB
+    auto bytes =
+        std::make_unique<uint8_t[]>(s.image_width * cam.image_height * 3);
+
+    for (size_t i = 0; i < s.image_width * cam.image_height; ++i) {
+        auto const &pixel_color = pixels[i];
+        auto r = pixel_color.x();
+        auto g = pixel_color.y();
+        auto b = pixel_color.z();
+
+        // Apply a linear to gamma transform for gamma 2
+        r = linear_to_gamma(r);
+        g = linear_to_gamma(g);
+        b = linear_to_gamma(b);
+
+        // Translate the [0,1] component values to the byte range [0,255].
+        static interval const intensity(0.000, 0.999);
+        bytes[3 * i + 0] = uint8_t(256 * intensity.clamp(r));
+        bytes[3 * i + 1] = uint8_t(256 * intensity.clamp(g));
+        bytes[3 * i + 2] = uint8_t(256 * intensity.clamp(b));
+    }
+
+    stbi_write_png("test.png", s.image_width, cam.image_height, 3, &bytes[0],
+                   0);
+
+    std::clog << "Done.\n";
 }
