@@ -69,7 +69,7 @@ void camera::render(hittable_list const &world) {
 
     int start = image_height;
     static constexpr int stop_at = 0;
-    std::atomic<int> remain_scanlines{start};
+    std::atomic<int> remain_scanlines alignas(64){start};
 
     auto progress_thread = std::thread([limit = start, &remain_scanlines]() {
         auto last_remain = limit + 1;
@@ -92,7 +92,7 @@ void camera::render(hittable_list const &world) {
 #endif
 
     auto render_timer = new rtwk::timer("Render");
-    std::atomic<int> tileid;
+    std::atomic<int> tileid alignas(64);
     // worker loop
 #pragma omp parallel
     { ::render(*this, tileid, remain_scanlines, stop_at, world, pixels.get()); }
