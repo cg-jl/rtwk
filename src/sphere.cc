@@ -11,14 +11,14 @@ point3 sphere_center(sphere const &sph, double time) {
     return sph.center1 + time * sph.center_vec;
 }
 
-double sphere::hit(ray r) const {
+double sphere::hit(timed_ray r) const {
     ZoneNamedN(_tracy, "sphere hit", filters::hit);
     point3 center = sphere_center(*this, r.time);
-    vec3 oc = center - r.orig;
-    auto a = r.dir.length_squared();
+    vec3 oc = center - r.r.orig;
+    auto a = r.r.dir.length_squared();
     // Distance from ray origin to sphere center parallel to the ray
     // direction
-    auto oc_alongside_ray = dot(r.dir, oc);
+    auto oc_alongside_ray = dot(r.r.dir, oc);
     auto c = oc.length_squared() - radius * radius;
 
     auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
@@ -41,15 +41,15 @@ double sphere::hit(ray r) const {
     return root;
 }
 
-bool sphere::traverse(ray const &r, interval &intersect) const {
+bool sphere::traverse(timed_ray r, interval &intersect) const {
     // NOTE: @cutnpaste from sphere::hit
     ZoneNamedNC(_tracy, "sphere traverse", Ctp::Mantle, filters::hit);
     point3 center = sphere_center(*this, r.time);
-    vec3 oc = center - r.orig;
-    auto a = r.dir.length_squared();
+    vec3 oc = center - r.r.orig;
+    auto a = r.r.dir.length_squared();
     // Distance from ray origin to sphere center parallel to the ray
     // direction
-    auto oc_alongside_ray = dot(r.dir, oc);
+    auto oc_alongside_ray = dot(r.r.dir, oc);
     auto c = oc.length_squared() - radius * radius;
 
     auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;

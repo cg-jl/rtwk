@@ -107,7 +107,7 @@ static point3 defocus_disk_sample(camera const &cam) {
            (p[1] * cam.defocus_disk_v);
 }
 
-static ray get_ray(settings const &s, camera const &cam, int i, int j) {
+static timed_ray get_ray(settings const &s, camera const &cam, int i, int j) {
     // Construct a camera ray originating from the defocus disk and directed
     // at a randomly sampled point around the pixel location i, j.
 
@@ -121,13 +121,13 @@ static ray get_ray(settings const &s, camera const &cam, int i, int j) {
     auto ray_direction = pixel_sample - ray_origin;
     auto ray_time = random_double();
 
-    return ray(ray_origin, ray_direction, ray_time);
+    return {ray(ray_origin, ray_direction), ray_time};
 }
 
 // Aligns the normal so that it always points towards the ray origin.
 // Returs whether the face is at the front.
-static bool set_face_normal(ray const &r, vec3 &normal) {
-    auto front_face = dot(r.dir, normal) < 0;
+static bool set_face_normal(vec3 in_dir, vec3 &normal) {
+    auto front_face = dot(in_dir, normal) < 0;
     normal = front_face ? normal : -normal;
     return front_face;
 }
@@ -139,7 +139,7 @@ static vec3 random_in_unit_sphere() {
     }
 }
 
-static color geometrySim(color const &background, ray r, int depth,
+static color geometrySim(color const &background, timed_ray r, int depth,
                          hittable_list const &world, px_sampleq &attenuations) {
     for (;;) {
         // Too deep and haven't found a light source.
@@ -165,10 +165,10 @@ static color geometrySim(color const &background, ray r, int depth,
         double cmHit;
         if (auto *cmColor = world.sampleConstantMediums(r, maxT, &cmHit)) {
             // Don't need UVs/normal; we have an isotropic material.
-            r.orig = r.at(cmHit);
+            r.r.orig = r.r.at(cmHit);
             attenuations.emplaceSolid(*cmColor);
 
-            r.dir = unit_vector(random_in_unit_sphere());
+            r.r.dir = unit_vector(random_in_unit_sphere());
             --depth;
             continue;
         }
@@ -178,10 +178,10 @@ static color geometrySim(color const &background, ray r, int depth,
             return background;
         }
 
-        auto p = r.at(closestHit);
+        auto p = r.r.at(closestHit);
         auto normal = res->getNormal(p, r.time);
 
-        auto front_face = set_face_normal(r, normal);
+        auto front_face = set_face_normal(r.r.dir, normal);
         {
             ZoneScopedN("getUVs");
             ZoneColor(tracy::Color::SteelBlue);
@@ -198,14 +198,14 @@ static color geometrySim(color const &background, ray r, int depth,
             return color(1, 1, 1);
         }
 
-        if (!mat.scatter(r.dir, normal, front_face, scattered)) {
+        if (!mat.scatter(r.r.dir, normal, front_face, scattered)) {
             attenuations.reset();
             return color(0, 0, 0);
         }
 
         depth = depth - 1;
         attenuations.emplace(tex, uv, p);
-        r = ray(p, scattered, r.time);
+        r.r = ray(p, scattered);
     }
 }
 
@@ -284,7 +284,7 @@ static void scanLine(settings const &s, camera const &cam,
             ZoneScopedN("pixel sample");
             ZoneValue(j);
             ZoneValue(i);
-            ray r = get_ray(s, cam, i, j);
+            auto r = get_ray(s, cam, i, j);
 
             auto offset_mat = buffers.attMat;
 

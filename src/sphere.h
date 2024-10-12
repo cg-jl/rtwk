@@ -33,8 +33,8 @@ struct sphere final {
         center_vec = center2 - center1;
     }
 
-    double hit(ray r) const;
-    bool traverse(ray const &r, interval &intersect) const;
+    double hit(timed_ray r) const;
+    bool traverse(timed_ray r, interval &intersect) const;
     static uvs getUVs(vec3 normal);
 
     vec3 getNormal(point3 const intersection, double time) const;

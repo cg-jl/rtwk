@@ -58,7 +58,7 @@ struct tree {
     // @perf Using __attribute__((const)) here makes the image black,
     // which means that the arguments here are taken into consideration as only
     // pointers instead of requiring the data behind them.
-    std::pair<geometry const *, double> hitBVH(ray const &,
+    std::pair<geometry const *, double> hitBVH(timed_ray const &,
                                                double) const noexcept
         __attribute__((pure));
 };

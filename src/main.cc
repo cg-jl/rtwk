@@ -463,13 +463,13 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     geometry boundary = sphere(point3(360, 150, 145), 70);
     world.add(lightInfo((material::dielectric(1.5)), &detail::white), boundary);
-    world.add(constant_medium(
-                  (traversable_geometry::from_geometry(boundary)), 0.2),
-              color(0.2, 0.4, 0.9));
+    world.add(
+        constant_medium((traversable_geometry::from_geometry(boundary)), 0.2),
+        color(0.2, 0.4, 0.9));
     boundary = sphere(point3(0, 0, 0), 5000);
-    world.add(constant_medium(
-                  (traversable_geometry::from_geometry(boundary)), .0001),
-              color(1, 1, 1));
+    world.add(
+        constant_medium((traversable_geometry::from_geometry(boundary)), .0001),
+        color(1, 1, 1));
 
     auto emat = lambert;
     auto eimg = leak(texture::image("earthmap.jpg"));
@@ -556,6 +556,14 @@ int main() {
             // 1spp at the testing capacity. Otherwise
             // I get so much data.
             final_scene(400, 1, 40);
+            break;
+        case 11:
+            // 1440x1440 == 1920x1080
+            // comparison with video:
+            // https://www.youtube.com/watch?app=desktop&v=ulmjqD6Y4do (Alex did
+            // 1st book, I'm doing 2nd book)
+            // Result: I'm better! yay! 1m22s on my machine.
+            final_scene(1440, 400, 20);
             break;
         default:
             final_scene(400, 250, 40);

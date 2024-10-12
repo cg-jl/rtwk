@@ -69,16 +69,16 @@ struct geometry {
 
     // Returns something less than `minRayDist` when the ray does not hit.
     // TODO: write the result inconditionally everywhere.
-    double hit(ray r) const {
+    double hit(timed_ray const &r) const {
         // geometry is already transformed, so we can skip and set the actual
         // point.
         switch (kind) {
             case kind::box:
-                return data.box.hit(r);
+                return data.box.hit(r.r);
             case kind::sphere:
                 return data.sphere.hit(r);
             case kind::quad:
-                return data.quad.hit(r);
+                return data.quad.hit(r.r);
         }
     }
 
@@ -123,10 +123,10 @@ struct traversable_geometry {
     // End to end traversal of the geometry, just taking into account the
     // direction and the origin point. The intersection is geometric based
     // (distance), not relative to the ray's "speed" on each direction.
-    bool traverse(ray r, interval &intersect) const {
+    bool traverse(timed_ray r, interval &intersect) const {
         switch (kind) {
             case kind::box:
-                return data.box.traverse(r, intersect);
+                return data.box.traverse(r.r, intersect);
             case kind::sphere:
                 return data.sphere.traverse(r, intersect);
         }
@@ -145,7 +145,7 @@ struct traversable_geometry {
 };
 
 inline std::pair<geometry const *, double> hitSpan(
-    std::span<geometry const> objects, ray const &r, geometry const *best,
+    std::span<geometry const> objects, timed_ray const &r, geometry const *best,
     double closestHit) {
     ZoneScopedNC("hit span", Ctp::Green);
     ZoneValue(objects.size());

@@ -78,7 +78,7 @@ void bvh::tree_builder::finish(size_t start) noexcept {
 }
 
 std::pair<geometry const *, double> bvh::tree::hitBVH(
-    ray const &r, double closestHit) const noexcept {
+    timed_ray const &r, double closestHit) const noexcept {
     // deactivate this zone for now.
     ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
     geometry const *result = nullptr;
@@ -92,7 +92,7 @@ std::pair<geometry const *, double> bvh::tree::hitBVH(
     auto tree_end = boxes.size();
     int node_index = 0;
     while (node_index < tree_end) {
-        if (!boxes[node_index].hit(r, interval{minRayDist, closestHit})) {
+        if (!boxes[node_index].hit(r.r, interval{minRayDist, closestHit})) {
             if (node_ends[node_index] <= node_index) std::unreachable();
             node_index = node_ends[node_index];
             continue;

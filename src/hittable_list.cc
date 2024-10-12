@@ -9,11 +9,12 @@
 #include "geometry.h"
 #include "hittable.h"
 #include "interval.h"
+#include "ray.h"
 #include "rtweekend.h"
 #include "trace_colors.h"
 
 std::pair<geometry const *, double> hittable_list::hitSelect(
-    ray const &r) const {
+    timed_ray const &r) const {
     ZoneNamedN(_tracy, "hittable_list hit", filters::surfaceHit);
 
     geometry const *best;
@@ -50,11 +51,11 @@ enum bool32 : uint32_t { True = 0xFFFFFFFFul, False = 0x0ul };
 // TODO: @waste Consider giving just an (optional) index to cmAlbedos.
 // The compiler may be optimizing for the wrong case (not having a null pointer)
 // here, as well as the hitSelect result.
-color const *hittable_list::sampleConstantMediums(ray const &ray,
+color const *hittable_list::sampleConstantMediums(timed_ray const &ray,
                                                   double const maxT,
                                                   double *hit) const noexcept {
     ZoneScoped;
-    auto rayLength = ray.dir.length();
+    auto rayLength = ray.r.dir.length();
     color const *selected = nullptr;
 
     double currentHit = infinity;
