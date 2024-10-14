@@ -26,6 +26,7 @@ struct interval {
         : min(std::min(a.min, b.min)), max(std::max(a.max, b.max)) {}
 
     constexpr double size() const { return max - min; }
+    constexpr bool isEmpty() const { return min >= max; }
 
     constexpr bool contains(double x) const { return min <= x && x <= max; }
 

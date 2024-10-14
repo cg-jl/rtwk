@@ -12,7 +12,6 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
-#include "hittable.h"
 #include "interval.h"
 #include "ray.h"
 #include "rtweekend.h"
@@ -59,11 +58,10 @@ struct aabb {
         return interval{min[n], max[n]};
     }
 
-    bool hit(ray const &r, interval ray_t) const;
     double hit(ray const &r) const;
     // Helper method to traverse using an already existing `ray_t` and modifying
     // it. It clobbers `ray_t`.
-    bool traverse(ray const &r, interval &ray_t) const;
+    interval traverse(ray const &r) const;
     uvs getUVs(point3 intersection) const;
     point3 getNormal(point3 intersection) const;
 

@@ -11,7 +11,7 @@
 // @perf My L1 cache size (per CPU) is: 32kiB!
 // L3 is 4MiB and L2 is 512kiB.
 
-bool aabb::traverse(ray const &r, interval &ray_t) const {
+interval aabb::traverse(ray const &r) const {
     // NOTE: These load 4x double's, so the rightmost value (memory order) or
     // the leftmost value (register order) won't be used.
 
@@ -35,7 +35,16 @@ bool aabb::traverse(ray const &r, interval &ray_t) const {
     // NOTE: @perf The compiler seems to be generating smarter code than I am
     // for this last comparison loop step (minsd, maxsd three times :P).
 
-    for (int axis = 0; axis < 3; ++axis) {
+    // @perf This is just one shuffle and one min/max instruction, don't need to use scalars.
+    // Since it's just three way:
+    // <garbo> <tx[2]> <tx[1]> <tx[0]>
+    // <garbo> <tx[0]> <tx[2]> <tx[1]> <- ideal (I don't know if I can have it)
+    // <garbo> <0/2>   <1/2>   <0/1>
+    // minsd, maxsd twice?
+    auto tmin_array = (double *)&tmins;
+    auto tmaxs_array = (double *)&tmaxs;
+    interval ray_t{tmin_array[0], tmaxs_array[0]};
+    for (int axis = 1; axis < 3; ++axis) {
         auto t0 = ((double *)&tmins)[axis];
         auto t1 = ((double *)&tmaxs)[axis];
 
@@ -43,18 +52,12 @@ bool aabb::traverse(ray const &r, interval &ray_t) const {
         if (t1 < ray_t.max) ray_t.max = t1;
     }
 
-    return ray_t.min < ray_t.max;
-}
-
-bool aabb::hit(ray const &r, interval ray_t) const {
-    ZoneNamedN(zone, "AABB hit", filters::hit);
-    // Makes a copy of `ray_t` and then makes the comparison.
-    return traverse(r, ray_t);
+    return ray_t;
 }
 
 double aabb::hit(ray const &r) const {
-    auto intv = universe_interval;
-    auto ok = traverse(r, intv);
+    auto intv = traverse(r);
+    auto ok = !intv.isEmpty();
     // @perf ok is just `intv.min < intv.max`, so -sign(intv.min - intv.max)
     // should be good. -sign because we want intv.min == intv.max to yield -1,
     // sign(0) = 0 -> -sign(0) = 1. Since we swap the sign we also have to swap

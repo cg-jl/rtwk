@@ -5,6 +5,7 @@
 #include <tracy/Tracy.hpp>
 #include <utility>
 
+#include "interval.h"
 #include "trace_colors.h"
 
 namespace bvh {
@@ -92,11 +93,15 @@ std::pair<geometry const *, double> bvh::tree::hitBVH(
     auto tree_end = boxes.size();
     int node_index = 0;
     while (node_index < tree_end) {
-        if (!boxes[node_index].hit(r.r, interval{minRayDist, closestHit})) {
+        auto t = boxes[node_index].traverse(r.r);
+        t.max = std::min(t.max, closestHit);
+        t.min = std::max(t.min, minRayDist);
+        if (t.isEmpty()) {
             if (node_ends[node_index] <= node_index) std::unreachable();
             node_index = node_ends[node_index];
             continue;
         }
+        t.max = std::min(t.max, closestHit);
 
         auto const n = nodes[node_index];
 

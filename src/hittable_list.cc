@@ -65,9 +65,9 @@ color const *hittable_list::sampleConstantMediums(timed_ray const &ray,
 
     for (size_t i = 0; i < cms.size(); ++i) {
         auto const &cm = cms[i];
-        interval t;
+        auto t = cm.geom.traverse(ray);
 
-        if (!cm.geom.traverse(ray, t)) continue;
+        if (t.isEmpty()) continue;
 
         auto tstart = t.min;
         auto tend = t.max;

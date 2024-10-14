@@ -34,7 +34,7 @@ struct sphere final {
     }
 
     double hit(timed_ray r) const;
-    bool traverse(timed_ray r, interval &intersect) const;
+    interval traverse(timed_ray r) const;
     static uvs getUVs(vec3 normal);
 
     vec3 getNormal(point3 const intersection, double time) const;

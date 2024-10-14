@@ -41,7 +41,7 @@ double sphere::hit(timed_ray r) const {
     return root;
 }
 
-bool sphere::traverse(timed_ray r, interval &intersect) const {
+interval sphere::traverse(timed_ray r) const {
     // NOTE: @cutnpaste from sphere::hit
     ZoneNamedNC(_tracy, "sphere traverse", Ctp::Mantle, filters::hit);
     point3 center = sphere_center(*this, r.time);
@@ -53,10 +53,11 @@ bool sphere::traverse(timed_ray r, interval &intersect) const {
     auto c = oc.length_squared() - radius * radius;
 
     auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
-    if (discriminant < 0) return false;
+    if (discriminant < 0) return interval{infinity, -infinity};
 
     auto sqrtd = std::sqrt(discriminant);
 
+    interval intersect;
     intersect.min = (oc_alongside_ray - sqrtd);
     intersect.max = (oc_alongside_ray + sqrtd);
 
@@ -65,7 +66,7 @@ bool sphere::traverse(timed_ray r, interval &intersect) const {
     // + sqrtd
     // <=> 0 > 2*sqrtd, sqrtd >= 0 hence it's always false.
 
-    return true;
+    return intersect;
 }
 
 // normal: Surface normal at the hit point.

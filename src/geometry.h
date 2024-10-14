@@ -63,10 +63,6 @@ struct geometry {
         std::unreachable();
     }
 
-    // @perf could make a return value double that is negative when invalid.
-    // This way I can always return by value instead of writing to a pointer,
-    // which removes redundant loads.
-
     // Returns something less than `minRayDist` when the ray does not hit.
     // TODO: write the result inconditionally everywhere.
     double hit(timed_ray const &r) const {
@@ -123,12 +119,12 @@ struct traversable_geometry {
     // End to end traversal of the geometry, just taking into account the
     // direction and the origin point. The intersection is geometric based
     // (distance), not relative to the ray's "speed" on each direction.
-    bool traverse(timed_ray r, interval &intersect) const {
+    interval traverse(timed_ray const &r) const {
         switch (kind) {
             case kind::box:
-                return data.box.traverse(r.r, intersect);
+                return data.box.traverse(r.r);
             case kind::sphere:
-                return data.sphere.traverse(r, intersect);
+                return data.sphere.traverse(r);
         }
     };
 
