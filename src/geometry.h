@@ -146,6 +146,10 @@ inline std::pair<geometry const *, double> hitSpan(
     ZoneScopedNC("hit span", Ctp::Green);
     ZoneValue(objects.size());
 
+    // @perf I need a perf report on this.
+    // Tracy says that the loop overhead takes between 40-60% of the runtime.
+    // I don't know more.
+
     for (auto const &object : objects) {
         auto res = object.hit(r);
         if (interval{minRayDist, closestHit}.contains(res)) {

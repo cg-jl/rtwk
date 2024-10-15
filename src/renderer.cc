@@ -479,13 +479,10 @@ static camera make_camera(settings const &s) {
     return cam;
 }
 
-void render(hittable_list const &world, settings const &s) {
+void render(hittable_list world, settings const &s) {
     auto cam = make_camera(s);
     auto pixels = std::make_unique<color[]>(size_t(s.image_width) *
                                             size_t(cam.image_height));
-
-    // lock progress mutex before launching the progress thread so we don't
-    // end in a deadlock.
 
     int start = cam.image_height;
     static constexpr int stop_at = 0;
