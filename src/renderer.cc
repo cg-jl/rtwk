@@ -508,7 +508,8 @@ void render(hittable_list world, settings const &s) {
     // performance will be lost.
 #endif
 
-    auto render_timer = new rtwk::timer("Render");
+    rtwk::stopwatch render_timer;
+    render_timer.start();
     std::atomic<int> tileid alignas(64);
     // worker loop
 #pragma omp parallel
@@ -516,8 +517,8 @@ void render(hittable_list world, settings const &s) {
         ::renderThread(s, cam, tileid, remain_scanlines, stop_at, world,
                        pixels.get());
     }
-
-    delete render_timer;
+    auto render_time = render_timer.stop();
+    rtwk::print_duration(std::cout, "Render", render_time);
     progress_thread.join();
 
     std::clog << "\r\x1b[2KWriting image...\n";

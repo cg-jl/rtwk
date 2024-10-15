@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <iterator>
+#include <bit>
 #include <span>
 #include <tracy/Tracy.hpp>
 #include <utility>

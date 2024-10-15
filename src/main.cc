@@ -13,6 +13,7 @@
 #include <cassert>
 #include <print>
 
+#include <iostream>
 #include "constant_medium.h"
 #include "geometry.h"
 #include "hittable.h"
@@ -409,7 +410,8 @@ void cornell_smoke() {
 }
 
 void final_scene(int image_width, int samples_per_pixel, int max_depth) {
-    auto build_timer = new rtwk::timer("Building scene");
+    rtwk::stopwatch build_timer;
+    build_timer.start();
     auto lambert = detail::lambertian;
     auto ground_col = texture::solid(color(0.48, 0.83, 0.53));
     hittable_list world;
@@ -498,7 +500,8 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     }
     world.treebld.finish(boxes2);
 
-    delete build_timer;
+    auto build_time = build_timer.stop();
+    rtwk::print_duration(std::cout, "Building scene", build_time);
 
     settings s;
 

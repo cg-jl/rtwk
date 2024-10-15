@@ -23,7 +23,6 @@ add_executable(rt
     segm_alloc.cc
     sphere.cc
     texture.cc
-    timer.cc
     transforms.cc
 )
 
