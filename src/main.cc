@@ -562,7 +562,8 @@ int main() {
             // comparison with video:
             // https://www.youtube.com/watch?app=desktop&v=ulmjqD6Y4do (Alex did
             // 1st book, I'm doing 2nd book)
-            // Result: I'm better! yay! 1m22s on my machine.
+            // Result: 1m22s on my machine (16 hyperthreads).
+            // Not better than 4.2 minutes single threaded.
             final_scene(1440, 400, 20);
             break;
         default:
