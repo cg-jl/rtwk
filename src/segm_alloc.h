@@ -1,4 +1,5 @@
 #include <bit>
+#include <cstdint>
 #include <span>
 #include <vector>
 
@@ -17,6 +18,8 @@ struct Leak_Allocator {
     };
     std::vector<Unfinished_Segment> unfinished_queue;
 
+    // @incomplete These lose provenance from the original pointer
+    // (segment.data)
     uintptr_t allocRaw(size_t size, size_t align);
     template <typename T>
     T *alloc() {

@@ -1,6 +1,8 @@
 #include "segm_alloc.h"
 
 #include <cassert>
+#include <cstdlib>
+#include <utility>
 #if _WIN32
 #include <malloc.h>
 #endif
@@ -11,6 +13,10 @@ namespace segment {
 static std::optional<std::pair<uintptr_t, uintptr_t>> allocSegment(
     Leak_Allocator::Unfinished_Segment const segm, size_t const size,
     size_t const align_mask) {
+    // @incomplete this loses provenance of the pointer. C++ makes it really
+    // hard to use void*, so I might have to use uint8_t, just so that the
+    // final pointer arithmetic is done by the compiler (which is the only way
+    // to maintain provenance).
     auto avail_start_ptr = uintptr_t(segm.data) + segm.used;
     auto end_ptr = uintptr_t(segm.data) + segment::size;
     auto alloc_start_ptr = (avail_start_ptr + align_mask) & ~align_mask;
@@ -25,7 +31,7 @@ static uintptr_t backupAlloc(size_t size, size_t align) {
 #if _WIN32
     return uintptr_t(_aligned_malloc(size, align));
 #else
-#error Unsupported runtime for aligned allocation
+    return uintptr_t(aligned_alloc(align, size));
 #endif
 }
 

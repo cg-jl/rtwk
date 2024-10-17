@@ -2,6 +2,7 @@
 
 #include <span>
 #include <tracy/Tracy.hpp>
+#include <utility>
 
 #include "aabb.h"
 #include "hittable.h"

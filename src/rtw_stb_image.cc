@@ -13,6 +13,7 @@
 #define STBI_FAILURE_USERMSG
 #include <cstdlib>
 #include <iostream>
+#include <utility>
 #include <string>
 
 #include "external/stb_image.h"
