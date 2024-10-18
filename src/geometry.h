@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <iterator>
 #include <span>
 #include <tracy/Tracy.hpp>
@@ -25,9 +26,10 @@
 // we can drop the `closestHit` checks inside each hit and only check when we're
 // aggregating.
 
+enum class geometry_kind : int { box, sphere, quad };
 struct geometry {
     int relIndex;
-    enum class kind : int { box, sphere, quad } kind;
+    geometry_kind kind;
 
     union {
         sphere sphere;
@@ -35,19 +37,19 @@ struct geometry {
         aabb box;
     } data;
 
-    geometry(sphere sph) : kind(kind::sphere), data{.sphere = sph} {}
-    geometry(quad q) : kind(kind::quad), data{.quad = q} {}
-    geometry(aabb b) : kind(kind::box), data{.box = b} {}
+    geometry(sphere sph) : kind(geometry_kind::sphere), data{.sphere = sph} {}
+    geometry(quad q) : kind(geometry_kind::quad), data{.quad = q} {}
+    geometry(aabb b) : kind(geometry_kind::box), data{.box = b} {}
 
     void applyTransform(transform tf) {
         switch (kind) {
-            case kind::sphere:
+            case geometry_kind::sphere:
                 data.sphere = sphere::applyTransform(data.sphere, tf);
                 break;
-            case kind::quad:
+            case geometry_kind::quad:
                 data.quad = quad::applyTransform(data.quad, tf);
                 break;
-            case kind::box:
+            case geometry_kind::box:
                 data.box = tf.applyForward(data.box);
                 break;
         }
@@ -55,56 +57,98 @@ struct geometry {
 
     aabb bounding_box() const {
         switch (kind) {
-            case kind::box:
+            case geometry_kind::box:
                 return data.box;
-            case kind::quad:
+            case geometry_kind::quad:
                 return data.quad.bounding_box();
-            case kind::sphere:
+            case geometry_kind::sphere:
                 return data.sphere.bounding_box();
         }
         std::unreachable();
     }
+};
 
+// Pointer to a geometry object.
+// Keeps the variant-like behavior without forcing memory layout
+struct geometry_ptr {
+    geometry_kind kind;
+    int relIndex;
+    union _ptrs {
+        sphere const *sphere;
+        aabb const *box;
+        quad const *quad;
+
+        constexpr _ptrs(struct sphere const *sph) : sphere(sph) {}
+        constexpr _ptrs(aabb const *box) : box(box) {}
+        constexpr _ptrs(struct quad const *q) : quad(q) {}
+        constexpr _ptrs() = default;
+
+    } ptr;
+
+    constexpr geometry_ptr() = default;
+
+    constexpr geometry_ptr(sphere const *sph)
+        : kind(geometry_kind::sphere), ptr(sph) {}
+    constexpr geometry_ptr(aabb const *box)
+        : kind(geometry_kind::box), ptr(box) {}
+    constexpr geometry_ptr(quad const *q) : kind(geometry_kind::quad), ptr(q) {}
+
+    constexpr operator bool() const {
+        return std::bit_cast<uint64_t>(ptr) != 0;
+    }
+
+    constexpr geometry_ptr(std::nullptr_t) : geometry_ptr() {}
+
+    constexpr geometry_ptr(geometry const *gp)
+        : kind(gp->kind), relIndex(gp->relIndex) {
+        switch (gp->kind) {
+            case geometry_kind::box:
+                new (&ptr) _ptrs(&gp->data.box);
+            case geometry_kind::sphere:
+                new (&ptr) _ptrs(&gp->data.sphere);
+            case geometry_kind::quad:
+                new (&ptr) _ptrs(&gp->data.quad);
+        }
+    }
+
+    constexpr geometry_ptr(geometry const &gpref) : geometry_ptr(&gpref) {}
+
+    vec3 getNormal(point3 const &__restrict intersection, double time) const {
+        switch (kind) {
+            case geometry_kind::box:
+                return ptr.box->getNormal(intersection);
+            case geometry_kind::quad:
+                return ptr.quad->getNormal();
+            case geometry_kind::sphere:
+                return ptr.sphere->getNormal(intersection, time);
+        }
+    }
+
+    uvs getUVs(point3 const &__restrict intersection,
+               point3 const &__restrict normal) const {
+        switch (kind) {
+            case geometry_kind::box:
+                return ptr.box->getUVs(intersection);
+            case geometry_kind::sphere:
+                return ptr.sphere->getUVs(normal);
+            case geometry_kind::quad:
+                return ptr.quad->getUVs(intersection);
+        }
+    }
     // Returns something less than `minRayDist` when the ray does not hit.
     // TODO: write the result inconditionally everywhere.
     double hit(timed_ray const &r) const {
         // geometry is already transformed, so we can skip and set the actual
         // point.
         switch (kind) {
-            case kind::box:
-                return data.box.hit(r.r);
-            case kind::sphere:
-                return data.sphere.hit(r);
-            case kind::quad:
-                return data.quad.hit(r.r);
+            case geometry_kind::box:
+                return ptr.box->hit(r.r);
+            case geometry_kind::sphere:
+                return ptr.sphere->hit(r);
+            case geometry_kind::quad:
+                return ptr.quad->hit(r.r);
         }
     }
-
-    // Calculates the UVs given an intersection and a normal.  They are passed
-    // as restrict references because we want to maintain their uniqueness
-    // semantics, but we know only one of them is going to be accessed.
-    uvs getUVs(point3 const &__restrict__ intersection,
-               point3 const &__restrict__ normal) const {
-        switch (kind) {
-            case kind::box:
-                return data.box.getUVs(intersection);
-            case kind::sphere:
-                return sphere::getUVs(normal);
-            case kind::quad:
-                return data.quad.getUVs(intersection);
-        }
-    }
-
-    vec3 getNormal(point3 intersection, double time) const {
-        switch (kind) {
-            case kind::box:
-                return data.box.getNormal(intersection);
-            case kind::sphere:
-                return data.sphere.getNormal(intersection, time);
-            case kind::quad:
-                return data.quad.getNormal();
-        }
-    };
 };
 
 struct traversable_geometry {
@@ -132,11 +176,11 @@ struct traversable_geometry {
 
     static traversable_geometry from_geometry(geometry g) {
         switch (g.kind) {
-            case geometry::kind::box:
+            case geometry_kind::box:
                 return g.data.box;
-            case geometry::kind::sphere:
+            case geometry_kind::sphere:
                 return g.data.sphere;
-            case geometry::kind::quad:
+            case geometry_kind::quad:
                 std::unreachable();
         }
     }
@@ -144,15 +188,16 @@ struct traversable_geometry {
 
 template <typename It>
 concept geometry_iterator = std::input_iterator<It> && requires(It const &it) {
-    // we want references because copying the geometries in the loop made it ~1.8x slower.
-    { *it } -> std::same_as<geometry const&>;
+    // we want references because copying the geometries in the loop made it
+    // ~1.8x slower.
+    { *it } -> std::convertible_to<geometry_ptr>;
 };
 
 template <geometry_iterator It>
-inline std::pair<geometry const *, double> hitSpan(It start, It end,
-                                                   timed_ray const &r,
-                                                   geometry const *best,
-                                                   double closestHit) {
+inline std::pair<geometry_ptr, double> hitSpan(It start, It end,
+                                               timed_ray const &r,
+                                               geometry_ptr best,
+                                               double closestHit) {
     ZoneScopedNC("hit span", Ctp::Green);
     ZoneValue(objects.size());
 
@@ -161,10 +206,10 @@ inline std::pair<geometry const *, double> hitSpan(It start, It end,
     // I don't know more.
 
     for (auto it = start; it != end; ++it) {
-        auto const &object = *it;
+        geometry_ptr const object = *it;
         auto res = object.hit(r);
         if (interval{minRayDist, closestHit}.contains(res)) {
-            best = &object;
+            best = object;
             closestHit = res;
         }
     }
@@ -172,7 +217,10 @@ inline std::pair<geometry const *, double> hitSpan(It start, It end,
     return {best, closestHit};
 }
 
-// @perf get rid of this as I start providing better iteration options to the loop.
-inline std::pair<geometry const *, double> hitSpan(std::span<geometry const> objects, timed_ray const &r, geometry const *best, double closestHit) {
+// @perf get rid of this as I start providing better iteration options to the
+// loop.
+inline std::pair<geometry_ptr, double> hitSpan(
+    std::span<geometry const> objects, timed_ray const &r, geometry_ptr best,
+    double closestHit) {
     return hitSpan(std::begin(objects), std::end(objects), r, best, closestHit);
 }

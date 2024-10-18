@@ -78,11 +78,11 @@ void bvh::tree_builder::finish(size_t start) noexcept {
     bvh::buildBVHNode(*this, start, geoms.size());
 }
 
-std::pair<geometry const *, double> bvh::tree::hitBVH(
+std::pair<geometry_ptr, double> bvh::tree::hitBVH(
     timed_ray const &r, double closestHit) const noexcept {
     // deactivate this zone for now.
     ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
-    geometry const *result = nullptr;
+    geometry_ptr result = nullptr;
 
     // @perf This has a 'self time' of ~50%. Can I reduce it?
     // Median sample has ~300ns of latency, presumably due to memory fetches.

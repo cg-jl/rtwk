@@ -13,11 +13,11 @@
 #include "rtweekend.h"
 #include "trace_colors.h"
 
-std::pair<geometry const *, double> hittable_list::hitSelect(
+std::pair<geometry_ptr, double> hittable_list::hitSelect(
     timed_ray const &r) const {
     ZoneNamedN(_tracy, "hittable_list hit", filters::surfaceHit);
 
-    geometry const *best;
+    geometry_ptr best;
     double closestHit;
 
     std::tie(best, closestHit) = bvh::tree(treebld).hitBVH(r, infinity);

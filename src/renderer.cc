@@ -179,18 +179,18 @@ static color geometrySim(color const &background, timed_ray r, int depth,
         }
 
         auto p = r.r.at(closestHit);
-        auto normal = res->getNormal(p, r.time);
+        auto normal = res.getNormal(p, r.time);
 
         auto front_face = set_face_normal(r.r.dir, normal);
         {
             ZoneScopedN("getUVs");
             ZoneColor(tracy::Color::SteelBlue);
-            uv = res->getUVs(p, normal);
+            uv = res.getUVs(p, normal);
         }
 
         vec3 scattered;
 
-        auto const &[mat, tex] = world.objects[res->relIndex];
+        auto const &[mat, tex] = world.objects[res.relIndex];
 
         // here we'll have to use the emit value as the 'attenuation' value.
         if (mat.tag == material::kind::diffuse_light) {
