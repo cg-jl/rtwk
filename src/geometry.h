@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iterator>
 #include <span>
 #include <tracy/Tracy.hpp>
 #include <utility>
@@ -141,9 +142,17 @@ struct traversable_geometry {
     }
 };
 
-inline std::pair<geometry const *, double> hitSpan(
-    std::span<geometry const> objects, timed_ray const &r, geometry const *best,
-    double closestHit) {
+template <typename It>
+concept geometry_iterator = std::input_iterator<It> && requires(It const &it) {
+    // we want references because copying the geometries in the loop made it ~1.8x slower.
+    { *it } -> std::same_as<geometry const&>;
+};
+
+template <geometry_iterator It>
+inline std::pair<geometry const *, double> hitSpan(It start, It end,
+                                                   timed_ray const &r,
+                                                   geometry const *best,
+                                                   double closestHit) {
     ZoneScopedNC("hit span", Ctp::Green);
     ZoneValue(objects.size());
 
@@ -151,7 +160,8 @@ inline std::pair<geometry const *, double> hitSpan(
     // Tracy says that the loop overhead takes between 40-60% of the runtime.
     // I don't know more.
 
-    for (auto const &object : objects) {
+    for (auto it = start; it != end; ++it) {
+        auto const &object = *it;
         auto res = object.hit(r);
         if (interval{minRayDist, closestHit}.contains(res)) {
             best = &object;
@@ -160,4 +170,9 @@ inline std::pair<geometry const *, double> hitSpan(
     }
 
     return {best, closestHit};
+}
+
+// @perf get rid of this as I start providing better iteration options to the loop.
+inline std::pair<geometry const *, double> hitSpan(std::span<geometry const> objects, timed_ray const &r, geometry const *best, double closestHit) {
+    return hitSpan(std::begin(objects), std::end(objects), r, best, closestHit);
 }
