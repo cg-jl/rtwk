@@ -12,10 +12,16 @@
 #include <aabb.h>
 #include <vec3.h>
 
+#include <cassert>
+
 #include "transforms.h"
 
+// @perf length(u) == length(v)?
+// @perf dot(u, v) == 0.
 struct quad {
-    constexpr quad(point3 Q, vec3 u, vec3 v) : Q(Q), u(u), v(v) {}
+    quad(point3 Q, vec3 u, vec3 v) : Q(Q), u(u), v(v) {
+        assert(dot(v, u) == 0.);
+    }
 
     aabb bounding_box() const {
         // Compute the bounding box of all four vertices.
@@ -25,13 +31,14 @@ struct quad {
     }
 
     double hit(ray r) const;
-    bool traverse(ray const &r, interval &intesect) const;
 
     uvs getUVs(point3 intersection) const;
     vec3 getNormal() const;
 
     static quad applyTransform(quad q, transform tf) noexcept;
 
+    // @perf length(u) == length(v)?
+    // @perf dot(u,v ) == 0.
     point3 Q;
     vec3 u, v;
 };
