@@ -30,6 +30,29 @@ std::pair<geometry_ptr, double> hittable_list::hitSelect(
     return {best, closestHit};
 }
 
+void hittable_list::transformAll(transform tf) {
+    for (auto &obj : treebld.geoms) {
+        obj.applyTransform(tf);
+    }
+    for (auto& box : treebld.boxes) {
+        box = tf.applyForward(box);
+    }
+    for (auto & obj : selectGeoms) {
+        obj.applyTransform(tf);
+    }
+    for (auto &obj : cms) {
+        switch (obj.geom.kind) {
+            case traversable_geometry::kind::box:
+                obj.geom.data.box = tf.applyForward(obj.geom.data.box);
+                break;
+            case traversable_geometry::kind::sphere:
+                obj.geom.data.sphere =
+                    sphere::applyTransform(obj.geom.data.sphere, tf);
+                break;
+        }
+    }
+}
+
 void hittable_list::add(lightInfo object, geometry geom) {
     geom.relIndex = objects.size();  // Make sure we link the texture/mat data.
     selectGeoms.emplace_back(geom);

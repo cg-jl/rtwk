@@ -21,17 +21,15 @@ using deferNoise = std::pair<texture::noise_data, point3>;
 // TODO: @maybe I could collect images by their pointer?
 using deferImage = std::pair<rtw_shared_image, uvs>;
 
+// Origin is at world origin.
 struct camera {
-    int image_height;  // Rendered image height
-    double
-        pixel_samples_scale;  // Color scale factor for a sum of pixel samples
-    point3 center;            // Camera center
-    point3 pixel00_loc;       // Location of pixel 0, 0
-    vec3 pixel_delta_u;       // Offset to pixel to the right
-    vec3 pixel_delta_v;       // Offset to pixel below
-    vec3 u, v, w;             // Camera frame basis vectors
-    vec3 defocus_disk_u;      // Defocus disk horizontal radius
-    vec3 defocus_disk_v;      // Defocus disk vertical radius
+    int image_height;     // Rendered image height
+    point3 pixel00_loc;   // Location of pixel 0, 0
+    vec3 pixel_delta_u;   // Offset to pixel to the right
+    vec3 pixel_delta_v;   // Offset to pixel below
+    vec3 u, v, w;         // Camera frame basis vectors
+    vec3 defocus_disk_u;  // Defocus disk horizontal radius
+    vec3 defocus_disk_v;  // Defocus disk vertical radius
 };
 
 // @cleanup this is no longer a matrix, just arrays
@@ -103,8 +101,7 @@ static point3 random_in_unit_disk() {
 static point3 defocus_disk_sample(camera const &cam) {
     // Returns a random point in the camera defocus disk.
     auto p = random_in_unit_disk();
-    return cam.center + (p[0] * cam.defocus_disk_u) +
-           (p[1] * cam.defocus_disk_v);
+    return (p[0] * cam.defocus_disk_u) + (p[1] * cam.defocus_disk_v);
 }
 
 static timed_ray get_ray(settings const &s, camera const &cam, int i, int j) {
@@ -117,7 +114,7 @@ static timed_ray get_ray(settings const &s, camera const &cam, int i, int j) {
                         ((j + offset.y()) * cam.pixel_delta_v);
 
     auto ray_origin =
-        (s.defocus_angle <= 0) ? cam.center : defocus_disk_sample(cam);
+        (s.defocus_angle <= 0) ? vec3{0, 0, 0} : defocus_disk_sample(cam);
     auto ray_direction = pixel_sample - ray_origin;
     auto ray_time = random_double();
 
@@ -402,7 +399,7 @@ static void scanLine(settings const &s, camera const &cam,
             pixel_color += buffers.samples[sample];
         }
 
-        pixels[j * s.image_width + i] = cam.pixel_samples_scale * pixel_color;
+        pixels[j * s.image_width + i] = pixel_color / s.samples_per_pixel;
     }
 }
 
@@ -436,10 +433,6 @@ static camera make_camera(settings const &s) {
     cam.image_height = int(s.image_width / s.aspect_ratio);
     cam.image_height = (cam.image_height < 1) ? 1 : cam.image_height;
 
-    cam.pixel_samples_scale = 1.0 / s.samples_per_pixel;
-
-    cam.center = s.lookfrom;
-
     // Determine viewport dimensions.
     auto theta = degrees_to_radians(s.vfov);
     auto h = tan(theta / 2);
@@ -449,7 +442,7 @@ static camera make_camera(settings const &s) {
 
     // Calculate the u,v,w unit basis vectors for the camera coordinate
     // frame.
-    cam.w = unit_vector(s.lookfrom - s.lookat);
+    cam.w = unit_vector(-s.lookat);
     cam.u = unit_vector(cross(s.vup, cam.w));
     cam.v = cross(cam.w, cam.u);
 
@@ -467,7 +460,7 @@ static camera make_camera(settings const &s) {
 
     // Calculate the location of the upper left pixel.
     auto viewport_upper_left =
-        cam.center - (s.focus_dist * cam.w) - viewport_u / 2 - viewport_v / 2;
+        -(s.focus_dist * cam.w) - viewport_u / 2 - viewport_v / 2;
     cam.pixel00_loc =
         viewport_upper_left + 0.5 * (cam.pixel_delta_u + cam.pixel_delta_v);
 
@@ -479,7 +472,12 @@ static camera make_camera(settings const &s) {
     return cam;
 }
 
-void render(hittable_list world, settings const &s) {
+void render(hittable_list world, settings s) {
+    // offset everything so that what was at s.lookfrom is at 0, 0, 0.
+    world.transformAll(transform(0, -s.lookfrom));
+    // I can't rotate the world because how noise is generated (the sin pattern)
+    // depends on absolute world position and not the position relative to the camera.
+    s.lookat = s.lookat - s.lookfrom;
     auto cam = make_camera(s);
     auto pixels = std::make_unique<color[]>(size_t(s.image_width) *
                                             size_t(cam.image_height));

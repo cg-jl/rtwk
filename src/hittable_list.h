@@ -37,6 +37,8 @@ struct hittable_list {
     void addTree(lightInfo object, geometry geom);
     void add(constant_medium medium, color albedo);
 
+    void transformAll(transform tf);
+
     std::pair<geometry_ptr, double> hitSelect(timed_ray const &r) const;
 
     color const *sampleConstantMediums(timed_ray const &ray, double closestHit,

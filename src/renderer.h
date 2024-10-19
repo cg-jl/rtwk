@@ -3,4 +3,4 @@
 #include "settings.h"
 #include "hittable_list.h"
 
-void render(hittable_list world, settings const &s);
+void render(hittable_list world, settings s);
