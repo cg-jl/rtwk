@@ -32,6 +32,7 @@ static vec3 random_unit_vector() {
     return unit_vector(random_in_unit_sphere());
 }
 
+// @perf result ignored.
 bool material::scatter(vec3 in_dir, vec3 const &normal, bool front_face,
                        vec3 &scattered) const {
     ZoneScopedN("scatter");

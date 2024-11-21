@@ -4,3 +4,4 @@ set -ex
 ./rel
 cmake --build build
 time ./build/rt
+img2sixel test.png

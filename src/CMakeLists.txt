@@ -6,38 +6,40 @@ include(FetchContent)
 
 #find_package(PNG REQUIRED)
 
-add_executable(rt 
-    aabb.cc
-    bvh.cc
-    constant_medium.cc
-    external/stb_image.cc
-    external/stb_image_write.cc
-    hittable_list.cc
-    main.cc 
-    material.cc
-    perlin.cc
-    quad.cc
-    random.cc
-    renderer.cc
-    rtw_stb_image.cc
-    segm_alloc.cc
-    sphere.cc
-    texture.cc
-    transforms.cc
+add_executable(rt
+        aabb.cc
+        bvh.cc
+        constant_medium.cc
+        external/stb_image.cc
+        external/stb_image_write.cc
+        hittable_list.cc
+        main.cc
+        material.cc
+        perlin.cc
+        quad.cc
+        random.cc
+        renderer.cc
+        rtw_stb_image.cc
+        segm_alloc.cc
+        sphere.cc
+        texture.cc
+        transforms.cc
 )
+
 
 option(TRACY_ENABLE "" OFF)
 option(TRACY_ON_DEMAND "" OFF)
 option(TRACY_NO_BROADCAST "" ON)
 option(TRACY_ONLY_LOCALHOST "" ON)
 option(TRACY_NO_EXIT "" ON)
+option(UBSAN "" OFF)
 
 FetchContent_Declare(
-    tracy
-    GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-    GIT_TAG v0.10
-    GIT_SHALLOW TRUE
-    GIT_PROGRESS TRUE
+        tracy
+        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+        GIT_TAG v0.10
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable(tracy)
 
@@ -49,12 +51,12 @@ target_include_directories(rt PRIVATE "${CMAKE_SOURCE_DIR}" TracyClient)
 
 set_property(TARGET rt PROPERTY CXX_STANDARD 23)
 
-target_compile_options(rt PRIVATE 
-    #-fsingle-precision-constant 
-    -fcolor-diagnostics
-    -fdiagnostics-show-template-tree
-    #-fconcepts-diagnostics-depth=4
-    -flto
+target_compile_options(rt PRIVATE
+        #-fsingle-precision-constant
+        -fcolor-diagnostics
+        -fdiagnostics-show-template-tree
+        #-fconcepts-diagnostics-depth=4
+        -flto
 )
 
 include(CheckIPOSupported)
@@ -63,19 +65,19 @@ check_ipo_supported(RESULT ipo_supported OUTPUT error)
 if (ipo_supported)
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         message(STATUS "Not enabling LTO in debug mode")
-    else()
+    else ()
         message(STATUS "Enabling LTO for release mode")
         set_property(TARGET rt PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif()
-else()
+    endif ()
+else ()
     message(WARNING "LTO is not supported and thus will not be enabled: ${error}")
-endif()
+endif ()
 
 target_compile_options(rt PRIVATE
-    -Wunused
-    -march=native
-    -mavx2
-    -fno-exceptions
+        -Wunused
+        -march=native
+        -mavx2
+        -fno-exceptions
 )
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL Debug)
@@ -94,10 +96,10 @@ else ()
             -ffinite-math-only
             -ffast-math
     )
-    if(TRACY_ENABLE)
+    if (TRACY_ENABLE)
         message(STATUS "Using tracing build. OpenMP is disabled to avoid big memory consumption.")
-    else()
+    else ()
         target_compile_options(rt PRIVATE -fopenmp)
         target_link_options(rt PRIVATE -fopenmp)
-    endif()
+    endif ()
 endif ()

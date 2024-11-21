@@ -8,10 +8,12 @@
 #include <iostream>
 #include <memory>
 #include <print>
+#include <ranges>
 #include <thread>
 #include <tracy/Tracy.hpp>
 
 #include "hittable_list.h"
+#include "rtweekend.h"
 #include "timer.h"
 
 using uint32 = uint32_t;
@@ -136,76 +138,6 @@ static vec3 random_in_unit_sphere() {
     }
 }
 
-static color geometrySim(color const &background, timed_ray r, int depth,
-                         hittable_list const &world, px_sampleq &attenuations) {
-    for (;;) {
-        // Too deep and haven't found a light source.
-        if (depth <= 0) {
-            attenuations.reset();
-            return color(0, 0, 0);
-        }
-        ZoneScopedN("ray frame");
-
-        // If the ray hits nothing, return the background color.
-        auto [res, closestHit] = world.hitSelect(r);
-
-        auto maxT = res ? closestHit : infinity;
-
-        uvs uv;
-
-        // NOTE: I have a constant problem where the camera is inside a
-        // constant medium, so getting a ray through means getting through a
-        // medium. I can't predict where/if the ray is going to disperse. So I
-        // just haveh to run both hitSelect and sampleConstantMediums.
-
-        // Try sampling a constant medium
-        double cmHit;
-        if (auto *cmColor = world.sampleConstantMediums(r, maxT, &cmHit)) {
-            // Don't need UVs/normal; we have an isotropic material.
-            r.r.orig = r.r.at(cmHit);
-            attenuations.emplaceSolid(*cmColor);
-
-            r.r.dir = unit_vector(random_in_unit_sphere());
-            --depth;
-            continue;
-        }
-
-        if (!res) {
-            attenuations.reset();
-            return background;
-        }
-
-        auto p = r.r.at(closestHit);
-        auto normal = res.getNormal(p, r.time);
-
-        auto front_face = set_face_normal(r.r.dir, normal);
-        {
-            ZoneScopedN("getUVs");
-            ZoneColor(tracy::Color::SteelBlue);
-            uv = res.getUVs(p, normal);
-        }
-
-        vec3 scattered;
-
-        auto const &[mat, tex] = world.objects[res.relIndex];
-
-        // here we'll have to use the emit value as the 'attenuation' value.
-        if (mat.tag == material::kind::diffuse_light) {
-            attenuations.emplace(tex, uv, p);
-            return color(1, 1, 1);
-        }
-
-        if (!mat.scatter(r.r.dir, normal, front_face, scattered)) {
-            attenuations.reset();
-            return color(0, 0, 0);
-        }
-
-        depth = depth - 1;
-        attenuations.emplace(tex, uv, p);
-        r.r = ray(p, scattered);
-    }
-}
-
 // NOTE: @misname Not really RLE, just avoiding zeros.
 struct RLE {
     int location;
@@ -240,11 +172,42 @@ struct countArrays {
 //   if it's in between, any algorithm (saturated or transitory) will behave
 //   mostly the same.
 
+using select_res = std::pair<geometry_ptr, double>;
+using cm_res = std::pair<color const *, double>;
+
+struct hit_record {
+    vec3 normal;
+    uvs uv;
+    bool is_front;
+};
+
+struct GSim_Buffers {
+    // inputs
+    timed_ray *rays;
+    px_sampleq *atts;
+    select_res *hit_selects;
+    cm_res *constant_mediums;
+    hit_record *hit_recs;
+    vec3 *scatters;
+
+    static GSim_Buffers request(uint32 spp) {
+        return {
+            .rays = new timed_ray[spp],
+            .atts = new px_sampleq[spp],
+            .hit_selects = new select_res[spp],
+            .constant_mediums = new cm_res[spp],
+            .hit_recs = new hit_record[spp],
+            .scatters = new vec3[spp],
+        };
+    }
+};
+
 struct Scanline_Buffers {
     sampleMat attMat;
     countArrays counts;
     double *multiplyBuffer;
     color *samples;
+    GSim_Buffers gsim;
 
     static Scanline_Buffers request(uint32 spp, uint32 maxDepth) {
         return {
@@ -253,9 +216,253 @@ struct Scanline_Buffers {
             // @cleanup could make these part of the same allocation
             .multiplyBuffer = new double[spp * maxDepth],
             .samples = new color[spp],
+            .gsim = GSim_Buffers::request(spp),
         };
     }
 };
+
+// FIXME: I'm in the middle of a refactoring.
+// I am trying to make everything reflect the multi-to-multi dynamism of rays,
+// so I have to think about processing multiple rays faster. Since I'm already
+// using parallelism in the form of threading, I have to include parallelism
+// on single threaded, which means trying to process rays in bulk as fast as
+// possible.
+//
+// First I'm going to make everything slower by introducing the dependencies and
+// results of geometrySim as arrays: generate rays - run simulations for
+// px_sampleq's independently - join px_sampleq's buffers so I can keep the bulk
+// processing of color sampling
+
+static auto partition(auto start, decltype(start) end, auto swap, auto pred) {
+    if (start >= end) goto r;
+    --end;
+    while (start < end) {
+        if (!pred(start)) {
+            while (!pred(end)) {
+                --end;
+                if (end == start) goto r;
+            }
+            swap(start, end);
+        }
+        ++start;
+    }
+r:
+    return start;
+}
+
+static void gsim(color const &background, uint32 const spp,
+                 uint32 const max_depth, hittable_list const &world,
+                 GSim_Buffers buffers, color *samples) {
+    // TODO: to transpose the loop, I will need a 'multi slice swap' or
+    // 'multiswap' where I swap the current ray being sampled, its queue and its
+    // output color with the last one on the array. This way I will only run the
+    // rays I care about, filtering out the rest. I need multiswap because I
+    // want to keep the correspondence of rays[index] with atts[index] and
+    // samples[index].
+
+    auto swap = [&](auto i, decltype(i) j) {
+        assert(i != j);
+        std::swap(samples[i], samples[j]);
+        std::swap(buffers.rays[i], buffers.rays[j]);
+        std::swap(buffers.atts[i], buffers.atts[j]);
+        std::swap(buffers.constant_mediums[i], buffers.constant_mediums[j]);
+        std::swap(buffers.hit_selects[i], buffers.hit_selects[j]);
+        std::swap(buffers.hit_recs[i], buffers.hit_recs[j]);
+    };
+
+    // @perf check if fill() with nontemporal writes does something interesting.
+
+    auto remaining = spp;
+    for (auto depth = max_depth; remaining; --depth) {
+        if (depth == 0) {
+            std::for_each(buffers.atts, buffers.atts + remaining,
+                          [](auto &att) { att.reset(); });
+            std::fill(samples, samples + remaining, color{0, 0, 0});
+            break;
+        }
+        ZoneScopedN("ray tick");
+        ZoneValue(remaining);
+
+        // NOTE: I have a constant problem where the camera is
+        // inside a constant medium, so getting a ray through means
+        // getting through a medium. I can't predict where/if the
+        // ray is going to disperse. So I just have to run both
+        // hitSelect and sampleConstantMediums.
+
+        // @perf make world hit select bulk-based.
+        std::transform(buffers.rays, buffers.rays + remaining,
+                       buffers.hit_selects,
+                       [&](auto const &r) { return world.hitSelect(r); });
+
+        std::transform(buffers.rays, buffers.rays + remaining,
+                       buffers.constant_mediums, [&](auto const &r) {
+                           double cmHit;
+                           auto const cmCol =
+                               world.sampleConstantMediums(r, infinity, &cmHit);
+                           return cm_res{cmCol, cmHit};
+                       });
+
+        using std::views::iota;
+
+        // @perf we're basically sorting by tag :]
+
+        auto const cms_end =
+            partition(decltype(remaining)(0), remaining, swap, [&](auto i) {
+                auto [res, closestHit] = buffers.hit_selects[i];
+                auto [cmColor, cmHit] = buffers.constant_mediums[i];
+                return cmColor and (!res or cmHit < closestHit);
+            });
+
+        auto const nohits_begin =
+            partition(cms_end, remaining, swap, [&](auto i) {
+                auto const &res = buffers.hit_selects[i].first;
+
+                return bool(res);
+            });
+
+        std::transform(
+            buffers.hit_selects + cms_end, buffers.hit_selects + nohits_begin,
+            std::views::iota(cms_end, nohits_begin).begin(),
+            buffers.hit_recs + cms_end, [&](auto const &hit_res, auto i) {
+                auto [res, closestHit] = hit_res;
+                auto const &r = buffers.rays[i];
+                // @perf p is cheap, rest aren't.
+                auto p = r.r.at(closestHit);
+                auto normal = res.getNormal(p, r.time);
+                auto front_face = set_face_normal(r.r.dir, normal);
+                // @perf getUVs not always depends on both 'p' and 'normal'.
+                // Since 'normal' is not cheap, maybe we want to know when
+                // normal is required and when it isn't (partition?)
+                auto uv = res.getUVs(p, normal);
+
+                return hit_record{normal, uv, front_face};
+            });
+
+        // @perf I think I can move this line before the transform up there :]
+        // @perf Think about making lights be at the end of all so that the
+        // zeroed-queue region is conntiguous.
+        auto const lights_begin =
+            partition(cms_end, nohits_begin, swap, [&](auto i) {
+                auto const &res = buffers.hit_selects[i].first;
+                auto const &mat = world.objects[res.relIndex].mat;
+                return mat.tag != material::kind::diffuse_light;
+            });
+
+        std::transform(
+            buffers.hit_selects + cms_end, buffers.hit_selects + lights_begin,
+            std::views::iota(cms_end, lights_begin).begin(),
+            buffers.scatters + cms_end, [&](auto const &hit_res, auto i) {
+                auto [res, closestHit] = hit_res;
+                auto const &r = buffers.rays[i];
+
+                // @perf p is cheap, rest aren't.
+                auto const &[normal, uv, front_face] = buffers.hit_recs[i];
+
+                auto const &[mat, tex] = world.objects[res.relIndex];
+
+                vec3 scattered{};
+                mat.scatter(r.r.dir, normal, front_face, scattered);
+                return scattered;
+            });
+
+        auto const bounces_end =
+            partition(cms_end, lights_begin, swap,
+                      [&](auto i) { return !buffers.scatters[i].near_zero(); });
+
+        // cms_end | <unsorted> | lights | nohit
+
+        // @perf we only know whether a ray is bounced when all the checks for
+        // other things have failed. Since we want bounces to the beginning, try
+        // sorting the other partitions first towards the right (negated) so
+        // that the bounces are left in the same place as now (after the cms).
+
+        // cms_end | bounces | no scatter | lights | nohit
+
+        // Constant mediums
+        // @perf separate the constant medium results in two so that these two
+        // loops run on independent data structures.
+        for (decltype(remaining) i = 0; i < cms_end; ++i) {
+            auto &q = buffers.atts[i];
+            auto cmColor = buffers.constant_mediums[i].first;
+            q.emplaceSolid(*cmColor);
+        }
+        for (decltype(remaining) i = 0; i < cms_end; ++i) {
+            auto &r = buffers.rays[i];
+            auto cmHit = buffers.constant_mediums[i].second;
+            r.r.orig = r.r.at(cmHit);
+        }
+
+        // @perf This contains random samples.
+        for (decltype(remaining) i = 0; i < cms_end; ++i) {
+            auto &r = buffers.rays[i];
+            r.r.dir = unit_vector(random_in_unit_sphere());
+        }
+
+        // Bounces (but not constant mediums)
+        for (decltype(remaining) i = cms_end; i < bounces_end; ++i) {
+            auto &q = buffers.atts[i];
+            auto [res, closestHit] = buffers.hit_selects[i];
+            auto const &r = buffers.rays[i];
+
+            // @perf p is cheap, rest aren't.
+            auto p = r.r.at(closestHit);
+            auto const &[normal, uv, front_face] = buffers.hit_recs[i];
+
+            auto const &tex = world.objects[res.relIndex].tex;
+
+            q.emplace(tex, uv, p);
+        }
+
+        for (decltype(remaining) i = cms_end; i < bounces_end; ++i) {
+            auto closestHit = buffers.hit_selects[i].second;
+            auto &r = buffers.rays[i];
+
+            // @perf p is cheap, rest aren't.
+            auto p = r.r.at(closestHit);
+            auto const &scattered = buffers.scatters[i];
+            r.r = ray(p, scattered);
+        }
+
+        // Non-bounces: lights, no hits and no scatters.
+
+        // cms_end | bounces | no scatter | lights | nohit
+        for (decltype(remaining) i = lights_begin; i < nohits_begin; ++i) {
+            auto &q = buffers.atts[i];
+            auto [res, closestHit] = buffers.hit_selects[i];
+            auto const &r = buffers.rays[i];
+
+            // @perf p is cheap, rest aren't.
+            auto p = r.r.at(closestHit);
+            auto const &[normal, uv, front_face] = buffers.hit_recs[i];
+
+            auto const &[mat, tex] = world.objects[res.relIndex];
+
+            q.emplace(tex, uv, p);
+        }
+
+        // @perf this loop is equivalent to fill with skips due to commitSave
+        // offset.
+        // cms_end | bounces | no scatter | lights | nohit
+        for (decltype(remaining) i = bounces_end; i < lights_begin; ++i) {
+            auto &q = buffers.atts[i];
+            q.reset();
+        }
+        for (decltype(remaining) i = nohits_begin; i < remaining; ++i) {
+            auto &q = buffers.atts[i];
+            q.reset();
+        }
+
+        std::fill(samples + lights_begin, samples + nohits_begin,
+                  color{1, 1, 1});
+
+        std::fill(samples + bounces_end, samples + lights_begin,
+                  color{0, 0, 0});
+        std::fill(samples + nohits_begin, samples + remaining, background);
+
+        // only cmResults and bounces get to the next level.
+        remaining = bounces_end;
+    }
+}
 
 static void scanLine(settings const &s, camera const &cam,
                      hittable_list const &world, int const j, color *pixels,
@@ -267,31 +474,50 @@ static void scanLine(settings const &s, camera const &cam,
     // lane multiplies in one loop.
 
     for (int i = 0; i < s.image_width; i++) {
-        color pixel_color(0, 0, 0);
+        // Initialize all the rays
+        std::for_each(buffers.gsim.rays,
+                      buffers.gsim.rays + s.samples_per_pixel,
+                      [&](auto &r) { r = get_ray(s, cam, i, j); });
+
+        // @perf Could do queue init before all of this, and just reset all each
+        // iteration. That (filling with zeros with a stride) is easier to do
+        // than calculating each offset. Initialize all queues. Since rays are
+        // going to be run in parallel, each sample queue is independent from
+        // each other.
+        for (int sample = 0; sample < s.samples_per_pixel; ++sample) {
+            auto offset_mat = buffers.attMat;
+
+            offset_mat.images += sample * s.max_depth;
+            offset_mat.noises += sample * s.max_depth;
+            offset_mat.solids += sample * s.max_depth;
+            new (&buffers.gsim.atts[sample]) px_sampleq{offset_mat, {}};
+        }
+
+        gsim(s.background, s.samples_per_pixel, s.max_depth, world,
+             buffers.gsim, buffers.samples);
+
+        // @perf I could try to distribute this loop as this is just a reduction
+        // loop. Once a queue is finished loading, I can send it and not worry
+        // about sampling till I have to do anything else. What we did here was
+        // reducing multiple queues into a single buffer to then be processed.
+        // Might be just another step that we have to queue the reduction of and
+        // when submitted we can then do the color computations.
+        px_sampleq::commitSave tally{};
 
         int rleSolids = 0;
         int rleNoises = 0;
         int rleImages = 0;
+        for (int sample = 0; sample < s.samples_per_pixel; ++sample) {
+            auto const &q = buffers.gsim.atts[sample];
 
-        px_sampleq::commitSave tally{};
-
-        for (int sample = 0; sample < s.samples_per_pixel; sample++) {
-            // NOTE: @trace The first (bottom) lines (black, 399) are pretty bad
-            // (~3.52us)
-            ZoneScopedN("pixel sample");
-            ZoneValue(j);
-            ZoneValue(i);
-            auto r = get_ray(s, cam, i, j);
-
-            auto offset_mat = buffers.attMat;
-
-            offset_mat.images += tally.images;
-            offset_mat.noises += tally.noises;
-            offset_mat.solids += tally.solids;
-
-            px_sampleq q{offset_mat, px_sampleq::commitSave{}};
-
-            auto bg = geometrySim(s.background, r, s.max_depth, world, q);
+            // Use reverse copy because these could be aliasing, in a high load
+            // context.
+            std::reverse_copy(q.ptrs.solids, q.ptrs.solids + q.tally.solids,
+                              buffers.attMat.solids + tally.solids);
+            std::reverse_copy(q.ptrs.noises, q.ptrs.noises + q.tally.noises,
+                              buffers.attMat.noises + tally.noises);
+            std::reverse_copy(q.ptrs.images, q.ptrs.images + q.tally.images,
+                              buffers.attMat.images + tally.images);
             tally.accept(q.tally);
 
             // @perf It may be better to log these counts separately so that
@@ -312,8 +538,6 @@ static void scanLine(settings const &s, camera const &cam,
             if (att_count.images) {
                 buffers.counts.images[rleImages++] = {sample, att_count.images};
             }
-
-            buffers.samples[sample] = bg;
         }
 
         // NOTE: @maybe consider filling the color matrix with 1s where samples
@@ -394,6 +618,8 @@ static void scanLine(settings const &s, camera const &cam,
                 }
             }
         }
+
+        color pixel_color(0, 0, 0);
 
         for (int sample = 0; sample < s.samples_per_pixel; ++sample) {
             pixel_color += buffers.samples[sample];
@@ -476,7 +702,8 @@ void render(hittable_list world, settings s) {
     // offset everything so that what was at s.lookfrom is at 0, 0, 0.
     world.transformAll(transform(0, -s.lookfrom));
     // I can't rotate the world because how noise is generated (the sin pattern)
-    // depends on absolute world position and not the position relative to the camera.
+    // depends on absolute world position and not the position relative to the
+    // camera.
     s.lookat = s.lookat - s.lookfrom;
     auto cam = make_camera(s);
     auto pixels = std::make_unique<color[]>(size_t(s.image_width) *
