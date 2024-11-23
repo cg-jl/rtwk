@@ -304,8 +304,6 @@ static void gsim(color const &background, uint32 const spp,
 
         using std::views::iota;
 
-        // @perf we're basically sorting by tag :]
-
         auto const cms_end =
             partition(decltype(remaining)(0), remaining, swap, [&](auto i) {
                 auto [res, closestHit] = buffers.hit_selects[i];
@@ -318,6 +316,15 @@ static void gsim(color const &background, uint32 const spp,
                 auto const &res = buffers.hit_selects[i].first;
 
                 return bool(res);
+            });
+
+        // @perf Think about making lights be at the end of all so that the
+        // zeroed-queue region is conntiguous.
+        auto const lights_begin =
+            partition(cms_end, nohits_begin, swap, [&](auto i) {
+                auto const &res = buffers.hit_selects[i].first;
+                auto const &mat = world.objects[res.relIndex].mat;
+                return mat.tag != material::kind::diffuse_light;
             });
 
         std::transform(
@@ -336,16 +343,6 @@ static void gsim(color const &background, uint32 const spp,
                 auto uv = res.getUVs(p, normal);
 
                 return hit_record{normal, uv, front_face};
-            });
-
-        // @perf I think I can move this line before the transform up there :]
-        // @perf Think about making lights be at the end of all so that the
-        // zeroed-queue region is conntiguous.
-        auto const lights_begin =
-            partition(cms_end, nohits_begin, swap, [&](auto i) {
-                auto const &res = buffers.hit_selects[i].first;
-                auto const &mat = world.objects[res.relIndex].mat;
-                return mat.tag != material::kind::diffuse_light;
             });
 
         std::transform(
