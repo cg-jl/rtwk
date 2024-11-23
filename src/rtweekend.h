@@ -22,6 +22,7 @@ using std::fabs;
 using std::make_shared;
 using std::shared_ptr;
 using std::sqrt;
+using uint32 = uint32_t;
 
 // Constants
 
@@ -51,5 +52,22 @@ struct range {
 struct uvs {
     double u, v;
 };
+
+static auto partition(auto start, decltype(start) end, auto swap, auto pred) {
+    if (start >= end) goto r;
+    --end;
+    while (start < end) {
+        if (!pred(start)) {
+            while (!pred(end)) {
+                --end;
+                if (end == start) goto r;
+            }
+            swap(start, end);
+        }
+        ++start;
+    }
+r:
+    return start;
+}
 
 #endif

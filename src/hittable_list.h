@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 //==============================================================================================
 // Originally written in 2016 by Peter Shirley <ptrshrl@gmail.com>
 //
@@ -17,6 +18,25 @@
 #include "constant_medium.h"
 #include "geometry.h"
 #include "hittable.h"
+#include "interval.h"
+
+struct SampleCM_Buffers {
+    double *currentHit;
+    double *rayLength;
+    std::optional<uint32_t> *selected;
+    interval *traversals;
+    double *thit;
+
+    static SampleCM_Buffers request(uint32_t const spp) {
+        return {
+            .currentHit = new double[spp],
+            .rayLength = new double[spp],
+            .selected = new std::optional<uint32_t>[spp],
+            .traversals = new interval[spp],
+            .thit = new double[spp],
+        };
+    }
+};
 
 struct hittable_list {
     bvh::tree_builder treebld;
@@ -41,6 +61,8 @@ struct hittable_list {
 
     std::pair<geometry_ptr, double> hitSelect(timed_ray const &r) const;
 
-    color const *sampleConstantMediums(timed_ray const &ray, double closestHit,
-                                       double *hit) const noexcept;
+    void sampleCMs(
+        timed_ray *rays, uint32_t const len,
+        std::pair<color const *, double> *results, SampleCM_Buffers buffers,
+        std::function<void(uint32_t, uint32_t)> swap_rays) const noexcept;
 };

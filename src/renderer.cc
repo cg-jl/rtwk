@@ -16,8 +16,6 @@
 #include "rtweekend.h"
 #include "timer.h"
 
-using uint32 = uint32_t;
-
 using deferNoise = std::pair<texture::noise_data, point3>;
 
 // TODO: @maybe I could collect images by their pointer?
@@ -189,6 +187,7 @@ struct GSim_Buffers {
     cm_res *constant_mediums;
     hit_record *hit_recs;
     vec3 *scatters;
+    SampleCM_Buffers sample_cms;
 
     static GSim_Buffers request(uint32 spp) {
         return {
@@ -198,6 +197,7 @@ struct GSim_Buffers {
             .constant_mediums = new cm_res[spp],
             .hit_recs = new hit_record[spp],
             .scatters = new vec3[spp],
+            .sample_cms = SampleCM_Buffers::request(spp),
         };
     }
 };
@@ -232,23 +232,6 @@ struct Scanline_Buffers {
 // results of geometrySim as arrays: generate rays - run simulations for
 // px_sampleq's independently - join px_sampleq's buffers so I can keep the bulk
 // processing of color sampling
-
-static auto partition(auto start, decltype(start) end, auto swap, auto pred) {
-    if (start >= end) goto r;
-    --end;
-    while (start < end) {
-        if (!pred(start)) {
-            while (!pred(end)) {
-                --end;
-                if (end == start) goto r;
-            }
-            swap(start, end);
-        }
-        ++start;
-    }
-r:
-    return start;
-}
 
 static void gsim(color const &background, uint32 const spp,
                  uint32 const max_depth, hittable_list const &world,
@@ -294,13 +277,8 @@ static void gsim(color const &background, uint32 const spp,
                        buffers.hit_selects,
                        [&](auto const &r) { return world.hitSelect(r); });
 
-        std::transform(buffers.rays, buffers.rays + remaining,
-                       buffers.constant_mediums, [&](auto const &r) {
-                           double cmHit;
-                           auto const cmCol =
-                               world.sampleConstantMediums(r, infinity, &cmHit);
-                           return cm_res{cmCol, cmHit};
-                       });
+        world.sampleCMs(buffers.rays, remaining, buffers.constant_mediums,
+                        buffers.sample_cms, swap);
 
         using std::views::iota;
 
