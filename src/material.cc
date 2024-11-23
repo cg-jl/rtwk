@@ -1,9 +1,9 @@
 #include "material.h"
 
+#include <tracy/Tracy.hpp>
+
 #include "random.h"
 #include "trace_colors.h"
-
-#include <tracy/Tracy.hpp>
 
 static double reflectance(double cosine, double refraction_index) {
     // Use Schlick's approximation for reflectance.
@@ -32,19 +32,16 @@ static vec3 random_unit_vector() {
     return unit_vector(random_in_unit_sphere());
 }
 
-// @perf result ignored.
-bool material::scatter(vec3 in_dir, vec3 const &normal, bool front_face,
-                       vec3 &scattered) const {
+vec3 material::scatter(vec3 in_dir, vec3 const &normal, bool front_face) const {
     ZoneScopedN("scatter");
     ZoneColor(Ctp::Pink);
     switch (tag) {
         case kind::diffuse_light:
             __builtin_unreachable();
-            return false;
+            return {};
         case kind::isotropic: {
             ZoneScopedN("isotropic scatter");
-            scattered = random_unit_vector();
-            return true;
+            return random_unit_vector();
         }
         case kind::lambertian: {
             ZoneScopedN("lambertian scatter");
@@ -53,8 +50,7 @@ bool material::scatter(vec3 in_dir, vec3 const &normal, bool front_face,
             // Catch degenerate scatter direction
             if (scatter_direction.near_zero()) scatter_direction = normal;
 
-            scattered = scatter_direction;
-            return true;
+            return scatter_direction;
         }
         case kind::metal: {
             auto fuzz = data.fuzz;
@@ -62,8 +58,7 @@ bool material::scatter(vec3 in_dir, vec3 const &normal, bool front_face,
             vec3 reflected = reflect(in_dir, normal);
             auto fv = fuzz * random_unit_vector();
             reflected = unit_vector(reflected) + fv;
-            scattered = reflected;
-            return (dot(scattered, normal) > 0);
+            return reflected;
         }
         case kind::dielectric: {
             auto refraction_index = data.refraction_index;
@@ -82,8 +77,7 @@ bool material::scatter(vec3 in_dir, vec3 const &normal, bool front_face,
             else
                 direction = refract(unit_direction, normal, ri);
 
-            scattered = direction;
-            return true;
+            return direction;
         }
     }
 }

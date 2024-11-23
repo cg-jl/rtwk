@@ -360,9 +360,7 @@ static void gsim(color const &background, uint32 const spp,
 
                 auto const &[mat, tex] = world.objects[res.relIndex];
 
-                vec3 scattered{};
-                mat.scatter(r.r.dir, normal, front_face, scattered);
-                return scattered;
+                return mat.scatter(r.r.dir, normal, front_face);
             });
 
         auto const bounces_end =
