@@ -579,7 +579,7 @@ int main()
         final_scene(1440, 400, 20);
         break;
     default:
-        final_scene(400, 250, 40);
+        final_scene(400, 1000, 40);
         break;
     }
 }
