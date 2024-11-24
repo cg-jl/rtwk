@@ -23,13 +23,13 @@ using deferImage = std::pair<rtw_shared_image, uvs>;
 
 // Origin is at world origin.
 struct camera {
-    int image_height;     // Rendered image height
-    point3 pixel00_loc;   // Location of pixel 0, 0
-    vec3 pixel_delta_u;   // Offset to pixel to the right
-    vec3 pixel_delta_v;   // Offset to pixel below
-    vec3 u, v, w;         // Camera frame basis vectors
-    vec3 defocus_disk_u;  // Defocus disk horizontal radius
-    vec3 defocus_disk_v;  // Defocus disk vertical radius
+    int image_height; // Rendered image height
+    point3 pixel00_loc; // Location of pixel 0, 0
+    vec3 pixel_delta_u; // Offset to pixel to the right
+    vec3 pixel_delta_v; // Offset to pixel below
+    vec3 u, v, w; // Camera frame basis vectors
+    vec3 defocus_disk_u; // Defocus disk horizontal radius
+    vec3 defocus_disk_v; // Defocus disk vertical radius
 };
 
 // @cleanup this is no longer a matrix, just arrays
@@ -38,7 +38,8 @@ struct sampleMat {
     deferNoise *noises;
     deferImage *images;
 
-    static sampleMat request(uint32 spp, uint32 maxDepth) {
+    static sampleMat request(uint32 spp, uint32 maxDepth)
+    {
         return {
             .solids = new color[spp * maxDepth],
             .noises = new deferNoise[spp * maxDepth],
@@ -53,7 +54,8 @@ struct px_sampleq {
         int noises;
         int images;
 
-        void accept(commitSave const &other) {
+        void accept(commitSave const &other)
+        {
             solids += other.solids;
             noises += other.noises;
             images += other.images;
@@ -65,74 +67,80 @@ struct px_sampleq {
 
     void emplaceSolid(color solid) { ptrs.solids[tally.solids++] = solid; }
 
-    void emplace(texture const *tex, uvs uv, point3 p) {
+    void emplace(texture const *tex, uvs uv, point3 p)
+    {
         tex = traverseChecker(tex, p);
         switch (tex->kind) {
-            case texture::tag::solid:
-                emplaceSolid(tex->as.solid);
-                break;
-            case texture::tag::noise:
-                ptrs.noises[tally.noises++] = {tex->as.noise, p};
-                break;
-            case texture::tag::image:
-                ptrs.images[tally.images++] = {tex->as.image, uv};
-                break;
-            case texture::tag::checker:
-                // Should be unreachable since we did the traverseChecker
-                std::unreachable();
-                break;
+        case texture::tag::solid:
+            emplaceSolid(tex->as.solid);
+            break;
+        case texture::tag::noise:
+            ptrs.noises[tally.noises++] = { tex->as.noise, p };
+            break;
+        case texture::tag::image:
+            ptrs.images[tally.images++] = { tex->as.image, uv };
+            break;
+        case texture::tag::checker:
+            // Should be unreachable since we did the traverseChecker
+            std::unreachable();
+            break;
         }
     }
 
     commitSave commit() { return tally; }
     void reset() { tally = {}; }
 };
-static vec3 sample_square() {
+static vec3 sample_square()
+{
     // Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit
     // square.
     return vec3(random_double() - 0.5, random_double() - 0.5, 0);
 }
-static point3 random_in_unit_disk() {
+static point3 random_in_unit_disk()
+{
     while (true) {
-        auto p = vec3{random_double(-1., 1.), random_double(-1., 1.), 0};
-        if (p.length_squared() < 1) return p;
+        auto p = vec3 { random_double(-1., 1.), random_double(-1., 1.), 0 };
+        if (p.length_squared() < 1)
+            return p;
     }
 }
-static point3 defocus_disk_sample(camera const &cam) {
+static point3 defocus_disk_sample(camera const &cam)
+{
     // Returns a random point in the camera defocus disk.
     auto p = random_in_unit_disk();
     return (p[0] * cam.defocus_disk_u) + (p[1] * cam.defocus_disk_v);
 }
 
-static timed_ray get_ray(settings const &s, camera const &cam, int i, int j) {
+static timed_ray get_ray(settings const &s, camera const &cam, int i, int j)
+{
     // Construct a camera ray originating from the defocus disk and directed
     // at a randomly sampled point around the pixel location i, j.
 
     auto offset = sample_square();
-    auto pixel_sample = cam.pixel00_loc +
-                        ((i + offset.x()) * cam.pixel_delta_u) +
-                        ((j + offset.y()) * cam.pixel_delta_v);
+    auto pixel_sample = cam.pixel00_loc + ((i + offset.x()) * cam.pixel_delta_u) + ((j + offset.y()) * cam.pixel_delta_v);
 
-    auto ray_origin =
-        (s.defocus_angle <= 0) ? vec3{0, 0, 0} : defocus_disk_sample(cam);
+    auto ray_origin = (s.defocus_angle <= 0) ? vec3 { 0, 0, 0 } : defocus_disk_sample(cam);
     auto ray_direction = pixel_sample - ray_origin;
     auto ray_time = random_double();
 
-    return {ray(ray_origin, ray_direction), ray_time};
+    return { ray(ray_origin, ray_direction), ray_time };
 }
 
 // Aligns the normal so that it always points towards the ray origin.
 // Returs whether the face is at the front.
-static bool set_face_normal(vec3 in_dir, vec3 &normal) {
+static bool set_face_normal(vec3 in_dir, vec3 &normal)
+{
     auto front_face = dot(in_dir, normal) < 0;
     normal = front_face ? normal : -normal;
     return front_face;
 }
 
-static vec3 random_in_unit_sphere() {
+static vec3 random_in_unit_sphere()
+{
     while (true) {
         auto p = random_vec(-1, 1);
-        if (p.length_squared() < 1) return p;
+        if (p.length_squared() < 1)
+            return p;
     }
 }
 
@@ -147,7 +155,8 @@ struct countArrays {
     RLE *noises;
     RLE *images;
 
-    static countArrays request(uint32 spp) {
+    static countArrays request(uint32 spp)
+    {
         return {
             .solids = new RLE[spp],
             .noises = new RLE[spp],
@@ -189,7 +198,8 @@ struct GSim_Buffers {
     vec3 *scatters;
     SampleCM_Buffers sample_cms;
 
-    static GSim_Buffers request(uint32 spp) {
+    static GSim_Buffers request(uint32 spp)
+    {
         return {
             .rays = new timed_ray[spp],
             .atts = new px_sampleq[spp],
@@ -209,7 +219,8 @@ struct Scanline_Buffers {
     color *samples;
     GSim_Buffers gsim;
 
-    static Scanline_Buffers request(uint32 spp, uint32 maxDepth) {
+    static Scanline_Buffers request(uint32 spp, uint32 maxDepth)
+    {
         return {
             .attMat = sampleMat::request(spp, maxDepth),
             .counts = countArrays::request(spp),
@@ -234,8 +245,9 @@ struct Scanline_Buffers {
 // processing of color sampling
 
 static void gsim(color const &background, uint32 const spp,
-                 uint32 const max_depth, hittable_list const &world,
-                 GSim_Buffers buffers, color *samples) {
+    uint32 const max_depth, hittable_list const &world,
+    GSim_Buffers buffers, color *samples)
+{
     // TODO: to transpose the loop, I will need a 'multi slice swap' or
     // 'multiswap' where I swap the current ray being sampled, its queue and its
     // output color with the last one on the array. This way I will only run the
@@ -259,8 +271,8 @@ static void gsim(color const &background, uint32 const spp,
     for (auto depth = max_depth; remaining; --depth) {
         if (depth == 0) {
             std::for_each(buffers.atts, buffers.atts + remaining,
-                          [](auto &att) { att.reset(); });
-            std::fill(samples, samples + remaining, color{0, 0, 0});
+                [](auto &att) { att.reset(); });
+            std::fill(samples, samples + remaining, color { 0, 0, 0 });
             break;
         }
         ZoneScopedN("ray tick");
@@ -272,38 +284,32 @@ static void gsim(color const &background, uint32 const spp,
         // ray is going to disperse. So I just have to run both
         // hitSelect and sampleConstantMediums.
 
-        // @perf make world hit select bulk-based.
-        std::transform(buffers.rays, buffers.rays + remaining,
-                       buffers.hit_selects,
-                       [&](auto const &r) { return world.hitSelect(r); });
+        world.select(buffers.rays, remaining, buffers.hit_selects);
 
         world.sampleCMs(buffers.rays, remaining, buffers.constant_mediums,
-                        buffers.sample_cms, swap);
+            buffers.sample_cms, swap);
 
         using std::views::iota;
 
-        auto const cms_end =
-            partition(decltype(remaining)(0), remaining, swap, [&](auto i) {
-                auto [res, closestHit] = buffers.hit_selects[i];
-                auto [cmColor, cmHit] = buffers.constant_mediums[i];
-                return cmColor and (!res or cmHit < closestHit);
-            });
+        auto const cms_end = partition(decltype(remaining)(0), remaining, swap, [&](auto i) {
+            auto [res, closestHit] = buffers.hit_selects[i];
+            auto [cmColor, cmHit] = buffers.constant_mediums[i];
+            return cmColor and (!res or cmHit < closestHit);
+        });
 
-        auto const nohits_begin =
-            partition(cms_end, remaining, swap, [&](auto i) {
-                auto const &res = buffers.hit_selects[i].first;
+        auto const nohits_begin = partition(cms_end, remaining, swap, [&](auto i) {
+            auto const &res = buffers.hit_selects[i].first;
 
-                return bool(res);
-            });
+            return bool(res);
+        });
 
         // @perf Think about making lights be at the end of all so that the
         // zeroed-queue region is conntiguous.
-        auto const lights_begin =
-            partition(cms_end, nohits_begin, swap, [&](auto i) {
-                auto const &res = buffers.hit_selects[i].first;
-                auto const &mat = world.objects[res.relIndex].mat;
-                return mat.tag != material::kind::diffuse_light;
-            });
+        auto const lights_begin = partition(cms_end, nohits_begin, swap, [&](auto i) {
+            auto const &res = buffers.hit_selects[i].first;
+            auto const &mat = world.objects[res.relIndex].mat;
+            return mat.tag != material::kind::diffuse_light;
+        });
 
         std::transform(
             buffers.hit_selects + cms_end, buffers.hit_selects + nohits_begin,
@@ -320,7 +326,7 @@ static void gsim(color const &background, uint32 const spp,
                 // normal is required and when it isn't (partition?)
                 auto uv = res.getUVs(p, normal);
 
-                return hit_record{normal, uv, front_face};
+                return hit_record { normal, uv, front_face };
             });
 
         std::transform(
@@ -338,9 +344,8 @@ static void gsim(color const &background, uint32 const spp,
                 return mat.scatter(r.r.dir, normal, front_face);
             });
 
-        auto const bounces_end =
-            partition(cms_end, lights_begin, swap,
-                      [&](auto i) { return !buffers.scatters[i].near_zero(); });
+        auto const bounces_end = partition(cms_end, lights_begin, swap,
+            [&](auto i) { return !buffers.scatters[i].near_zero(); });
 
         // cms_end | <unsorted> | lights | nohit
 
@@ -426,10 +431,10 @@ static void gsim(color const &background, uint32 const spp,
         }
 
         std::fill(samples + lights_begin, samples + nohits_begin,
-                  color{1, 1, 1});
+            color { 1, 1, 1 });
 
         std::fill(samples + bounces_end, samples + lights_begin,
-                  color{0, 0, 0});
+            color { 0, 0, 0 });
         std::fill(samples + nohits_begin, samples + remaining, background);
 
         // only cmResults and bounces get to the next level.
@@ -438,8 +443,9 @@ static void gsim(color const &background, uint32 const spp,
 }
 
 static void scanLine(settings const &s, camera const &cam,
-                     hittable_list const &world, int const j, color *pixels,
-                     Scanline_Buffers buffers, perlin const &noise) {
+    hittable_list const &world, int const j, color *pixels,
+    Scanline_Buffers buffers, perlin const &noise)
+{
     // NOTE: @maybe a matrix only for the solids and vectors for the  other
     // types works better. geometrySim could also return whether it is
     // cancelling/light/background to find what the last (or first) color
@@ -449,8 +455,8 @@ static void scanLine(settings const &s, camera const &cam,
     for (int i = 0; i < s.image_width; i++) {
         // Initialize all the rays
         std::for_each(buffers.gsim.rays,
-                      buffers.gsim.rays + s.samples_per_pixel,
-                      [&](auto &r) { r = get_ray(s, cam, i, j); });
+            buffers.gsim.rays + s.samples_per_pixel,
+            [&](auto &r) { r = get_ray(s, cam, i, j); });
 
         // @perf Could do queue init before all of this, and just reset all each
         // iteration. That (filling with zeros with a stride) is easier to do
@@ -463,11 +469,11 @@ static void scanLine(settings const &s, camera const &cam,
             offset_mat.images += sample * s.max_depth;
             offset_mat.noises += sample * s.max_depth;
             offset_mat.solids += sample * s.max_depth;
-            new (&buffers.gsim.atts[sample]) px_sampleq{offset_mat, {}};
+            new (&buffers.gsim.atts[sample]) px_sampleq { offset_mat, {} };
         }
 
         gsim(s.background, s.samples_per_pixel, s.max_depth, world,
-             buffers.gsim, buffers.samples);
+            buffers.gsim, buffers.samples);
 
         // @perf I could try to distribute this loop as this is just a reduction
         // loop. Once a queue is finished loading, I can send it and not worry
@@ -475,7 +481,7 @@ static void scanLine(settings const &s, camera const &cam,
         // reducing multiple queues into a single buffer to then be processed.
         // Might be just another step that we have to queue the reduction of and
         // when submitted we can then do the color computations.
-        px_sampleq::commitSave tally{};
+        px_sampleq::commitSave tally {};
 
         int rleSolids = 0;
         int rleNoises = 0;
@@ -486,11 +492,11 @@ static void scanLine(settings const &s, camera const &cam,
             // Use reverse copy because these could be aliasing, in a high load
             // context.
             std::reverse_copy(q.ptrs.solids, q.ptrs.solids + q.tally.solids,
-                              buffers.attMat.solids + tally.solids);
+                buffers.attMat.solids + tally.solids);
             std::reverse_copy(q.ptrs.noises, q.ptrs.noises + q.tally.noises,
-                              buffers.attMat.noises + tally.noises);
+                buffers.attMat.noises + tally.noises);
             std::reverse_copy(q.ptrs.images, q.ptrs.images + q.tally.images,
-                              buffers.attMat.images + tally.images);
+                buffers.attMat.images + tally.images);
             tally.accept(q.tally);
 
             // @perf It may be better to log these counts separately so that
@@ -503,13 +509,13 @@ static void scanLine(settings const &s, camera const &cam,
             ZoneValue(att_count.images);
 
             if (att_count.solids) {
-                buffers.counts.solids[rleSolids++] = {sample, att_count.solids};
+                buffers.counts.solids[rleSolids++] = { sample, att_count.solids };
             }
             if (att_count.noises) {
-                buffers.counts.noises[rleNoises++] = {sample, att_count.noises};
+                buffers.counts.noises[rleNoises++] = { sample, att_count.noises };
             }
             if (att_count.images) {
-                buffers.counts.images[rleImages++] = {sample, att_count.images};
+                buffers.counts.images[rleImages++] = { sample, att_count.images };
             }
         }
 
@@ -529,8 +535,7 @@ static void scanLine(settings const &s, camera const &cam,
                     ZoneScopedN("sample");
                     for (int i = 0; i < tally.noises; ++i) {
                         auto const &[noiseData, p] = buffers.attMat.noises[i];
-                        buffers.multiplyBuffer[i] =
-                            sample_noise(noiseData, p, noise);
+                        buffers.multiplyBuffer[i] = sample_noise(noiseData, p, noise);
                     }
                 }
 
@@ -542,7 +547,7 @@ static void scanLine(settings const &s, camera const &cam,
                         auto [sample, count] = buffers.counts.noises[rleI];
                         color res = buffers.samples[sample];
                         for (auto grayscale :
-                             std::span(buffers.multiplyBuffer + start, count)) {
+                            std::span(buffers.multiplyBuffer + start, count)) {
                             res = res * grayscale;
                         }
                         start += count;
@@ -563,7 +568,7 @@ static void scanLine(settings const &s, camera const &cam,
                     auto [sample, count] = buffers.counts.images[rleI];
                     color res = buffers.samples[sample];
                     for (auto const &[image, uv] :
-                         std::span(buffers.attMat.images + start, count)) {
+                        std::span(buffers.attMat.images + start, count)) {
                         res = res * sample_image(image, uv);
                     }
                     start += count;
@@ -582,7 +587,7 @@ static void scanLine(settings const &s, camera const &cam,
                     color res = buffers.samples[sample];
 
                     for (auto const &col :
-                         std::span(buffers.attMat.solids + start, count)) {
+                        std::span(buffers.attMat.solids + start, count)) {
                         res = res * col;
                     }
 
@@ -603,10 +608,11 @@ static void scanLine(settings const &s, camera const &cam,
 }
 
 static void renderThread(settings const &s, camera const &cam,
-                         std::atomic<int> &__restrict__ tileid,
-                         std::atomic<int> &__restrict__ remain_scanlines,
-                         size_t const stop_at, hittable_list const &world,
-                         color *pixels) noexcept {
+    std::atomic<int> &__restrict__ tileid,
+    std::atomic<int> &__restrict__ remain_scanlines,
+    size_t const stop_at, hittable_list const &world,
+    color *pixels) noexcept
+{
     // NOTE: @waste @mem Could reuse a solids lane (maybe the last/first one)
     // for the final lane.
 
@@ -617,7 +623,8 @@ static void renderThread(settings const &s, camera const &cam,
     for (;;) {
         auto j = tileid.fetch_add(1, std::memory_order_acq_rel);
 
-        if (j >= s.image_width) return;
+        if (j >= s.image_width)
+            return;
 
         // TODO: render worker state struct
         scanLine(s, cam, world, j, pixels, buffers, *noise.get());
@@ -627,7 +634,8 @@ static void renderThread(settings const &s, camera const &cam,
     }
 }
 
-static camera make_camera(settings const &s) {
+static camera make_camera(settings const &s)
+{
     camera cam;
     cam.image_height = int(s.image_width / s.aspect_ratio);
     cam.image_height = (cam.image_height < 1) ? 1 : cam.image_height;
@@ -636,8 +644,7 @@ static camera make_camera(settings const &s) {
     auto theta = degrees_to_radians(s.vfov);
     auto h = tan(theta / 2);
     auto viewport_height = 2 * h * s.focus_dist;
-    auto viewport_width =
-        viewport_height * (double(s.image_width) / cam.image_height);
+    auto viewport_width = viewport_height * (double(s.image_width) / cam.image_height);
 
     // Calculate the u,v,w unit basis vectors for the camera coordinate
     // frame.
@@ -647,10 +654,8 @@ static camera make_camera(settings const &s) {
 
     // Calculate the vectors across the horizontal and down the vertical
     // viewport edges.
-    vec3 viewport_u =
-        viewport_width * cam.u;  // Vector across viewport horizontal edge
-    vec3 viewport_v =
-        viewport_height * -cam.v;  // Vector down viewport vertical edge
+    vec3 viewport_u = viewport_width * cam.u; // Vector across viewport horizontal edge
+    vec3 viewport_v = viewport_height * -cam.v; // Vector down viewport vertical edge
 
     // Calculate the horizontal and vertical delta vectors from pixel to
     // pixel.
@@ -658,20 +663,18 @@ static camera make_camera(settings const &s) {
     cam.pixel_delta_v = viewport_v / cam.image_height;
 
     // Calculate the location of the upper left pixel.
-    auto viewport_upper_left =
-        -(s.focus_dist * cam.w) - viewport_u / 2 - viewport_v / 2;
-    cam.pixel00_loc =
-        viewport_upper_left + 0.5 * (cam.pixel_delta_u + cam.pixel_delta_v);
+    auto viewport_upper_left = -(s.focus_dist * cam.w) - viewport_u / 2 - viewport_v / 2;
+    cam.pixel00_loc = viewport_upper_left + 0.5 * (cam.pixel_delta_u + cam.pixel_delta_v);
 
     // Calculate the camera defocus disk basis vectors.
-    auto defocus_radius =
-        s.focus_dist * tan(degrees_to_radians(s.defocus_angle / 2));
+    auto defocus_radius = s.focus_dist * tan(degrees_to_radians(s.defocus_angle / 2));
     cam.defocus_disk_u = cam.u * defocus_radius;
     cam.defocus_disk_v = cam.v * defocus_radius;
     return cam;
 }
 
-void render(hittable_list world, settings s) {
+void render(hittable_list world, settings s)
+{
     // offset everything so that what was at s.lookfrom is at 0, 0, 0.
     world.transformAll(transform(0, -s.lookfrom));
     // I can't rotate the world because how noise is generated (the sin pattern)
@@ -679,12 +682,11 @@ void render(hittable_list world, settings s) {
     // camera.
     s.lookat = s.lookat - s.lookfrom;
     auto cam = make_camera(s);
-    auto pixels = std::make_unique<color[]>(size_t(s.image_width) *
-                                            size_t(cam.image_height));
+    auto pixels = std::make_unique<color[]>(size_t(s.image_width) * size_t(cam.image_height));
 
     int start = cam.image_height;
     static constexpr int stop_at = 0;
-    std::atomic<int> remain_scanlines alignas(64){start};
+    std::atomic<int> remain_scanlines alignas(64) { start };
 
     auto progress_thread = std::thread([limit = start, &remain_scanlines]() {
         auto last_remain = limit + 1;
@@ -695,7 +697,8 @@ void render(hittable_list world, settings s) {
             last_remain = remain;
             std::clog << "\r\x1b[2K\x1b[?25lScanlines remaining: " << remain
                       << "\x1b[?25h" << std::flush;
-            if (remain == stop_at) break;
+            if (remain == stop_at)
+                break;
         }
         std::clog << "\r\x1b[2K" << std::flush;
     });
@@ -713,7 +716,7 @@ void render(hittable_list world, settings s) {
 #pragma omp parallel
     {
         ::renderThread(s, cam, tileid, remain_scanlines, stop_at, world,
-                       pixels.get());
+            pixels.get());
     }
     auto render_time = render_timer.stop();
     rtwk::print_duration(std::cout, "Render", render_time);
@@ -722,8 +725,7 @@ void render(hittable_list world, settings s) {
     std::clog << "\r\x1b[2KWriting image...\n";
 
     // 1. Encode the image into RGB
-    auto bytes =
-        std::make_unique<uint8_t[]>(s.image_width * cam.image_height * 3);
+    auto bytes = std::make_unique<uint8_t[]>(s.image_width * cam.image_height * 3);
 
     for (size_t i = 0; i < s.image_width * cam.image_height; ++i) {
         auto const &pixel_color = pixels[i];
@@ -744,7 +746,7 @@ void render(hittable_list world, settings s) {
     }
 
     stbi_write_png("test.png", s.image_width, cam.image_height, 3, &bytes[0],
-                   0);
+        0);
 
     std::clog << "Done.\n";
 }

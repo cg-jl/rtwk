@@ -17,13 +17,23 @@ struct interval {
     double min, max;
 
     constexpr interval()
-        : min(+infinity), max(-infinity) {}  // Default interval is empty
+        : min(+infinity)
+        , max(-infinity)
+    {
+    } // Default interval is empty
 
-    constexpr interval(double min, double max) : min(min), max(max) {}
+    constexpr interval(double min, double max)
+        : min(min)
+        , max(max)
+    {
+    }
 
     // Create the interval tightly enclosing the two input intervals.
     constexpr interval(interval const &a, interval const &b)
-        : min(std::min(a.min, b.min)), max(std::max(a.max, b.max)) {}
+        : min(std::min(a.min, b.min))
+        , max(std::max(a.max, b.max))
+    {
+    }
 
     constexpr double size() const { return max - min; }
     constexpr bool isEmpty() const { return min >= max; }
@@ -31,7 +41,8 @@ struct interval {
     constexpr bool contains(double x) const { return min <= x && x <= max; }
 
     constexpr bool surrounds(double x) const { return min < x && x < max; }
-    constexpr bool atBorder(double x) const {
+    constexpr bool atBorder(double x) const
+    {
         return std::abs(min - x) <= 1e-8 || std::abs(x - max) <= 1e-8;
     }
 
@@ -39,7 +50,8 @@ struct interval {
 
     constexpr double midPoint() const { return min + (max - min) / 2.; }
 
-    constexpr interval expand(double delta) const {
+    constexpr interval expand(double delta) const
+    {
         auto padding = delta / 2;
         return interval(min - padding, max + padding);
     }
@@ -48,10 +60,12 @@ struct interval {
 static constexpr interval empty_interval = interval(+infinity, -infinity);
 static constexpr interval universe_interval = interval(-infinity, +infinity);
 
-constexpr interval operator+(interval ival, double displacement) {
+constexpr interval operator+(interval ival, double displacement)
+{
     return interval(ival.min + displacement, ival.max + displacement);
 }
 
-constexpr interval operator+(double displacement, interval ival) {
+constexpr interval operator+(double displacement, interval ival)
+{
     return ival + displacement;
 }

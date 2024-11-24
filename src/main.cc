@@ -13,7 +13,6 @@
 #include <cassert>
 #include <print>
 
-#include <iostream>
 #include "constant_medium.h"
 #include "geometry.h"
 #include "hittable.h"
@@ -27,8 +26,10 @@
 #include "texture.h"
 #include "timer.h"
 #include "transforms.h"
+#include <iostream>
 
-geometry transformed(geometry g, transform tf) {
+geometry transformed(geometry g, transform tf)
+{
     g.applyTransform(tf);
     return g;
 }
@@ -36,7 +37,8 @@ geometry transformed(geometry g, transform tf) {
 static segment::Leak_Allocator ator;
 
 template <typename T>
-T *leak(T val) {
+T *leak(T val)
+{
     auto *ptr = ator.alloc<T>();
     new (ptr) T(std::move(val));
     return ptr;
@@ -46,14 +48,14 @@ T *leak(T val) {
 // version produces artifacts on the top left of the image, but the debug
 // version doesn't.
 
-void bouncing_spheres() {
+void bouncing_spheres()
+{
     hittable_list world;
 
-    auto checker =
-        leak(texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
-                              leak(texture::solid(color(.9, .9, .9)))));
+    auto checker = leak(texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
+        leak(texture::solid(color(.9, .9, .9)))));
     world.add(lightInfo(detail::lambertian, checker),
-              sphere(point3(0, -1000, 0), 1000));
+        sphere(point3(0, -1000, 0), 1000));
 
     auto spheres = world.treebld.start();
 
@@ -61,29 +63,28 @@ void bouncing_spheres() {
         for (int b = -11; b < 11; b++) {
             auto choose_mat = random_double();
             point3 center(a + 0.9 * random_double(), 0.2,
-                          b + 0.9 * random_double());
+                b + 0.9 * random_double());
 
             if ((center - point3(4, 0.2, 0)).length() > 0.9) {
                 if (choose_mat < 0.8) {
                     // diffuse
-                    auto albedo =
-                        leak(texture::solid(random_vec() * random_vec()));
+                    auto albedo = leak(texture::solid(random_vec() * random_vec()));
                     auto sphere_material = detail::lambertian;
                     auto center2 = center + vec3(0, random_double(0, .5), 0);
                     world.addTree(lightInfo(detail::lambertian, albedo),
-                                  sphere(center, center2, 0.2));
+                        sphere(center, center2, 0.2));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = leak(texture::solid(random_vec(0.5, 1)));
                     auto fuzz = random_double(0, 0.5);
                     auto sphere_material = (material::metal(fuzz));
                     world.addTree(lightInfo(sphere_material, albedo),
-                                  sphere(center, 0.2));
+                        sphere(center, 0.2));
                 } else {
                     // glass
                     auto sphere_material = (material::dielectric(1.5));
                     world.addTree(lightInfo(sphere_material, &detail::white),
-                                  sphere(center, 0.2));
+                        sphere(center, 0.2));
                 }
             }
         }
@@ -91,7 +92,7 @@ void bouncing_spheres() {
 
     auto material1 = (material::dielectric(1.5));
     world.add(lightInfo(material1, &detail::white),
-              sphere(point3(0, 1, 0), 1.0));
+        sphere(point3(0, 1, 0), 1.0));
 
     auto color2 = leak(texture::solid(color(0.4, 0.2, 0.1)));
     auto material2 = detail::lambertian;
@@ -127,17 +128,17 @@ void bouncing_spheres() {
     render(world, s);
 }
 
-void checkered_spheres() {
+void checkered_spheres()
+{
     hittable_list world;
 
-    auto checker =
-        leak(texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
-                              leak(texture::solid(color(.9, .9, .9)))));
+    auto checker = leak(texture::checker(0.32, leak(texture::solid(color(.2, .3, .1))),
+        leak(texture::solid(color(.9, .9, .9)))));
 
     world.add(lightInfo(detail::lambertian, checker),
-              sphere(point3(0, -10, 0), 10));
+        sphere(point3(0, -10, 0), 10));
     world.add(lightInfo(detail::lambertian, checker),
-              sphere(point3(0, 10, 0), 10));
+        sphere(point3(0, 10, 0), 10));
 
     settings s;
 
@@ -160,7 +161,8 @@ void checkered_spheres() {
     render(world, s);
 }
 
-void earth() {
+void earth()
+{
     auto earth_texture = leak(texture::image("earthmap.jpg"));
     auto earth_surface = detail::lambertian;
     auto globeLights = lightInfo(earth_surface, earth_texture);
@@ -188,14 +190,15 @@ void earth() {
     render(world, s);
 }
 
-void perlin_spheres() {
+void perlin_spheres()
+{
     hittable_list world;
 
     auto pertext = leak(texture::noise(4));
     world.add(lightInfo(detail::lambertian, pertext),
-              sphere(point3(0, -1000, 0), 1000));
+        sphere(point3(0, -1000, 0), 1000));
     world.add(lightInfo(detail::lambertian, pertext),
-              sphere(point3(0, 2, 0), 2));
+        sphere(point3(0, 2, 0), 2));
 
     settings s;
 
@@ -218,7 +221,8 @@ void perlin_spheres() {
     render(world, s);
 }
 
-void quads() {
+void quads()
+{
     hittable_list world;
 
     // Materials
@@ -232,15 +236,15 @@ void quads() {
 
     // Quads
     world.add(lightInfo(lambert, &left_red),
-              quad(point3(-3, -2, 5), vec3(0, 0, -4), vec3(0, 4, 0)));
+        quad(point3(-3, -2, 5), vec3(0, 0, -4), vec3(0, 4, 0)));
     world.add(lightInfo(lambert, &back_green),
-              quad(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0)));
+        quad(point3(-2, -2, 0), vec3(4, 0, 0), vec3(0, 4, 0)));
     world.add(lightInfo(lambert, &right_blue),
-              quad(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0)));
+        quad(point3(3, -2, 1), vec3(0, 0, 4), vec3(0, 4, 0)));
     world.add(lightInfo(lambert, &upper_orange),
-              quad(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4)));
+        quad(point3(-2, 3, 1), vec3(4, 0, 0), vec3(0, 0, 4)));
     world.add(lightInfo(lambert, &lower_teal),
-              quad(point3(-2, -3, 5), vec3(4, 0, 0), vec3(0, 0, -4)));
+        quad(point3(-2, -3, 5), vec3(4, 0, 0), vec3(0, 0, -4)));
 
     settings s;
 
@@ -263,21 +267,22 @@ void quads() {
     render(world, s);
 }
 
-void simple_light() {
+void simple_light()
+{
     hittable_list world;
 
     auto pertext = leak(texture::noise(4));
     world.add(lightInfo(detail::lambertian, pertext),
-              sphere(point3(0, -1000, 0), 1000));
+        sphere(point3(0, -1000, 0), 1000));
 
     world.add(lightInfo(detail::lambertian, pertext),
-              sphere(point3(0, 2, 0), 2));
+        sphere(point3(0, 2, 0), 2));
 
     auto difflight = detail::diffuse_light;
     auto light_tint = texture::solid(color(4, 4, 4));
     world.add(lightInfo(difflight, &light_tint), sphere(point3(0, 7, 0), 2));
     world.add(lightInfo(difflight, &light_tint),
-              quad(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0)));
+        quad(point3(3, 1, -2), vec3(2, 0, 0), vec3(0, 2, 0)));
 
     settings s;
 
@@ -298,7 +303,8 @@ void simple_light() {
 }
 
 // NOTE: This has around the same latency as the "final scene" one.
-void cornell_box() {
+void cornell_box()
+{
     hittable_list world;
 
     auto red = texture::solid(color(.65, .05, .05));
@@ -310,22 +316,22 @@ void cornell_box() {
     auto lambert = detail::lambertian;
 
     world.add(lightInfo(lambert, &green),
-              quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
+        quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
     world.add(lightInfo(lambert, &red),
-              quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
+        quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
     world.add(lightInfo(light, &light_tint),
-              quad(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105)));
+        quad(point3(343, 554, 332), vec3(-130, 0, 0), vec3(0, 0, -105)));
     world.add(lightInfo(lambert, &white),
-              quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
+        quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
     world.add(lightInfo(lambert, &white),
-              quad(point3(555, 555, 555), vec3(-555, 0, 0), vec3(0, 0, -555)));
+        quad(point3(555, 555, 555), vec3(-555, 0, 0), vec3(0, 0, -555)));
     world.add(lightInfo(lambert, &white),
-              quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)));
+        quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)));
 
     world.add(lightInfo(lambert, &white),
-              transformed(aabb(point3(0, 0, 0), point3(165, 330, 165)),
+        transformed(aabb(point3(0, 0, 0), point3(165, 330, 165)),
 
-                          transform(15, vec3(265, 0, 295))));
+            transform(15, vec3(265, 0, 295))));
 
     {
         geometry b = geometry(aabb(point3(0, 0, 0), point3(165, 165, 165)));
@@ -351,7 +357,8 @@ void cornell_box() {
     render(world, cam);
 }
 
-void cornell_smoke() {
+void cornell_smoke()
+{
     hittable_list world;
 
     auto red = texture::solid(color(.65, .05, .05));
@@ -363,17 +370,17 @@ void cornell_smoke() {
     auto lambert = detail::lambertian;
 
     world.add(lightInfo(lambert, &green),
-              quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
+        quad(point3(555, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
     world.add(lightInfo(lambert, &red),
-              quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
+        quad(point3(0, 0, 0), vec3(0, 555, 0), vec3(0, 0, 555)));
     world.add(lightInfo(light, &light_tint),
-              quad(point3(113, 554, 127), vec3(330, 0, 0), vec3(0, 0, 305)));
+        quad(point3(113, 554, 127), vec3(330, 0, 0), vec3(0, 0, 305)));
     world.add(lightInfo(lambert, &white),
-              quad(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
+        quad(point3(0, 555, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
     world.add(lightInfo(lambert, &white),
-              quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
+        quad(point3(0, 0, 0), vec3(555, 0, 0), vec3(0, 0, 555)));
     world.add(lightInfo(lambert, &white),
-              quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)));
+        quad(point3(0, 0, 555), vec3(555, 0, 0), vec3(0, 555, 0)));
 
     {
         geometry b = geometry(aabb(point3(0, 0, 0), point3(165, 330, 165)));
@@ -409,7 +416,8 @@ void cornell_smoke() {
     render(world, cam);
 }
 
-void final_scene(int image_width, int samples_per_pixel, int max_depth) {
+void final_scene(int image_width, int samples_per_pixel, int max_depth)
+{
     rtwk::stopwatch build_timer;
     build_timer.start();
     auto lambert = detail::lambertian;
@@ -437,7 +445,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     {
         int link = world.objects.size();
-        for (auto &box : std::span{world.treebld.geoms}.subspan(boxes1)) {
+        for (auto &box : std::span { world.treebld.geoms }.subspan(boxes1)) {
             box.relIndex = link;
         }
         world.objects.emplace_back(detail::lambertian, &ground_col);
@@ -448,20 +456,20 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     auto light = detail::diffuse_light;
     auto light_tint = texture::solid(color(7, 7, 7));
     world.add(lightInfo(light, &light_tint),
-              quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265)));
+        quad(point3(123, 554, 147), vec3(300, 0, 0), vec3(0, 0, 265)));
 
     auto center1 = point3(400, 400, 200);
     auto center2 = center1 + vec3(30, 0, 0);
     auto sphere_material = lambert;
     auto sphere_tint = texture::solid(color(0.7, 0.3, 0.1));
     world.add(lightInfo(sphere_material, &sphere_tint),
-              sphere(center1, center2, 50));
+        sphere(center1, center2, 50));
 
     world.add(lightInfo((material::dielectric(1.5)), &detail::white),
-              sphere(point3(260, 150, 45), 50));
+        sphere(point3(260, 150, 45), 50));
     auto fuzzball_tint = texture::solid(color(0.8, 0.8, 0.9));
     world.add(lightInfo((material::metal(1)), &fuzzball_tint),
-              sphere(point3(0, 150, 145), 50));
+        sphere(point3(0, 150, 145), 50));
 
     geometry boundary = sphere(point3(360, 150, 145), 70);
     world.add(lightInfo((material::dielectric(1.5)), &detail::white), boundary);
@@ -493,10 +501,10 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     {
         // Link all of them to the same tex.
         int link = world.objects.size();
-        for (auto &sph : std::span{world.treebld.geoms}.subspan(boxes2)) {
+        for (auto &sph : std::span { world.treebld.geoms }.subspan(boxes2)) {
             sph.relIndex = link;
         }
-        world.objects.emplace_back(lightInfo{detail::lambertian, &white});
+        world.objects.emplace_back(lightInfo { detail::lambertian, &white });
     }
     world.treebld.finish(boxes2);
 
@@ -521,56 +529,57 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
     render(world, s);
 }
 
-int main() {
+int main()
+{
 #if TRACY_ENABLE
     switch (10) {
 #else
     switch (0) {
 #endif
-        case 1:
-            bouncing_spheres();
-            break;
-        case 2:
-            checkered_spheres();
-            break;
-        case 3:
-            earth();
-            break;
-        case 4:
-            perlin_spheres();
-            break;
-        case 5:
-            quads();
-            break;
-        case 6:
-            simple_light();
-            break;
-        case 7:
-            cornell_box();
-            break;
-        case 8:
-            cornell_smoke();
-            break;
-        case 9:
-            final_scene(800, 10000, 40);
-            break;
-        case 10:
-            // tracing scene.
-            // 1spp at the testing capacity. Otherwise
-            // I get so much data.
-            final_scene(400, 1, 40);
-            break;
-        case 11:
-            // 1440x1440 == 1920x1080
-            // comparison with video:
-            // https://www.youtube.com/watch?app=desktop&v=ulmjqD6Y4do (Alex did
-            // 1st book, I'm doing 2nd book)
-            // Result: 1m22s on my machine (16 hyperthreads).
-            // Not better than 4.2 minutes single threaded.
-            final_scene(1440, 400, 20);
-            break;
-        default:
-            final_scene(400, 250, 40);
-            break;
+    case 1:
+        bouncing_spheres();
+        break;
+    case 2:
+        checkered_spheres();
+        break;
+    case 3:
+        earth();
+        break;
+    case 4:
+        perlin_spheres();
+        break;
+    case 5:
+        quads();
+        break;
+    case 6:
+        simple_light();
+        break;
+    case 7:
+        cornell_box();
+        break;
+    case 8:
+        cornell_smoke();
+        break;
+    case 9:
+        final_scene(800, 10000, 40);
+        break;
+    case 10:
+        // tracing scene.
+        // 1spp at the testing capacity. Otherwise
+        // I get so much data.
+        final_scene(400, 1, 40);
+        break;
+    case 11:
+        // 1440x1440 == 1920x1080
+        // comparison with video:
+        // https://www.youtube.com/watch?app=desktop&v=ulmjqD6Y4do (Alex did
+        // 1st book, I'm doing 2nd book)
+        // Result: 1m22s on my machine (16 hyperthreads).
+        // Not better than 4.2 minutes single threaded.
+        final_scene(1440, 400, 20);
+        break;
+    default:
+        final_scene(400, 250, 40);
+        break;
     }
 }

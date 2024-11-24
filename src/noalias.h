@@ -5,4 +5,4 @@
 #ifndef RT_NOALIAS_H
 #define RT_NOALIAS_H
 
-#endif //RT_NOALIAS_H
+#endif // RT_NOALIAS_H

@@ -12,7 +12,8 @@
 // @perf My L1 cache size (per CPU) is: 32kiB!
 // L3 is 4MiB and L2 is 512kiB.
 
-interval aabb::traverse(ray const &r) const {
+interval aabb::traverse(ray const &r) const
+{
     // NOTE: These load 4x double's, so the rightmost value (memory order) or
     // the leftmost value (register order) won't be used.
 
@@ -44,19 +45,22 @@ interval aabb::traverse(ray const &r) const {
     // minsd, maxsd twice?
     auto tmin_array = (double *)&tmins;
     auto tmaxs_array = (double *)&tmaxs;
-    interval ray_t{tmin_array[0], tmaxs_array[0]};
+    interval ray_t { tmin_array[0], tmaxs_array[0] };
     for (int axis = 1; axis < 3; ++axis) {
         auto t0 = ((double *)&tmins)[axis];
         auto t1 = ((double *)&tmaxs)[axis];
 
-        if (t0 > ray_t.min) ray_t.min = t0;
-        if (t1 < ray_t.max) ray_t.max = t1;
+        if (t0 > ray_t.min)
+            ray_t.min = t0;
+        if (t1 < ray_t.max)
+            ray_t.max = t1;
     }
 
     return ray_t;
 }
 
-double aabb::hit(ray const &r) const {
+double aabb::hit(ray const &r) const
+{
     auto intv = traverse(r);
     auto ok = !intv.isEmpty();
     // @perf ok is just `intv.min < intv.max`, so -sign(intv.min - intv.max)
@@ -71,17 +75,17 @@ double aabb::hit(ray const &r) const {
     return res;
 }
 
-vec3 aabb::getNormal(point3 intersection) const {
+vec3 aabb::getNormal(point3 intersection) const
+{
     // @perf could be simd'ized if required.
     for (int axis = 0; axis < 3; ++axis) {
         auto intv = axis_interval(axis);
 
-        if (std::abs(intersection[axis] - intv.min) > 1e-8 &&
-            std::abs(intersection[axis] - intv.max) > 1e-8) {
+        if (std::abs(intersection[axis] - intv.min) > 1e-8 && std::abs(intersection[axis] - intv.max) > 1e-8) {
             continue;
         }
 
-        vec3 v{0, 0, 0};
+        vec3 v { 0, 0, 0 };
         v[axis] = 1;
         return v;
     }
@@ -89,7 +93,8 @@ vec3 aabb::getNormal(point3 intersection) const {
 }
 
 // @perf could be optimized to use swizzled vectors.
-uvs aabb::getUVs(point3 intersection) const {
+uvs aabb::getUVs(point3 intersection) const
+{
     // search for the "box" that borders the point interval, since we know that
     // the point is already within the bounds of the box.
     for (int axis = 0; axis < 3; ++axis) {

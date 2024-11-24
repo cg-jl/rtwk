@@ -27,7 +27,8 @@ struct SampleCM_Buffers {
     interval *traversals;
     double *thit;
 
-    static SampleCM_Buffers request(uint32_t const spp) {
+    static SampleCM_Buffers request(uint32_t const spp)
+    {
         return {
             .currentHit = new double[spp],
             .rayLength = new double[spp],
@@ -42,11 +43,12 @@ struct hittable_list {
     bvh::tree_builder treebld;
     std::vector<lightInfo> objects;
     std::vector<geometry> selectGeoms;
-    std::vector<constant_medium> cms{};
-    std::vector<color> cmAlbedos{};
+    std::vector<constant_medium> cms {};
+    std::vector<color> cmAlbedos {};
 
-    hittable_list() {}
-    hittable_list(lightInfo object, geometry geom) {
+    hittable_list() { }
+    hittable_list(lightInfo object, geometry geom)
+    {
         add(object, std::move(geom));
     }
 
@@ -60,6 +62,8 @@ struct hittable_list {
     void transformAll(transform tf);
 
     std::pair<geometry_ptr, double> hitSelect(timed_ray const &r) const;
+
+    void select(timed_ray const *rays, uint32 const len, std::pair<geometry_ptr, double> *results) const noexcept;
 
     void sampleCMs(
         timed_ray *rays, uint32_t const len,

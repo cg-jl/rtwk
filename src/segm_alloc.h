@@ -22,15 +22,17 @@ struct Leak_Allocator {
     // (segment.data)
     uintptr_t allocRaw(size_t size, size_t align);
     template <typename T>
-    T *alloc() {
+    T *alloc()
+    {
         return std::bit_cast<T *>(allocRaw(sizeof(T), alignof(T)));
     }
     template <typename T>
-    std::span<T> alloc(size_t size) {
+    std::span<T> alloc(size_t size)
+    {
         // @incomplete `size * sizeof(T)` may overflow.
-        return {std::bit_cast<T *>(allocRaw(size * sizeof(T), alignof(T))),
-                size};
+        return { std::bit_cast<T *>(allocRaw(size * sizeof(T), alignof(T))),
+            size };
     }
 };
 
-}  // namespace segment
+} // namespace segment

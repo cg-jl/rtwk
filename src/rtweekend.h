@@ -31,16 +31,19 @@ static constexpr double pi = 3.1415926535897932385;
 
 // Utility Functions
 
-inline double degrees_to_radians(double degrees) {
+inline double degrees_to_radians(double degrees)
+{
     return degrees * pi / 180.0;
 }
 
-inline double random_double(double min, double max) {
+inline double random_double(double min, double max)
+{
     // Returns a random real in [min,max).
     return min + (max - min) * random_double();
 }
 
-inline int random_int(int min, int max) {
+inline int random_int(int min, int max)
+{
     // Returns a random integer in [min,max].
     return int(random_double(min, max + 1));
 }
@@ -53,14 +56,17 @@ struct uvs {
     double u, v;
 };
 
-static auto partition(auto start, decltype(start) end, auto swap, auto pred) {
-    if (start >= end) goto r;
+static auto partition(auto start, decltype(start) end, auto swap, auto pred)
+{
+    if (start >= end)
+        goto r;
     --end;
     while (start < end) {
         if (!pred(start)) {
             while (!pred(end)) {
                 --end;
-                if (end == start) goto r;
+                if (end == start)
+                    goto r;
             }
             swap(start, end);
         }

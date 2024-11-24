@@ -1,4 +1,4 @@
-BasedOnStyle: Google
+BasedOnStyle: WebKit
 IndentWidth: 4
 QualifierAlignment: Right
 DerivePointerAlignment: false

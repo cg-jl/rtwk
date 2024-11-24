@@ -28,21 +28,27 @@ struct material {
 
         // NOTE: These constructors and destructors allow me to construct
         // everything easily.
-        constexpr Data() {}
-        constexpr ~Data() {}
+        constexpr Data() { }
+        constexpr ~Data() { }
     } data;
 
-    constexpr material(kind tag, Data const &data) : tag(tag), data(data) {}
+    constexpr material(kind tag, Data const &data)
+        : tag(tag)
+        , data(data)
+    {
+    }
 
     vec3 scatter(vec3 in_dir, vec3 const &normal, bool front_face) const;
 
-    static constexpr material metal(double fuzz) {
+    static constexpr material metal(double fuzz)
+    {
         Data d;
         d.fuzz = fuzz;
         return material(material::kind::metal, d);
     }
 
-    static constexpr material dielectric(double ir) {
+    static constexpr material dielectric(double ir)
+    {
         Data d;
         d.refraction_index = ir;
         return material(material::kind::dielectric, d);
@@ -50,8 +56,8 @@ struct material {
 };
 
 namespace detail {
-static material const lambertian(material::kind::lambertian, material::Data{});
+static material const lambertian(material::kind::lambertian, material::Data {});
 static material const diffuse_light(material::kind::diffuse_light,
-                                    material::Data{});
-static material const isotropic(material::kind::isotropic, material::Data{});
-};  // namespace detail
+    material::Data {});
+static material const isotropic(material::kind::isotropic, material::Data {});
+}; // namespace detail

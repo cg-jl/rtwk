@@ -5,7 +5,8 @@
 #include "trace_colors.h"
 
 // @perf length(u) == length(v)?
-uvs quad::getUVs(point3 intersection) const {
+uvs quad::getUVs(point3 intersection) const
+{
     // I have to make a base change, from [x y z] to [n u v], then extract the u
     // and the v
 
@@ -21,7 +22,8 @@ uvs quad::getUVs(point3 intersection) const {
     return uv;
 }
 
-static bool is_interior(double a, double b) {
+static bool is_interior(double a, double b)
+{
     static constexpr interval unit_interval = interval(0, 1);
     // Given the hit point in plane coordinates, return false if it is
     // outside the primitive, otherwise set the hit record UV coordinates
@@ -32,7 +34,8 @@ static bool is_interior(double a, double b) {
 
 // @perf length(u) == length(v)?
 // @perf dot(u,v ) == 0.
-double quad::hit(ray const r) const {
+double quad::hit(ray const r) const
+{
     ZoneNamedN(_tracy, "quad hit", filters::hit);
     auto n = cross(u, v);
     auto normal = unit_vector(n);
@@ -42,7 +45,8 @@ double quad::hit(ray const r) const {
     auto denom = dot(normal, r.dir);
 
     // No hit if the ray is parallel to the plane.
-    if (fabs(denom) < 1e-8) return 0;
+    if (fabs(denom) < 1e-8)
+        return 0;
 
     // Return false if the hit point parameter t is outside the ray
     // interval.
@@ -53,7 +57,8 @@ double quad::hit(ray const r) const {
     // @perf dot(u,v) == 0. Try to find a relationship with `t`.
     auto uv = getUVs(intersection);
 
-    if (!is_interior(uv.u, uv.v)) return {};
+    if (!is_interior(uv.u, uv.v))
+        return {};
 
     // Ray hits the 2D shape; set the rest of the hit record and return
     // true.
@@ -64,7 +69,8 @@ vec3 quad::getNormal() const { return unit_vector(cross(u, v)); }
 
 // @perf length(u) == length(v)?
 // @perf dot(u,v ) == 0.
-quad quad::applyTransform(quad q, transform tf) noexcept {
+quad quad::applyTransform(quad q, transform tf) noexcept
+{
     auto oldQ = q.Q;
     q.Q = tf.applyForward(q.Q);
     q.u = tf.applyForward(oldQ + q.u) - q.Q;

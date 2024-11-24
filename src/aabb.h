@@ -24,11 +24,14 @@ struct aabb {
     constexpr aabb() = default;
 
     constexpr aabb(interval x, interval y, interval z)
-        : min(x.min, y.min, z.min), max(x.max, y.max, z.max) {
+        : min(x.min, y.min, z.min)
+        , max(x.max, y.max, z.max)
+    {
         pad_to_minimums();
     }
 
-    constexpr aabb(point3 const &a, point3 const &b) {
+    constexpr aabb(point3 const &a, point3 const &b)
+    {
         // Treat the two points a and b as extrema for the bounding box, so we
         // don't require a particular minimum/maximum coordinate order.
 
@@ -38,13 +41,15 @@ struct aabb {
         }
 
         for (int axis = 0; axis < 3; ++axis) {
-            if (min[axis] > max[axis]) std::swap(min[axis], max[axis]);
+            if (min[axis] > max[axis])
+                std::swap(min[axis], max[axis]);
         }
 
         pad_to_minimums();
     }
 
-    constexpr aabb(aabb const &box0, aabb const &box1) {
+    constexpr aabb(aabb const &box0, aabb const &box1)
+    {
         for (int axis = 0; axis < 3; ++axis) {
             min[axis] = std::min(box0.min[axis], box1.min[axis]);
         }
@@ -54,8 +59,9 @@ struct aabb {
         }
     }
 
-    constexpr interval axis_interval(int n) const {
-        return interval{min[n], max[n]};
+    constexpr interval axis_interval(int n) const
+    {
+        return interval { min[n], max[n] };
     }
 
     double hit(ray const &r) const;
@@ -65,7 +71,8 @@ struct aabb {
     uvs getUVs(point3 intersection) const;
     point3 getNormal(point3 intersection) const;
 
-    constexpr int longest_axis() const {
+    constexpr int longest_axis() const
+    {
         // Returns the index of the longest axis of the bounding box.
 
         double xsizes[3];
@@ -78,8 +85,9 @@ struct aabb {
         return std::distance(xsizes, it);
     }
 
-   private:
-    constexpr void pad_to_minimums() {
+private:
+    constexpr void pad_to_minimums()
+    {
         // Adjust the AABB so that no side is narrower than some delta, padding
         // if necessary.
 
@@ -95,12 +103,11 @@ struct aabb {
     }
 };
 
-static constexpr aabb empty_aabb =
-    aabb{empty_interval, empty_interval, empty_interval};
-static constexpr aabb universe_aabb =
-    aabb{universe_interval, universe_interval, universe_interval};
+static constexpr aabb empty_aabb = aabb { empty_interval, empty_interval, empty_interval };
+static constexpr aabb universe_aabb = aabb { universe_interval, universe_interval, universe_interval };
 
-constexpr aabb operator+(aabb bbox, vec3 offset) {
+constexpr aabb operator+(aabb bbox, vec3 offset)
+{
     return aabb(bbox.min + offset, bbox.max + offset);
 }
 

@@ -5,13 +5,15 @@
 #include "hittable.h"
 #include "trace_colors.h"
 
-point3 sphere_center(sphere const &sph, double time) {
+point3 sphere_center(sphere const &sph, double time)
+{
     // Linearly interpolate from center1 to center2 according to time, where
     // t=0 yields center1, and t=1 yields center2.
     return sph.center1 + time * sph.center_vec;
 }
 
-double sphere::hit(timed_ray r) const {
+double sphere::hit(timed_ray r) const
+{
     ZoneNamedN(_tracy, "sphere hit", filters::hit);
     point3 center = sphere_center(*this, r.time);
     vec3 oc = center - r.r.orig;
@@ -22,7 +24,8 @@ double sphere::hit(timed_ray r) const {
     auto c = oc.length_squared() - radius * radius;
 
     auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
-    if (discriminant < 0) return 0;
+    if (discriminant < 0)
+        return 0;
 
     auto sqrtd = std::sqrt(discriminant);
 
@@ -41,7 +44,8 @@ double sphere::hit(timed_ray r) const {
     return root;
 }
 
-interval sphere::traverse(timed_ray r) const {
+interval sphere::traverse(timed_ray r) const
+{
     // NOTE: @cutnpaste from sphere::hit
     ZoneNamedNC(_tracy, "sphere traverse", Ctp::Mantle, filters::hit);
     point3 center = sphere_center(*this, r.time);
@@ -53,7 +57,8 @@ interval sphere::traverse(timed_ray r) const {
     auto c = oc.length_squared() - radius * radius;
 
     auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
-    if (discriminant < 0) return interval{infinity, -infinity};
+    if (discriminant < 0)
+        return interval { infinity, -infinity };
 
     auto sqrtd = std::sqrt(discriminant);
 
@@ -75,7 +80,8 @@ interval sphere::traverse(timed_ray r) const {
 //     <1 0 0> yields <0.50 0.50>       <-1  0  0> yields <0.00 0.50>
 //     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
 //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
-uvs sphere::getUVs(vec3 normal) {
+uvs sphere::getUVs(vec3 normal)
+{
     auto theta = std::acos(-normal.y());
     auto phi = std::atan2(-normal.z(), normal.x()) + pi;
 
@@ -85,7 +91,8 @@ uvs sphere::getUVs(vec3 normal) {
     return uv;
 }
 
-aabb sphere::bounding_box() const {
+aabb sphere::bounding_box() const
+{
     auto rvec = vec3(radius, radius, radius);
     auto center2 = center1 + center_vec;
     aabb box1(center1 - rvec, center1 + rvec);
@@ -93,11 +100,13 @@ aabb sphere::bounding_box() const {
     return aabb(box1, box2);
 }
 
-vec3 sphere::getNormal(point3 const intersection, double time) const {
+vec3 sphere::getNormal(point3 const intersection, double time) const
+{
     return (intersection - sphere_center(*this, time)) / radius;
 }
 
-sphere sphere::applyTransform(sphere a, transform tf) noexcept {
+sphere sphere::applyTransform(sphere a, transform tf) noexcept
+{
     auto previous = a.center1;
     a.center1 = tf.applyForward(a.center1);
     a.center_vec = tf.applyForward(previous + a.center_vec) - a.center1;

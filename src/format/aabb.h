@@ -7,7 +7,8 @@
 
 template <>
 struct std::formatter<aabb> : public std::formatter<interval> {
-    auto format(aabb const &box, auto &ctx) const {
+    auto format(aabb const &box, auto &ctx) const
+    {
         using itf = std::formatter<interval>;
         auto out = itf::format(box.x, ctx);
         *out++ = 'x';

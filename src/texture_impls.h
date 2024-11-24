@@ -6,7 +6,8 @@
 #include "texture.h"
 #include "trace_colors.h"
 
-inline color sample_image(rtw_shared_image img, uvs uv) {
+inline color sample_image(rtw_shared_image img, uvs uv)
+{
     ZoneScopedN("image");
     ZoneColor(Ctp::Teal);
 
@@ -21,11 +22,12 @@ inline color sample_image(rtw_shared_image img, uvs uv) {
 
     // NOTE: @coversion from f32 -> f64.
     // Maybe it's time to drop to floats?
-    return {px[0], px[1], px[2]};
+    return { px[0], px[1], px[2] };
 }
 
 inline double sample_noise(texture::noise_data const &data, point3 const &p,
-                           perlin const &perlin) {
+    perlin const &perlin)
+{
     ZoneScopedN("noise");
     ZoneColor(Ctp::Blue);
 
@@ -33,7 +35,8 @@ inline double sample_noise(texture::noise_data const &data, point3 const &p,
 }
 
 inline texture const *checkerSelect(texture::checker_data const &data,
-                                    point3 const &p) {
+    point3 const &p)
+{
     auto xint = int(std::floor(data.inv_scale * p.x()));
     auto yint = int(std::floor(data.inv_scale * p.y()));
     auto zint = int(std::floor(data.inv_scale * p.z()));
@@ -42,7 +45,8 @@ inline texture const *checkerSelect(texture::checker_data const &data,
 }
 
 // Traverses the checker tree and finds a texture that is not a checker.
-inline texture const *traverseChecker(texture const *tex, point3 const &p) {
+inline texture const *traverseChecker(texture const *tex, point3 const &p)
+{
     ZoneScopedN("traverse checker");
     ZoneColor(Base);
     while (tex->kind == texture::tag::checker) {

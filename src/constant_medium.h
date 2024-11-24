@@ -21,5 +21,8 @@ struct constant_medium {
     traversable_geometry geom;
     double neg_inv_density;
     constant_medium(traversable_geometry boundary, double density)
-        : geom(boundary), neg_inv_density(-1 / density) {}
+        : geom(boundary)
+        , neg_inv_density(-1 / density)
+    {
+    }
 };

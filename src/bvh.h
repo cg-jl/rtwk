@@ -29,9 +29,9 @@ namespace bvh {
 // any of the branches, so we may as well fetch the 8 bytes early.
 
 struct bvh_node {
-    int objectIndex;  // if == -1, then the node is a parent and we should not
-                      // use this struct. otherwise, this is the range for the
-                      // objects that the leaf node represents.
+    int objectIndex; // if == -1, then the node is a parent and we should not
+                     // use this struct. otherwise, this is the range for the
+                     // objects that the leaf node represents.
     int objectCount;
 };
 struct tree_builder {
@@ -50,16 +50,18 @@ struct tree {
     geometry const *geoms;
 
     constexpr tree(tree_builder const &bld)
-        : boxes(bld.boxes),
-          nodes(bld.nodes.data()),
-          node_ends(bld.node_ends.data()),
-          geoms(bld.geoms.data()) {}
+        : boxes(bld.boxes)
+        , nodes(bld.nodes.data())
+        , node_ends(bld.node_ends.data())
+        , geoms(bld.geoms.data())
+    {
+    }
 
     // @perf Using __attribute__((const)) here makes the image black,
     // which means that the arguments here are taken into consideration as only
     // pointers instead of requiring the data behind them.
     std::pair<geometry_ptr, double> hitBVH(timed_ray const &,
-                                           double) const noexcept
+        double) const noexcept
         __attribute__((pure));
 };
-};  // namespace bvh
+}; // namespace bvh

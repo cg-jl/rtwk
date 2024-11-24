@@ -19,7 +19,10 @@ struct lightInfo {
     texture const *tex;
 
     constexpr explicit lightInfo(material mat, texture const *tex)
-        : mat(mat), tex(tex) {}
+        : mat(mat)
+        , tex(tex)
+    {
+    }
 };
 
 struct geometry;

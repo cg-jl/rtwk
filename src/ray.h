@@ -21,7 +21,11 @@
 // already using the cache to store the ray temporally.
 struct ray {
     constexpr ray() = default;
-    constexpr ray(point3 orig, vec3 dir) : orig(orig), dir(dir) {}
+    constexpr ray(point3 orig, vec3 dir)
+        : orig(orig)
+        , dir(dir)
+    {
+    }
 
     point3 at(double t) const { return orig + t * dir; }
 

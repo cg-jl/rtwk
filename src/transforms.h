@@ -15,7 +15,6 @@ struct transform final {
 
     transform(double angleDegrees, vec3 offset) noexcept;
 
-
     point3 applyForward(point3 p) const noexcept;
     aabb applyForward(aabb) const noexcept;
 };

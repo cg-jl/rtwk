@@ -19,11 +19,16 @@
 // @perf length(u) == length(v)?
 // @perf dot(u, v) == 0.
 struct quad {
-    quad(point3 Q, vec3 u, vec3 v) : Q(Q), u(u), v(v) {
+    quad(point3 Q, vec3 u, vec3 v)
+        : Q(Q)
+        , u(u)
+        , v(v)
+    {
         assert(dot(v, u) == 0.);
     }
 
-    aabb bounding_box() const {
+    aabb bounding_box() const
+    {
         // Compute the bounding box of all four vertices.
         auto bbox_diagonal1 = aabb(Q, Q + u + v);
         auto bbox_diagonal2 = aabb(Q + u, Q + v);

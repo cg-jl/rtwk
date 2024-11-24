@@ -6,7 +6,8 @@ template <>
 struct std::formatter<vec3> : public std::formatter<double> {
     // NOTE: parsing is done by <double>
 
-    auto format(vec3 const &v, auto &ctx) const {
+    auto format(vec3 const &v, auto &ctx) const
+    {
         using df = std::formatter<double>;
 
         *ctx.out()++ = '[';

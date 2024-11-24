@@ -38,16 +38,19 @@ struct texture {
         noise_data noise;
         color solid;
 
-        constexpr data() {}
-        ~data() {}
+        constexpr data() { }
+        ~data() { }
 
     } as;
 
     constexpr texture(tag kind, data &&d)
-        : kind(kind), as(std::forward<data &&>(d)) {}
+        : kind(kind)
+        , as(std::forward<data &&>(d))
+    {
+    }
 
     static texture checker(double scale, texture const *even,
-                           texture const *odd);
+        texture const *odd);
 
     static texture solid(color col);
 
@@ -59,4 +62,4 @@ struct texture {
 namespace detail {
 static texture black = texture::solid(color(0, 0, 0));
 static texture white = texture::solid(color(1, 1, 1));
-}  // namespace detail
+} // namespace detail
