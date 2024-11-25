@@ -13,28 +13,24 @@
 #include "rtweekend.h"
 #include "trace_colors.h"
 
-std::pair<geometry_ptr, double> hittable_list::hitSelect(
-    timed_ray const &r) const
+void hittable_list::select(timed_ray const *rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, double> *results) const noexcept
 {
-    ZoneNamedN(_tracy, "hittable_list hit", filters::surfaceHit);
 
-    geometry_ptr best;
-    double closestHit;
+    std::transform(rays, rays + len, buffers.tree_hits, [&](auto const &r) {
+        return bvh::tree(treebld).hitBVH(r, infinity);
+    });
 
-    std::tie(best, closestHit) = bvh::tree(treebld).hitBVH(r, infinity);
-
-    {
-        ZoneNamedN(_tracy, "hit individuals", filters::hit);
-        std::tie(best, closestHit) = hitSpan(selectGeoms, r, best, closestHit);
-    }
-
-    return { best, closestHit };
-}
-
-void hittable_list::select(timed_ray const *rays, uint32 const len, std::pair<geometry_ptr, double> *results) const noexcept
-{
     std::transform(rays, rays + len, results, [&](auto const &r) {
-        return this->hitSelect(r);
+        return hitSpan(selectGeoms, r, nullptr, infinity);
+    });
+
+    std::transform(buffers.tree_hits, buffers.tree_hits + len, results, results, [&](auto const &tree, auto const &indiv) {
+        auto const [tree_ptr, tree_dist] = tree;
+        auto const [indiv_ptr, indiv_dist] = indiv;
+
+        if (!tree_ptr || indiv_dist < tree_dist)
+            return std::pair { indiv_ptr, indiv_dist };
+        return std::pair { tree_ptr, tree_dist };
     });
 }
 

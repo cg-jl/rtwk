@@ -39,6 +39,17 @@ struct SampleCM_Buffers {
     }
 };
 
+struct Select_Buffers {
+    std::pair<geometry_ptr, double> *tree_hits;
+
+    static Select_Buffers request(uint32 const spp)
+    {
+        return {
+            .tree_hits = new std::pair<geometry_ptr, double>[spp],
+        };
+    }
+};
+
 struct hittable_list {
     bvh::tree_builder treebld;
     std::vector<lightInfo> objects;
@@ -61,9 +72,7 @@ struct hittable_list {
 
     void transformAll(transform tf);
 
-    std::pair<geometry_ptr, double> hitSelect(timed_ray const &r) const;
-
-    void select(timed_ray const *rays, uint32 const len, std::pair<geometry_ptr, double> *results) const noexcept;
+    void select(timed_ray const *rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, double> *results) const noexcept;
 
     void sampleCMs(
         timed_ray *rays, uint32_t const len,

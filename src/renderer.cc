@@ -197,6 +197,7 @@ struct GSim_Buffers {
     hit_record *hit_recs;
     vec3 *scatters;
     SampleCM_Buffers sample_cms;
+    Select_Buffers select;
 
     static GSim_Buffers request(uint32 spp)
     {
@@ -208,6 +209,7 @@ struct GSim_Buffers {
             .hit_recs = new hit_record[spp],
             .scatters = new vec3[spp],
             .sample_cms = SampleCM_Buffers::request(spp),
+            .select = Select_Buffers::request(spp),
         };
     }
 };
@@ -284,7 +286,8 @@ static void gsim(color const &background, uint32 const spp,
         // ray is going to disperse. So I just have to run both
         // hitSelect and sampleConstantMediums.
 
-        world.select(buffers.rays, remaining, buffers.hit_selects);
+        world.select(buffers.rays, remaining, buffers.select,
+            buffers.hit_selects);
 
         world.sampleCMs(buffers.rays, remaining, buffers.constant_mediums,
             buffers.sample_cms, swap);

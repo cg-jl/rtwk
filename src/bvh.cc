@@ -81,6 +81,9 @@ void bvh::tree_builder::finish(size_t start) noexcept
     bvh::buildBVHNode(*this, start, geoms.size());
 }
 
+// @perf Idea: we call the same span (not very big span) with a ton of rays.
+// So the main idea is that this should help gather which spans go to which rays.
+// After that, the reduction should be done separately.
 std::pair<geometry_ptr, double> bvh::tree::hitBVH(
     timed_ray const &r, double closestHit) const noexcept
 {
