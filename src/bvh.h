@@ -45,6 +45,9 @@ struct tree_builder {
 
     constexpr size_t start() const { return geoms.size(); }
     void finish(size_t start) noexcept;
+
+    // @cleanup What if I use this as a consuming method?
+    void prepareForRender() noexcept;
 };
 
 struct Hit_Buffer {
@@ -60,6 +63,7 @@ struct Hit_Buffer {
     }
 };
 
+// TEST @invariants!
 // NOTE: @invariant node_ends[leaf node index] points to the next tree's root.
 struct tree {
     std::span<aabb const> boxes;

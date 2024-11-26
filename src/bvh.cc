@@ -4,7 +4,10 @@
 #include <hittable.h>
 
 #include <cassert>
+#include <memory>
+#include <ranges>
 #include <tracy/Tracy.hpp>
+#include <unordered_set>
 #include <utility>
 
 #include "interval.h"
@@ -82,6 +85,66 @@ static int addNode(tree_builder &bld, aabb box, bvh_node node)
 void bvh::tree_builder::finish(size_t start) noexcept
 {
     bvh::buildBVHNode(*this, start, geoms.size());
+}
+
+void bvh::tree_builder::prepareForRender() noexcept
+{
+    // leaf nodes point at tree root locations.
+    // @perf could write the tree root locations elsewhere and then use it here :]
+    std::unordered_set<uint32> root_locs;
+
+    for (uint32 i = 0; i < boxes.size(); ++i) {
+        if (nodes[i].objectIndex != -1) {
+            root_locs.insert(node_ends[i]);
+        }
+    }
+
+    std::vector<uint32> sorted_locs;
+
+    std::copy(std::begin(root_locs), std::end(root_locs), std::back_inserter(sorted_locs));
+
+    std::sort(sorted_locs.begin(), sorted_locs.end());
+
+    using std::ranges::ref_view;
+    using std::ranges::subrange;
+    using std::views::zip;
+
+    auto new_indices = std::make_unique<uint32[]>(boxes.size());
+    std::generate(new_indices.get(), new_indices.get() + boxes.size(), [i = uint32(0)]() mutable { return i++; });
+
+    auto start = 0uz;
+    for (auto const end : sorted_locs) {
+
+        auto leaf_nodes_begin = end;
+        for (;;) {
+            auto next_node_pos = std::distance(
+                nodes.begin(),
+                std::find_if(nodes.begin() + start, nodes.begin() + leaf_nodes_begin, [](auto const &n) {
+                    return n.objectIndex != -1;
+                }));
+
+            if (next_node_pos == leaf_nodes_begin) {
+                break;
+            }
+
+            std::rotate(nodes.begin() + start, nodes.begin() + next_node_pos, nodes.begin() + leaf_nodes_begin);
+            std::rotate(boxes.begin() + start, boxes.begin() + next_node_pos, boxes.begin() + leaf_nodes_begin);
+            std::rotate(node_ends.begin() + start, node_ends.begin() + next_node_pos, node_ends.begin() + leaf_nodes_begin);
+            std::rotate(new_indices.get() + start, new_indices.get() + next_node_pos, new_indices.get() + leaf_nodes_begin);
+            --leaf_nodes_begin;
+        }
+
+        std::reverse(nodes.begin() + leaf_nodes_begin, nodes.begin() + end);
+        std::reverse(boxes.begin() + leaf_nodes_begin, boxes.begin() + end);
+        std::reverse(node_ends.begin() + leaf_nodes_begin, node_ends.begin() + end);
+        std::reverse(new_indices.get() + leaf_nodes_begin, new_indices.get() + end);
+
+        start = end;
+    }
+
+    for (auto i = 0uz; i < boxes.size(); ++i) {
+        node_ends[i] = new_indices[node_ends[i]];
+    }
 }
 
 void bvh::tree::hit(timed_ray *rays, uint32 const len, std::pair<geometry_ptr, double> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> swap_rays) const noexcept

@@ -680,6 +680,7 @@ void render(hittable_list world, settings s)
 {
     // offset everything so that what was at s.lookfrom is at 0, 0, 0.
     world.transformAll(transform(0, -s.lookfrom));
+    world.treebld.prepareForRender();
     // I can't rotate the world because how noise is generated (the sin pattern)
     // depends on absolute world position and not the position relative to the
     // camera.
