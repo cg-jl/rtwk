@@ -53,12 +53,15 @@ struct tree_builder {
 struct Hit_Buffer {
     uint32 *node_indices;
     interval *t;
+    // @mem this can be shared with Select_Buffers.
+    double *cmp_res;
 
     static Hit_Buffer request(uint32 const spp)
     {
         return {
             .node_indices = new uint32[spp],
             .t = new interval[spp],
+            .cmp_res = new double[spp],
         };
     }
 };

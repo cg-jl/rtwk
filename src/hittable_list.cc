@@ -18,22 +18,9 @@
 void hittable_list::select(ray_buffer rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, double> *results, std::function<void(uint32, uint32)> swap_rays) const noexcept
 {
 
-    bvh::tree(treebld).hit(rays, len, buffers.tree_hits, buffers.bvh, swap_rays);
+    bvh::tree(treebld).hit(rays, len, results, buffers.bvh, swap_rays);
 
-    auto iot = std::views::iota(decltype(len)(0), len);
-    std::transform(iot.begin(), iot.end(), results, [&](auto const i) {
-        auto const r = rays[i];
-        return hitSpan(selectGeoms, r, nullptr, infinity);
-    });
-
-    std::transform(buffers.tree_hits, buffers.tree_hits + len, results, results, [&](auto const &tree, auto const &indiv) {
-        auto const [tree_ptr, tree_dist] = tree;
-        auto const [indiv_ptr, indiv_dist] = indiv;
-
-        if (!tree_ptr || indiv_dist < tree_dist)
-            return std::pair { indiv_ptr, indiv_dist };
-        return std::pair { tree_ptr, tree_dist };
-    });
+    hitSpan(selectGeoms, rays, len, results, buffers.hit_span_backbuf);
 }
 
 void hittable_list::transformAll(transform tf)

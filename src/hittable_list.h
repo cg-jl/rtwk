@@ -40,13 +40,13 @@ struct SampleCM_Buffers {
 };
 
 struct Select_Buffers {
-    std::pair<geometry_ptr, double> *tree_hits;
+    double *hit_span_backbuf;
     bvh::Hit_Buffer bvh;
 
     static Select_Buffers request(uint32 const spp)
     {
         return {
-            .tree_hits = new std::pair<geometry_ptr, double>[spp],
+            .hit_span_backbuf = new double[spp],
             .bvh = bvh::Hit_Buffer::request(spp),
         };
     }

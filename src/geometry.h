@@ -3,6 +3,7 @@
 #include <bit>
 #include <cstdint>
 #include <iterator>
+#include <ranges>
 #include <span>
 #include <tracy/Tracy.hpp>
 #include <utility>
@@ -244,43 +245,22 @@ struct traversable_geometry {
     }
 };
 
-template <typename It>
-concept geometry_iterator = std::input_iterator<It> && requires(It const &it) {
-    // we want references because copying the geometries in the loop made it
-    // ~1.8x slower.
-    { *it } -> std::convertible_to<geometry_ptr>;
-};
-
-template <geometry_iterator It>
-inline std::pair<geometry_ptr, double> hitSpan(It start, It end,
-    timed_ray const &r,
-    geometry_ptr best,
-    double closestHit)
+inline void hitSpan(std::span<geometry const> objects, ray_buffer rays, uint32 const len, std::pair<geometry_ptr, double> *acc, double *backbuf)
 {
-    ZoneScopedNC("hit span", Ctp::Green);
-    ZoneValue(objects.size());
+    auto iot = std::views::iota(decltype(len)(0), len);
+    for (auto const &obj : objects) {
+        auto ptr = geometry_ptr(obj);
+        // @perf bulk geometry hit :]
+        std::transform(iot.begin(), iot.end(), backbuf, [&](auto const i) {
+            return ptr.hit(rays[i]);
+        });
+        std::transform(backbuf, backbuf + len, acc, acc, [&](auto const new_d, auto const &old_d) {
+            auto const &closestHit = old_d.second;
 
-    // @perf I need a perf report on this.
-    // Tracy says that the loop overhead takes between 40-60% of the runtime.
-    // I don't know more.
-
-    for (auto it = start; it != end; ++it) {
-        geometry_ptr const object = *it;
-        auto res = object.hit(r);
-        if (interval { minRayDist, closestHit }.contains(res)) {
-            best = object;
-            closestHit = res;
-        }
+            if (interval { minRayDist, closestHit }.contains(new_d))
+                return std::pair { ptr, new_d };
+            else
+                return old_d;
+        });
     }
-
-    return { best, closestHit };
-}
-
-// @perf get rid of this as I start providing better iteration options to the
-// loop.
-inline std::pair<geometry_ptr, double> hitSpan(
-    std::span<geometry const> objects, timed_ray const &r, geometry_ptr best,
-    double closestHit)
-{
-    return hitSpan(std::begin(objects), std::end(objects), r, best, closestHit);
 }

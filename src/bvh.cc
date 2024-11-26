@@ -10,6 +10,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "geometry.h"
 #include "interval.h"
 #include "rtweekend.h"
 #include "trace_colors.h"
@@ -154,7 +155,6 @@ void bvh::tree::hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, d
     std::fill(buffer.node_indices, buffer.node_indices + len, 0);
 
     auto swap = [&](auto i, auto j) {
-        std::swap(results[i], results[j]);
         std::swap(buffer.node_indices[i], buffer.node_indices[j]);
         swap_rays(i, j);
     };
@@ -215,18 +215,10 @@ void bvh::tree::hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, d
         // What if I acknowledge again that I have multiple trees and restart from there?
         // After all, the spans are going to be different.
         if (n.objectIndex != -1) {
-            // @perf hitSpan in a reduction loop.
-            for (uint32 ray_i = 0; ray_i < empty_begin; ++ray_i) {
-                auto const &r = rays[ray_i]; // deactivate this zone for now.
-                geometry_ptr &result = results[ray_i].first;
 
-                double &closestHit = results[ray_i].second;
+            auto span = std::span { geoms + n.objectIndex, size_t(n.objectCount) };
 
-                // test all relevant nodes against the ray.
-
-                auto span = std::span { geoms + n.objectIndex, size_t(n.objectCount) };
-                std::tie(result, closestHit) = hitSpan(span, r, result, closestHit);
-            }
+            hitSpan(span, rays, empty_begin, results, buffer.cmp_res);
         }
         remaining = partition(uint32(0), remaining, swap, [&](auto const i) {
             return buffer.node_indices[i] < tree_end;
