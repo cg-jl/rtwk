@@ -287,7 +287,7 @@ static void gsim(color const &background, uint32 const spp,
         // hitSelect and sampleConstantMediums.
 
         world.select(buffers.rays, remaining, buffers.select,
-            buffers.hit_selects);
+            buffers.hit_selects, swap);
 
         world.sampleCMs(buffers.rays, remaining, buffers.constant_mediums,
             buffers.sample_cms, swap);

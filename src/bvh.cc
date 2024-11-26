@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <bvh.h>
+#include <functional>
 #include <hittable.h>
 
 #include <cassert>
@@ -6,6 +8,7 @@
 #include <utility>
 
 #include "interval.h"
+#include "rtweekend.h"
 #include "trace_colors.h"
 
 namespace bvh {
@@ -81,44 +84,49 @@ void bvh::tree_builder::finish(size_t start) noexcept
     bvh::buildBVHNode(*this, start, geoms.size());
 }
 
-// @perf Idea: we call the same span (not very big span) with a ton of rays.
-// So the main idea is that this should help gather which spans go to which rays.
-// After that, the reduction should be done separately.
-std::pair<geometry_ptr, double> bvh::tree::hitBVH(
-    timed_ray const &r) const noexcept
+void bvh::tree::hit(timed_ray *rays, uint32 const len, std::pair<geometry_ptr, double> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> swap_rays) const noexcept
 {
-    // deactivate this zone for now.
     ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
-    geometry_ptr result = nullptr;
+    std::fill(results, results + len, std::pair { nullptr, infinity });
+    std::fill(buffer.node_indices, buffer.node_indices + len, 0);
 
-    double closestHit = infinity;
+    auto swap = [&](auto i, auto j) {
+        std::swap(results[i], results[j]);
+        std::swap(buffer.node_indices[i], buffer.node_indices[j]);
+        swap_rays(i, j);
+    };
 
-    // @perf This has a 'self time' of ~50%. Can I reduce it?
-    // Median sample has ~300ns of latency, presumably due to memory fetches.
-    // Perhaps inlining (or hinting) hitSpan is the answer?
+    auto remaining = len;
+    auto const tree_end = boxes.size();
+    auto constexpr zero = uint32(0);
+    while (remaining) {
+        // @perf may want to select the node index differently
+        auto const node_index = buffer.node_indices[0];
+        auto const rays_for_node = partition(uint32(1), remaining, swap, [&](auto const i) { return buffer.node_indices[i] == node_index; });
 
-    // test all relevant nodes against the ray.
+        // @perf transform with constant RHS (boxes[node_index])
+        std::transform(rays, rays + rays_for_node, buffer.t, [&](auto const &r) { return boxes[node_index].traverse(r.r); });
 
-    auto tree_end = boxes.size();
-    int node_index = 0;
-    while (node_index < tree_end) {
-        auto t = boxes[node_index].traverse(r.r);
-        t.max = std::min(t.max, closestHit);
-        t.min = std::max(t.min, minRayDist);
-        if (t.isEmpty()) {
-            if (node_ends[node_index] <= node_index)
-                std::unreachable();
-            node_index = node_ends[node_index];
-            continue;
-        }
-        t.max = std::min(t.max, closestHit);
+        std::transform(buffer.t, buffer.t + rays_for_node, results, buffer.t, [&](auto t, auto const &res) {
+            auto const &closestHit = res.second;
+            t.max = std::min(t.max, closestHit);
+            // @perf may be specialized to its own loop.
+            t.min = std::max(t.min, minRayDist);
+            return t;
+        });
 
-        auto const n = nodes[node_index];
+        auto swap_with_t = [&](auto i, auto j) {
+            swap(i, j);
+            std::swap(buffer.t[i], buffer.t[j]);
+        };
 
-        if (n.objectIndex != -1) {
-            auto span = std::span { geoms + n.objectIndex, size_t(n.objectCount) };
-            std::tie(result, closestHit) = hitSpan(span, r, result, closestHit);
-        }
+        // NOTE: Thanks to this partition, we know know that the index selection
+        // will select node_index + 1 when there's at least one ray that is selected like that.
+        auto const empty_begin = partition(zero, rays_for_node, swap_with_t, [&](auto const i) { return !buffer.t[i].isEmpty(); });
+
+        std::fill(buffer.node_indices + empty_begin, buffer.node_indices + rays_for_node, node_ends[node_index]);
+
+        // For rays that hit the node:
         // the next node to process is adjacent to the current one:
         // Either it's the left node from this node, or the right subtree from
         // the parent of a leaf node.
@@ -131,8 +139,34 @@ std::pair<geometry_ptr, double> bvh::tree::hitBVH(
         // pre-order, the right subtree is pushed directly after the left
         // subtree from a given parent. This means that `node_index + 1` in this
         // case is the right node from the previous parent.
-        node_index += 1;
-    }
+        std::fill(buffer.node_indices, buffer.node_indices + empty_begin, node_index + 1);
+        auto const n = nodes[node_index];
 
-    return { result, closestHit };
+        // @perf to evade this branch, I have to someway store which rays go for each node,
+        // and then, for each node, go fetch the rays (partition), then fetch the node
+        // and do the checks.
+        // Or, the first thing I could do is prepare the BVH s.t the nodes that contain indices
+        // are at the end of the array. For that I'd need to also update the indices for those nodes in the
+        // tree references. But that would let me skip this branch altogether by dividing the loop in two.
+        // Problem with this, is that leaf nodes point to the next tree as their next node.
+        // What if I acknowledge again that I have multiple trees and restart from there?
+        // After all, the spans are going to be different.
+        if (n.objectIndex != -1) {
+            // @perf hitSpan in a reduction loop.
+            for (uint32 ray_i = 0; ray_i < empty_begin; ++ray_i) {
+                auto const &r = rays[ray_i]; // deactivate this zone for now.
+                geometry_ptr &result = results[ray_i].first;
+
+                double &closestHit = results[ray_i].second;
+
+                // test all relevant nodes against the ray.
+
+                auto span = std::span { geoms + n.objectIndex, size_t(n.objectCount) };
+                std::tie(result, closestHit) = hitSpan(span, r, result, closestHit);
+            }
+        }
+        remaining = partition(uint32(0), remaining, swap, [&](auto const i) {
+            return buffer.node_indices[i] < tree_end;
+        });
+    }
 }

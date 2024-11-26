@@ -1,8 +1,10 @@
 #include "hittable_list.h"
 
 #include <algorithm>
+#include <functional>
 #include <print>
 #include <span>
+#include <sys/types.h>
 #include <tracy/Tracy.hpp>
 
 #include "bvh.h"
@@ -13,12 +15,10 @@
 #include "rtweekend.h"
 #include "trace_colors.h"
 
-void hittable_list::select(timed_ray const *rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, double> *results) const noexcept
+void hittable_list::select(timed_ray *rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, double> *results, std::function<void(uint32, uint32)> swap_rays) const noexcept
 {
 
-    std::transform(rays, rays + len, buffers.tree_hits, [&](auto const &r) {
-        return bvh::tree(treebld).hitBVH(r);
-    });
+    bvh::tree(treebld).hit(rays, len, buffers.tree_hits, buffers.bvh, swap_rays);
 
     std::transform(rays, rays + len, results, [&](auto const &r) {
         return hitSpan(selectGeoms, r, nullptr, infinity);

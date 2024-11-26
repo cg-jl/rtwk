@@ -12,6 +12,7 @@
 //==============================================================================================
 
 #include <aabb.h>
+#include <functional>
 #include <geometry.h>
 
 #include <span>
@@ -34,6 +35,8 @@ struct bvh_node {
                      // objects that the leaf node represents.
     int objectCount;
 };
+
+// NOTE: @invariant node_ends[leaf node index] points to the next tree's root.
 struct tree_builder {
     std::vector<int> node_ends;
     std::vector<aabb> boxes;
@@ -43,6 +46,21 @@ struct tree_builder {
     constexpr size_t start() const { return geoms.size(); }
     void finish(size_t start) noexcept;
 };
+
+struct Hit_Buffer {
+    uint32 *node_indices;
+    interval *t;
+
+    static Hit_Buffer request(uint32 const spp)
+    {
+        return {
+            .node_indices = new uint32[spp],
+            .t = new interval[spp],
+        };
+    }
+};
+
+// NOTE: @invariant node_ends[leaf node index] points to the next tree's root.
 struct tree {
     std::span<aabb const> boxes;
     bvh_node const *nodes;
@@ -57,10 +75,6 @@ struct tree {
     {
     }
 
-    // @perf Using __attribute__((const)) here makes the image black,
-    // which means that the arguments here are taken into consideration as only
-    // pointers instead of requiring the data behind them.
-    std::pair<geometry_ptr, double> hitBVH(timed_ray const &) const noexcept
-        __attribute__((pure));
+    void hit(timed_ray *rays, uint32 const len, std::pair<geometry_ptr, double> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> swap_rays) const noexcept;
 };
 }; // namespace bvh
