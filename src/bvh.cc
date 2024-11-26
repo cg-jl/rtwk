@@ -85,11 +85,13 @@ void bvh::tree_builder::finish(size_t start) noexcept
 // So the main idea is that this should help gather which spans go to which rays.
 // After that, the reduction should be done separately.
 std::pair<geometry_ptr, double> bvh::tree::hitBVH(
-    timed_ray const &r, double closestHit) const noexcept
+    timed_ray const &r) const noexcept
 {
     // deactivate this zone for now.
     ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
     geometry_ptr result = nullptr;
+
+    double closestHit = infinity;
 
     // @perf This has a 'self time' of ~50%. Can I reduce it?
     // Median sample has ~300ns of latency, presumably due to memory fetches.

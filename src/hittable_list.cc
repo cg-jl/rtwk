@@ -17,7 +17,7 @@ void hittable_list::select(timed_ray const *rays, uint32 const len, Select_Buffe
 {
 
     std::transform(rays, rays + len, buffers.tree_hits, [&](auto const &r) {
-        return bvh::tree(treebld).hitBVH(r, infinity);
+        return bvh::tree(treebld).hitBVH(r);
     });
 
     std::transform(rays, rays + len, results, [&](auto const &r) {
