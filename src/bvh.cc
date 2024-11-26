@@ -147,7 +147,7 @@ void bvh::tree_builder::prepareForRender() noexcept
     }
 }
 
-void bvh::tree::hit(timed_ray *rays, uint32 const len, std::pair<geometry_ptr, double> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> swap_rays) const noexcept
+void bvh::tree::hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, double> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> swap_rays) const noexcept
 {
     ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
     std::fill(results, results + len, std::pair { nullptr, infinity });
@@ -168,7 +168,7 @@ void bvh::tree::hit(timed_ray *rays, uint32 const len, std::pair<geometry_ptr, d
         auto const rays_for_node = partition(uint32(1), remaining, swap, [&](auto const i) { return buffer.node_indices[i] == node_index; });
 
         // @perf transform with constant RHS (boxes[node_index])
-        std::transform(rays, rays + rays_for_node, buffer.t, [&](auto const &r) { return boxes[node_index].traverse(r.r); });
+        std::transform(rays.rays, rays.rays + rays_for_node, buffer.t, [&](auto const &r) { return boxes[node_index].traverse(r); });
 
         std::transform(buffer.t, buffer.t + rays_for_node, results, buffer.t, [&](auto t, auto const &res) {
             auto const &closestHit = res.second;

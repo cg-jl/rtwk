@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <functional>
 #include <print>
-#include <span>
+#include <ranges>
 #include <sys/types.h>
 #include <tracy/Tracy.hpp>
 
@@ -15,12 +15,14 @@
 #include "rtweekend.h"
 #include "trace_colors.h"
 
-void hittable_list::select(timed_ray *rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, double> *results, std::function<void(uint32, uint32)> swap_rays) const noexcept
+void hittable_list::select(ray_buffer rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, double> *results, std::function<void(uint32, uint32)> swap_rays) const noexcept
 {
 
     bvh::tree(treebld).hit(rays, len, buffers.tree_hits, buffers.bvh, swap_rays);
 
-    std::transform(rays, rays + len, results, [&](auto const &r) {
+    auto iot = std::views::iota(decltype(len)(0), len);
+    std::transform(iot.begin(), iot.end(), results, [&](auto const i) {
+        auto const r = rays[i];
         return hitSpan(selectGeoms, r, nullptr, infinity);
     });
 
@@ -80,12 +82,12 @@ enum bool32 : uint32_t { True = 0xFFFFFFFFul,
     False = 0x0ul };
 
 void hittable_list::sampleCMs(
-    timed_ray *rays, uint32_t const len,
+    ray_buffer rays, uint32_t const len,
     std::pair<color const *, double> *results, SampleCM_Buffers buffers,
     std::function<void(uint32_t, uint32_t)> swap_rays) const noexcept
 {
-    std::transform(rays, rays + len, buffers.rayLength,
-        [](auto const &ray) { return ray.r.dir.length(); });
+    std::transform(rays.rays, rays.rays + len, buffers.rayLength,
+        [](auto const &ray) { return ray.dir.length(); });
 
     std::fill(buffers.selected, buffers.selected + len, std::nullopt);
     std::fill(buffers.currentHit, buffers.currentHit + len, infinity);
@@ -113,8 +115,9 @@ void hittable_list::sampleCMs(
         // @perf think about a traversal fn that walks the rays in bulk, for
         // each of the geometries. Later I could add partitioning to the mix so
         // I get less branch mispredicts.
-        std::transform(rays, rays + len, buffers.traversals,
-            [&](auto const &ray) { return cm.geom.traverse(ray); });
+        auto iot = std::views::iota(decltype(len)(0), len);
+        std::transform(iot.begin(), iot.end(), buffers.traversals,
+            [&](auto const i) { return cm.geom.traverse(rays[i]); });
 
         // Intersect with minimum distance that ray should travel.
         std::transform(buffers.rayLength, buffers.rayLength + len,

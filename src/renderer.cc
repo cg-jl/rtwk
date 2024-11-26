@@ -111,7 +111,7 @@ static point3 defocus_disk_sample(camera const &cam)
     return (p[0] * cam.defocus_disk_u) + (p[1] * cam.defocus_disk_v);
 }
 
-static timed_ray get_ray(settings const &s, camera const &cam, int i, int j)
+static ray get_ray(settings const &s, camera const &cam, int i, int j)
 {
     // Construct a camera ray originating from the defocus disk and directed
     // at a randomly sampled point around the pixel location i, j.
@@ -121,9 +121,8 @@ static timed_ray get_ray(settings const &s, camera const &cam, int i, int j)
 
     auto ray_origin = (s.defocus_angle <= 0) ? vec3 { 0, 0, 0 } : defocus_disk_sample(cam);
     auto ray_direction = pixel_sample - ray_origin;
-    auto ray_time = random_double();
 
-    return { ray(ray_origin, ray_direction), ray_time };
+    return ray(ray_origin, ray_direction);
 }
 
 // Aligns the normal so that it always points towards the ray origin.
@@ -190,7 +189,7 @@ struct hit_record {
 
 struct GSim_Buffers {
     // inputs
-    timed_ray *rays;
+    ray_buffer rays;
     px_sampleq *atts;
     select_res *hit_selects;
     cm_res *constant_mediums;
@@ -202,7 +201,10 @@ struct GSim_Buffers {
     static GSim_Buffers request(uint32 spp)
     {
         return {
-            .rays = new timed_ray[spp],
+            .rays = {
+                .rays = new ray[spp],
+                .times = new double[spp],
+            },
             .atts = new px_sampleq[spp],
             .hit_selects = new select_res[spp],
             .constant_mediums = new cm_res[spp],
@@ -260,7 +262,7 @@ static void gsim(color const &background, uint32 const spp,
     auto swap = [&](auto i, decltype(i) j) {
         assert(i != j);
         std::swap(samples[i], samples[j]);
-        std::swap(buffers.rays[i], buffers.rays[j]);
+        buffers.rays.swap(i, j);
         std::swap(buffers.atts[i], buffers.atts[j]);
         std::swap(buffers.constant_mediums[i], buffers.constant_mediums[j]);
         std::swap(buffers.hit_selects[i], buffers.hit_selects[j]);
@@ -368,15 +370,15 @@ static void gsim(color const &background, uint32 const spp,
             q.emplaceSolid(*cmColor);
         }
         for (decltype(remaining) i = 0; i < cms_end; ++i) {
-            auto &r = buffers.rays[i];
+            auto &r = buffers.rays.rays[i];
             auto cmHit = buffers.constant_mediums[i].second;
-            r.r.orig = r.r.at(cmHit);
+            r.orig = r.at(cmHit);
         }
 
         // @perf This contains random samples.
         for (decltype(remaining) i = 0; i < cms_end; ++i) {
-            auto &r = buffers.rays[i];
-            r.r.dir = unit_vector(random_in_unit_sphere());
+            auto &r = buffers.rays.rays[i];
+            r.dir = unit_vector(random_in_unit_sphere());
         }
 
         // Bounces (but not constant mediums)
@@ -396,12 +398,12 @@ static void gsim(color const &background, uint32 const spp,
 
         for (decltype(remaining) i = cms_end; i < bounces_end; ++i) {
             auto closestHit = buffers.hit_selects[i].second;
-            auto &r = buffers.rays[i];
+            auto &r = buffers.rays.rays[i];
 
             // @perf p is cheap, rest aren't.
-            auto p = r.r.at(closestHit);
+            auto p = r.at(closestHit);
             auto const &scattered = buffers.scatters[i];
-            r.r = ray(p, scattered);
+            r = ray(p, scattered);
         }
 
         // Non-bounces: lights, no hits and no scatters.
@@ -457,9 +459,11 @@ static void scanLine(settings const &s, camera const &cam,
 
     for (int i = 0; i < s.image_width; i++) {
         // Initialize all the rays
-        std::for_each(buffers.gsim.rays,
-            buffers.gsim.rays + s.samples_per_pixel,
-            [&](auto &r) { r = get_ray(s, cam, i, j); });
+        std::generate(buffers.gsim.rays.rays,
+            buffers.gsim.rays.rays + s.samples_per_pixel,
+            [&]() { return get_ray(s, cam, i, j); });
+
+        std::generate(buffers.gsim.rays.times, buffers.gsim.rays.times + s.samples_per_pixel, []() { return random_double(); });
 
         // @perf Could do queue init before all of this, and just reset all each
         // iteration. That (filling with zeros with a stride) is easier to do

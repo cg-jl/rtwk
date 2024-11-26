@@ -33,9 +33,23 @@ struct ray {
     vec3 dir;
 };
 
+// @perf consider separating time from ray
 struct timed_ray {
-    ray r;
-    double time;
+    ray &r;
+    double &time;
+};
+
+struct ray_buffer {
+    ray *rays;
+    double *times;
+
+    timed_ray operator[](size_t i) const { return { rays[i], times[i] }; }
+
+    void swap(size_t i, size_t j) noexcept
+    {
+        std::swap(rays[i], rays[j]);
+        std::swap(times[i], times[j]);
+    }
 };
 
 #endif
