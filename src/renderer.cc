@@ -261,11 +261,16 @@ static void gsim(color const &background, uint32 const spp,
 
     auto swap = [&](auto i, decltype(i) j) {
         assert(i != j);
+        // @perf samples don't actually need swapping.
+        // Reason is we're not touching them once they're set.
         std::swap(samples[i], samples[j]);
         buffers.rays.swap(i, j);
         std::swap(buffers.atts[i], buffers.atts[j]);
+        // @perf from `cms_end` onwards the constant_mediums array is not used.
         std::swap(buffers.constant_mediums[i], buffers.constant_mediums[j]);
+        // @perf hit_selects is initialized when drawing constant mediums.
         std::swap(buffers.hit_selects[i], buffers.hit_selects[j]);
+        // @perf hit_recs is only initialized for cms_end..nohits_begin
         std::swap(buffers.hit_recs[i], buffers.hit_recs[j]);
     };
 
@@ -288,8 +293,15 @@ static void gsim(color const &background, uint32 const spp,
         // ray is going to disperse. So I just have to run both
         // hitSelect and sampleConstantMediums.
 
+        // We only need to swap hit_selects, atts and rays here.
+        // Color samples and other kinds of samples are uninitialized.
+        // Initialized color samples are left untouched.
         world.select(buffers.rays, remaining, buffers.select,
-            buffers.hit_selects, swap);
+            buffers.hit_selects, [&](auto i, auto j) {
+                buffers.rays.swap(i, j);
+                std::swap(buffers.hit_selects[i], buffers.hit_selects[j]);
+                std::swap(buffers.atts[i], buffers.atts[j]);
+            });
 
         world.sampleCMs(buffers.rays, remaining, buffers.constant_mediums,
             buffers.sample_cms, swap);
