@@ -99,12 +99,9 @@ void hittable_list::sampleCMs(
 
         // @perf could separate cm.geom and cm.neg_inv_density.
 
-        // @perf think about a traversal fn that walks the rays in bulk, for
-        // each of the geometries. Later I could add partitioning to the mix so
+        // @perf Later I could add partitioning to the mix so
         // I get less branch mispredicts.
-        auto iot = std::views::iota(decltype(len)(0), len);
-        std::transform(iot.begin(), iot.end(), buffers.traversals,
-            [&](auto const i) { return cm.geom.traverse(rays[i]); });
+        cm.geom.traverse(rays, len, buffers.traversals);
 
         // Intersect with minimum distance that ray should travel.
         std::transform(buffers.rayLength, buffers.rayLength + len,

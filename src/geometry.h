@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <iterator>
@@ -183,19 +184,29 @@ struct geometry_ptr {
             return ptr.quad->getUVs(intersection);
         }
     }
-    // Returns something less than `minRayDist` when the ray does not hit.
-    // TODO: write the result inconditionally everywhere.
-    double hit(timed_ray const &r) const
+
+    // Yields something less than `minRayDist` in `results` when the ray does not hit.
+    void hit(ray_buffer rays, uint32 const len, double *results) const
     {
         // geometry is already transformed, so we can skip and set the actual
         // point.
         switch (kind) {
         case geometry_kind::box:
-            return ptr.box->hit(r.r);
-        case geometry_kind::sphere:
-            return ptr.sphere->hit(r);
+            // @perf bulk box hit
+            std::transform(rays.rays, rays.rays + len, results, [&](auto const &r) { return ptr.box->hit(r); });
+            break;
+        case geometry_kind::sphere: {
+            // @perf bulk sphere hit
+            auto iot = std::views::iota(decltype(len)(0), len);
+            std::transform(iot.begin(), iot.end(), results, [&](auto const i) {
+                return ptr.sphere->hit(rays[i]);
+            });
+            break;
+        }
         case geometry_kind::quad:
-            return ptr.quad->hit(r.r);
+            // @perf bulk quad hit
+            std::transform(rays.rays, rays.rays + len, results, [&](auto const &r) { return ptr.quad->hit(r); });
+            break;
         }
     }
 };
@@ -222,15 +233,24 @@ struct traversable_geometry {
     // End to end traversal of the geometry, just taking into account the
     // direction and the origin point. The intersection is geometric based
     // (distance), not relative to the ray's "speed" on each direction.
-    interval traverse(timed_ray const &r) const
+
+    void traverse(ray_buffer rays, uint32 const len, interval *traversals) const
     {
         switch (kind) {
+
         case kind::box:
-            return data.box.traverse(r.r);
-        case kind::sphere:
-            return data.sphere.traverse(r);
+            // @perf bulk box traversal
+            std::transform(rays.rays, rays.rays + len, traversals, [&](auto const &r) { return data.box.traverse(r); });
+            break;
+        case kind::sphere: {
+            // @perf bulk sphere traversal
+            auto iot = std::views::iota(decltype(len)(0), len);
+            std::transform(iot.begin(), iot.end(), traversals, [&](auto const i) {
+                return data.sphere.traverse(rays[i]);
+            });
+        } break;
         }
-    };
+    }
 
     static traversable_geometry from_geometry(geometry g)
     {
@@ -247,13 +267,10 @@ struct traversable_geometry {
 
 inline void hitSpan(std::span<geometry const> objects, ray_buffer rays, uint32 const len, std::pair<geometry_ptr, double> *acc, double *backbuf)
 {
-    auto iot = std::views::iota(decltype(len)(0), len);
     for (auto const &obj : objects) {
         auto ptr = geometry_ptr(obj);
         // @perf bulk geometry hit :]
-        std::transform(iot.begin(), iot.end(), backbuf, [&](auto const i) {
-            return ptr.hit(rays[i]);
-        });
+        ptr.hit(rays, len, backbuf);
         std::transform(backbuf, backbuf + len, acc, acc, [&](auto const new_d, auto const &old_d) {
             auto const &closestHit = old_d.second;
 
