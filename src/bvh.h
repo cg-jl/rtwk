@@ -82,6 +82,6 @@ struct tree {
     {
     }
 
-    void hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, double> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> swap_rays) const noexcept;
+    void hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, double> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> const &swap_rays) const noexcept;
 };
 }; // namespace bvh

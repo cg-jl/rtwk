@@ -148,7 +148,7 @@ void bvh::tree_builder::prepareForRender() noexcept
     }
 }
 
-void bvh::tree::hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, double> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> swap_rays) const noexcept
+void bvh::tree::hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, double> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> const &swap_rays) const noexcept
 {
     ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
     std::fill(results, results + len, std::pair { nullptr, infinity });

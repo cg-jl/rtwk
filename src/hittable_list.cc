@@ -15,7 +15,7 @@
 #include "rtweekend.h"
 #include "trace_colors.h"
 
-void hittable_list::select(ray_buffer rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, double> *results, std::function<void(uint32, uint32)> swap_rays) const noexcept
+void hittable_list::select(ray_buffer rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, double> *results, std::function<void(uint32, uint32)> const &swap_rays) const noexcept
 {
 
     bvh::tree(treebld).hit(rays, len, results, buffers.bvh, swap_rays);
@@ -71,7 +71,7 @@ enum bool32 : uint32_t { True = 0xFFFFFFFFul,
 void hittable_list::sampleCMs(
     ray_buffer rays, uint32_t const len,
     std::pair<color const *, double> *results, SampleCM_Buffers buffers,
-    std::function<void(uint32_t, uint32_t)> swap_rays) const noexcept
+    std::function<void(uint32_t, uint32_t)> const &swap_rays) const noexcept
 {
     std::transform(rays.rays, rays.rays + len, buffers.rayLength,
         [](auto const &ray) { return ray.dir.length(); });

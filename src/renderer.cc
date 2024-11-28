@@ -274,10 +274,24 @@ static void gsim(color const &background, uint32 const spp,
         std::swap(buffers.hit_recs[i], buffers.hit_recs[j]);
     };
 
-    auto const hit_record_swap = [&](auto const i, auto const k) {
+    auto hit_select_swap = [&](auto const i, auto const k) {
         buffers.rays.swap(i, k);
         std::swap(buffers.atts[i], buffers.atts[k]);
         std::swap(buffers.hit_selects[i], buffers.hit_selects[k]);
+    };
+
+    auto cms_and_hitsels_swap = [&](auto const i, auto const k) {
+        buffers.rays.swap(i, k);
+        std::swap(buffers.atts[i], buffers.atts[k]);
+        std::swap(buffers.hit_selects[i], buffers.hit_selects[k]);
+        std::swap(buffers.constant_mediums[i], buffers.constant_mediums[k]);
+    };
+
+    auto swap_hitsels_hitrecs = [&](auto const i, auto const k) {
+        buffers.rays.swap(i, k);
+        std::swap(buffers.atts[i], buffers.atts[k]);
+        std::swap(buffers.hit_selects[i], buffers.hit_selects[k]);
+        std::swap(buffers.hit_recs[i], buffers.hit_recs[k]);
     };
 
     // @perf check if fill() with nontemporal writes does something interesting.
@@ -303,24 +317,21 @@ static void gsim(color const &background, uint32 const spp,
         // Color samples and other kinds of samples are uninitialized.
         // Initialized color samples are left untouched.
         world.select(buffers.rays, remaining, buffers.select,
-            buffers.hit_selects, [&](auto i, auto j) {
-                buffers.rays.swap(i, j);
-                std::swap(buffers.hit_selects[i], buffers.hit_selects[j]);
-                std::swap(buffers.atts[i], buffers.atts[j]);
-            });
+            buffers.hit_selects, hit_select_swap);
 
+        // What happens here? why is doing less swaps more costly here?
         world.sampleCMs(buffers.rays, remaining, buffers.constant_mediums,
-            buffers.sample_cms, swap);
+            buffers.sample_cms, hit_select_swap);
 
         using std::views::iota;
 
-        auto const cms_end = partition(decltype(remaining)(0), remaining, swap, [&](auto i) {
+        auto const cms_end = partition(decltype(remaining)(0), remaining, cms_and_hitsels_swap, [&](auto i) {
             auto [res, closestHit] = buffers.hit_selects[i];
             auto [cmColor, cmHit] = buffers.constant_mediums[i];
             return cmColor and (!res or cmHit < closestHit);
         });
 
-        auto const nohits_begin = partition(cms_end, remaining, swap, [&](auto i) {
+        auto const nohits_begin = partition(cms_end, remaining, hit_select_swap, [&](auto i) {
             auto const &res = buffers.hit_selects[i].first;
 
             return bool(res);
@@ -328,7 +339,7 @@ static void gsim(color const &background, uint32 const spp,
 
         for (uint32 start = cms_end; start < nohits_begin;) {
             auto const res = buffers.hit_selects[start].first;
-            auto const end = partition(start + 1, nohits_begin, hit_record_swap, [&](auto const i) { return buffers.hit_selects[i].first == res; });
+            auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects[i].first == res; });
 
             std::transform(
                 buffers.hit_selects + start, buffers.hit_selects + end,
@@ -354,26 +365,35 @@ static void gsim(color const &background, uint32 const spp,
 
         // @perf Think about making lights be at the end of all so that the
         // zeroed-queue region is conntiguous.
-        auto const lights_begin = partition(cms_end, nohits_begin, swap, [&](auto i) {
+        auto const lights_begin = partition(cms_end, nohits_begin, swap_hitsels_hitrecs, [&](auto i) {
             auto const &res = buffers.hit_selects[i].first;
             auto const &mat = world.objects[res.relIndex].mat;
             return mat.tag != material::kind::diffuse_light;
         });
 
-        std::transform(
-            buffers.hit_selects + cms_end, buffers.hit_selects + lights_begin,
-            std::views::iota(cms_end, lights_begin).begin(),
-            buffers.scatters + cms_end, [&](auto const &hit_res, auto i) {
-                auto [res, closestHit] = hit_res;
-                auto const &r = buffers.rays[i];
-
-                // @perf p is cheap, rest aren't.
-                auto const &[normal, uv, front_face] = buffers.hit_recs[i];
-
-                auto const &[mat, tex] = world.objects[res.relIndex];
-
-                return mat.scatter(r.r.dir, normal, front_face);
+        for (uint32 start = cms_end; start < lights_begin;) {
+            auto const mat_index = buffers.hit_selects[start].first.relIndex;
+            auto const end = partition(start + 1, lights_begin, swap_hitsels_hitrecs, [&](auto const i) {
+                return buffers.hit_selects[i].first.relIndex == mat_index;
             });
+
+            std::transform(
+                buffers.hit_selects + start, buffers.hit_selects + end,
+                std::views::iota(start).begin(),
+                buffers.scatters + start, [&](auto const &hit_res, auto i) {
+                    auto [res, closestHit] = hit_res;
+                    auto const &r = buffers.rays[i];
+
+                    // @perf p is cheap, rest aren't.
+                    auto const &[normal, uv, front_face] = buffers.hit_recs[i];
+
+                    auto const &[mat, tex] = world.objects[res.relIndex];
+
+                    return mat.scatter(r.r.dir, normal, front_face);
+                });
+
+            start = end;
+        }
 
         auto const bounces_end = partition(cms_end, lights_begin, swap,
             [&](auto i) { return !buffers.scatters[i].near_zero(); });
