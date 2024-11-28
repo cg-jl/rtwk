@@ -15,10 +15,10 @@ static point3 sphere_center(sphere const &sph, double time)
 
 void sphere::hit(ray const *rays, double const *times, uint32 const len, double *results) const noexcept
 {
+    ZoneNamedN(_tracy, "sphere hit", filters::hit);
     // @perf think about splitting transform up.
     // @perf `times` is not modified until the next pixel. Probably should cache it :]
     std::transform(rays, rays + len, times, results, [&](auto const &r, auto const time) -> double {
-        ZoneNamedN(_tracy, "sphere hit", filters::hit);
         point3 center = sphere_center(*this, time);
         vec3 oc = center - r.orig;
         auto a = r.dir.length_squared();
@@ -47,36 +47,6 @@ void sphere::hit(ray const *rays, double const *times, uint32 const len, double 
 
         return root;
     });
-}
-
-static interval traverse(sphere const &sph, ray const &r, double const time) noexcept
-{
-    // NOTE: @cutnpaste from sphere::hit
-    ZoneNamedNC(_tracy, "sphere traverse", Ctp::Mantle, filters::hit);
-    point3 center = sphere_center(sph, time);
-    vec3 oc = center - r.orig;
-    auto a = r.dir.length_squared();
-    // Distance from ray origin to sphere center parallel to the ray
-    // direction
-    auto oc_alongside_ray = dot(r.dir, oc);
-    auto c = oc.length_squared() - sph.radius * sph.radius;
-
-    auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
-    if (discriminant < 0)
-        return interval { infinity, -infinity };
-
-    auto sqrtd = std::sqrt(discriminant);
-
-    interval intersect;
-    intersect.min = (oc_alongside_ray - sqrtd);
-    intersect.max = (oc_alongside_ray + sqrtd);
-
-    // min > max? <=> (oc_alongside_ray - sqrtd) / a > (oc_alongside_ray +
-    // sqrtd) / a a is always > 0 => oc_alongside_ray - sqrtd > oc_alongside_ray
-    // + sqrtd
-    // <=> 0 > 2*sqrtd, sqrtd >= 0 hence it's always false.
-
-    return intersect;
 }
 
 void sphere::traverse(ray const *rays, double const *times, uint32 const len, interval *results) const noexcept
