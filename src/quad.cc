@@ -34,38 +34,45 @@ static bool is_interior(double a, double b)
 
 // @perf length(u) == length(v)?
 // @perf dot(u,v ) == 0.
-double quad::hit(ray const r) const
+void quad::hit(ray const *rays, uint32 const len, double *results) const noexcept
 {
     ZoneNamedN(_tracy, "quad hit", filters::hit);
-    auto n = cross(u, v);
-    auto normal = unit_vector(n);
-    // n.Q = (uxv).Q =(triple product expansion) = u.(vxQ) = v.(uxQ)
-    // trying to use dot(u,v) = 0 here?
-    auto D = dot(normal, Q);
-    auto denom = dot(normal, r.dir);
+    // @perf think about splitting this transform up.
+    // @perf getUVs() could be cached :]
+    std::transform(rays, rays + len, results, [&](auto const &r) -> double {
+        auto n = cross(u, v);
+        auto normal = unit_vector(n);
+        // n.Q = (uxv).Q =(triple product expansion) = u.(vxQ) = v.(uxQ)
+        // trying to use dot(u,v) = 0 here?
+        auto D = dot(normal, Q);
+        auto denom = dot(normal, r.dir);
 
-    // No hit if the ray is parallel to the plane.
-    if (fabs(denom) < 1e-8)
-        return 0;
+        // No hit if the ray is parallel to the plane.
+        if (fabs(denom) < 1e-8)
+            return 0;
 
-    // Return false if the hit point parameter t is outside the ray
-    // interval.
-    auto t = (D - dot(normal, r.orig)) / denom;
-    // Determine the hit point lies within the planar shape using its plane
-    // coordinates.
-    auto intersection = r.at(t);
-    // @perf dot(u,v) == 0. Try to find a relationship with `t`.
-    auto uv = getUVs(intersection);
+        // Return false if the hit point parameter t is outside the ray
+        // interval.
+        auto t = (D - dot(normal, r.orig)) / denom;
+        // Determine the hit point lies within the planar shape using its plane
+        // coordinates.
+        auto intersection = r.at(t);
+        // @perf dot(u,v) == 0. Try to find a relationship with `t`.
+        auto uv = getUVs(intersection);
 
-    if (!is_interior(uv.u, uv.v))
-        return {};
+        if (!is_interior(uv.u, uv.v))
+            return {};
 
-    // Ray hits the 2D shape; set the rest of the hit record and return
-    // true.
-    return t;
+        // Ray hits the 2D shape; set the rest of the hit record and return
+        // true.
+        return t;
+    });
 }
 
-vec3 quad::getNormal() const { return unit_vector(cross(u, v)); }
+vec3 quad::getNormal() const
+{
+    return unit_vector(cross(u, v));
+}
 
 // @perf length(u) == length(v)?
 // @perf dot(u,v ) == 0.

@@ -35,7 +35,7 @@ struct quad {
         return aabb(bbox_diagonal1, bbox_diagonal2);
     }
 
-    double hit(ray r) const;
+    void hit(ray const *rays, uint32 const len, double *results) const noexcept;
 
     uvs getUVs(point3 intersection) const;
     vec3 getNormal() const;

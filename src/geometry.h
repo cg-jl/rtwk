@@ -199,8 +199,7 @@ struct geometry_ptr {
             break;
         }
         case geometry_kind::quad:
-            // @perf bulk quad hit
-            std::transform(rays.rays, rays.rays + len, results, [&](auto const &r) { return ptr.quad->hit(r); });
+            ptr.quad->hit(rays.rays, len, results);
             break;
         }
     }
