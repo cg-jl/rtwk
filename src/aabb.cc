@@ -24,8 +24,8 @@ interval aabb::traverse(ray const &r) const
     auto origs = _mm256_loadu_pd((double *)&r.orig.e);
     // @perf 'mins' has in its leftmost slot (register order) the first for
     // maxes. 'maxes' has in its leftmost slot (register order) garbage.
-    auto mins = (__m256d)_mm256_stream_load_si256((double *)&min.e);
-    auto maxes = (__m256d)_mm256_stream_load_si256((double *)&max.e);
+    auto mins = (__m256d)_mm256_load_pd((double *)&min.e);
+    auto maxes = (__m256d)_mm256_load_pd((double *)&max.e);
 
     // <garbo> <tx[2]> <tx[1]> <tx[0]> (register order)
     auto t0s = (mins - origs) / adinvs;
@@ -62,17 +62,7 @@ interval aabb::traverse(ray const &r) const
 double aabb::hit(ray const &r) const
 {
     auto intv = traverse(r);
-    auto ok = !intv.isEmpty();
-    // @perf ok is just `intv.min < intv.max`, so -sign(intv.min - intv.max)
-    // should be good. -sign because we want intv.min == intv.max to yield -1,
-    // sign(0) = 0 -> -sign(0) = 1. Since we swap the sign we also have to swap
-    // the subtraction.
-    // If `traverse` returned bool64 we could negate the bool64 to get 11111...
-    // and then use `copysign` to copy the sign over to the result. We can also
-    // get "bool64" by multiplying/shifting.
-    auto res = intv.min;
-    res = ok ? res : -res;
-    return res;
+    return intv.min;
 }
 
 vec3 aabb::getNormal(point3 intersection) const
