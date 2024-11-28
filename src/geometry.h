@@ -192,8 +192,7 @@ struct geometry_ptr {
         // point.
         switch (kind) {
         case geometry_kind::box:
-            // @perf bulk box hit
-            std::transform(rays.rays, rays.rays + len, results, [&](auto const &r) { return ptr.box->hit(r); });
+            ptr.box->hit(rays.rays, len, results);
             break;
         case geometry_kind::sphere: {
             // @perf bulk sphere hit

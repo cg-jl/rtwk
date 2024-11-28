@@ -64,7 +64,7 @@ struct aabb {
         return interval { min[n], max[n] };
     }
 
-    double hit(ray const &r) const;
+    void hit(ray const *rays, uint32 const len, double *results) const noexcept;
     // Helper method to traverse using an already existing `ray_t` and modifying
     // it. It clobbers `ray_t`.
     interval traverse(ray const &r) const;

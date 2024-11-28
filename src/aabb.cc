@@ -59,24 +59,27 @@ interval aabb::traverse(ray const &r) const
     return ray_t;
 }
 
-double aabb::hit(ray const &r) const
+void aabb::hit(ray const *rays, uint32 const len, double *results) const noexcept
 {
-    auto [t0s, t1s] = get_t0s_t1s(*this, r);
-    auto tmins = _mm256_min_pd(t0s, t1s);
+    // @perf think about splitting this transform.
+    std::transform(rays, rays + len, results, [&](auto const &r) {
+        auto [t0s, t1s] = get_t0s_t1s(*this, r);
+        auto tmins = _mm256_min_pd(t0s, t1s);
 
-    // NOTE: @perf The compiler seems to be generating smarter code than I am
-    // for this last comparison loop step (minsd, maxsd three times :P).
+        // NOTE: @perf The compiler seems to be generating smarter code than I am
+        // for this last comparison loop step (minsd, maxsd three times :P).
 
-    auto tmin_array = (double *)&tmins;
-    double min = tmin_array[0];
-    for (int axis = 1; axis < 3; ++axis) {
-        auto t0 = ((double *)&tmins)[axis];
+        auto tmin_array = (double *)&tmins;
+        double min = tmin_array[0];
+        for (int axis = 1; axis < 3; ++axis) {
+            auto t0 = ((double *)&tmins)[axis];
 
-        if (t0 > min)
-            min = t0;
-    }
+            if (t0 > min)
+                min = t0;
+        }
 
-    return min;
+        return min;
+    });
 }
 
 vec3 aabb::getNormal(point3 intersection) const
