@@ -274,6 +274,12 @@ static void gsim(color const &background, uint32 const spp,
         std::swap(buffers.hit_recs[i], buffers.hit_recs[j]);
     };
 
+    auto const hit_record_swap = [&](auto const i, auto const k) {
+        buffers.rays.swap(i, k);
+        std::swap(buffers.atts[i], buffers.atts[k]);
+        std::swap(buffers.hit_selects[i], buffers.hit_selects[k]);
+    };
+
     // @perf check if fill() with nontemporal writes does something interesting.
 
     auto remaining = spp;
@@ -320,6 +326,32 @@ static void gsim(color const &background, uint32 const spp,
             return bool(res);
         });
 
+        for (uint32 start = cms_end; start < nohits_begin;) {
+            auto const res = buffers.hit_selects[start].first;
+            auto const end = partition(start + 1, nohits_begin, hit_record_swap, [&](auto const i) { return buffers.hit_selects[i].first == res; });
+
+            std::transform(
+                buffers.hit_selects + start, buffers.hit_selects + end,
+                std::views::iota(start).begin(),
+                buffers.hit_recs + start,
+                [&](auto const &hit_res, auto const i) {
+                    auto [res, closestHit] = hit_res;
+                    auto const &r = buffers.rays[i];
+                    // @perf p is cheap, rest aren't.
+                    auto p = r.r.at(closestHit);
+                    auto normal = res.getNormal(p, r.time);
+                    auto front_face = set_face_normal(r.r.dir, normal);
+                    // @perf getUVs not always depends on both 'p' and 'normal'.
+                    // Since 'normal' is not cheap, maybe we want to know when
+                    // normal is required and when it isn't (partition?)
+                    auto uv = res.getUVs(p, normal);
+
+                    return hit_record { normal, uv, front_face };
+                });
+
+            start = end;
+        }
+
         // @perf Think about making lights be at the end of all so that the
         // zeroed-queue region is conntiguous.
         auto const lights_begin = partition(cms_end, nohits_begin, swap, [&](auto i) {
@@ -327,24 +359,6 @@ static void gsim(color const &background, uint32 const spp,
             auto const &mat = world.objects[res.relIndex].mat;
             return mat.tag != material::kind::diffuse_light;
         });
-
-        std::transform(
-            buffers.hit_selects + cms_end, buffers.hit_selects + nohits_begin,
-            std::views::iota(cms_end, nohits_begin).begin(),
-            buffers.hit_recs + cms_end, [&](auto const &hit_res, auto i) {
-                auto [res, closestHit] = hit_res;
-                auto const &r = buffers.rays[i];
-                // @perf p is cheap, rest aren't.
-                auto p = r.r.at(closestHit);
-                auto normal = res.getNormal(p, r.time);
-                auto front_face = set_face_normal(r.r.dir, normal);
-                // @perf getUVs not always depends on both 'p' and 'normal'.
-                // Since 'normal' is not cheap, maybe we want to know when
-                // normal is required and when it isn't (partition?)
-                auto uv = res.getUVs(p, normal);
-
-                return hit_record { normal, uv, front_face };
-            });
 
         std::transform(
             buffers.hit_selects + cms_end, buffers.hit_selects + lights_begin,
