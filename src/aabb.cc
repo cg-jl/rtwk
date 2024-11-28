@@ -12,7 +12,7 @@
 // @perf My L1 cache size (per CPU) is: 32kiB!
 // L3 is 4MiB and L2 is 512kiB.
 
-interval aabb::traverse(ray const &r) const
+static std::pair<__m256d, __m256d> get_t0s_t1s(aabb const &bb, ray const &r)
 {
     // NOTE: These load 4x double's, so the rightmost value (memory order) or
     // the leftmost value (register order) won't be used.
@@ -24,25 +24,25 @@ interval aabb::traverse(ray const &r) const
     auto origs = _mm256_loadu_pd((double *)&r.orig.e);
     // @perf 'mins' has in its leftmost slot (register order) the first for
     // maxes. 'maxes' has in its leftmost slot (register order) garbage.
-    auto mins = (__m256d)_mm256_load_pd((double *)&min.e);
-    auto maxes = (__m256d)_mm256_load_pd((double *)&max.e);
+    auto mins = (__m256d)_mm256_load_pd((double *)&bb.min.e);
+    auto maxes = (__m256d)_mm256_load_pd((double *)&bb.max.e);
 
     // <garbo> <tx[2]> <tx[1]> <tx[0]> (register order)
     auto t0s = (mins - origs) / adinvs;
     auto t1s = (maxes - origs) / adinvs;
+    return { t0s, t1s };
+}
 
+interval aabb::traverse(ray const &r) const
+{
+
+    auto [t0s, t1s] = get_t0s_t1s(*this, r);
     auto tmins = _mm256_min_pd(t0s, t1s);
     auto tmaxs = _mm256_max_pd(t0s, t1s);
 
     // NOTE: @perf The compiler seems to be generating smarter code than I am
     // for this last comparison loop step (minsd, maxsd three times :P).
 
-    // @perf This is just one shuffle and one min/max instruction, don't need to use scalars.
-    // Since it's just three way:
-    // <garbo> <tx[2]> <tx[1]> <tx[0]>
-    // <garbo> <tx[0]> <tx[2]> <tx[1]> <- ideal (I don't know if I can have it)
-    // <garbo> <0/2>   <1/2>   <0/1>
-    // minsd, maxsd twice?
     auto tmin_array = (double *)&tmins;
     auto tmaxs_array = (double *)&tmaxs;
     interval ray_t { tmin_array[0], tmaxs_array[0] };
@@ -61,8 +61,22 @@ interval aabb::traverse(ray const &r) const
 
 double aabb::hit(ray const &r) const
 {
-    auto intv = traverse(r);
-    return intv.min;
+    auto [t0s, t1s] = get_t0s_t1s(*this, r);
+    auto tmins = _mm256_min_pd(t0s, t1s);
+
+    // NOTE: @perf The compiler seems to be generating smarter code than I am
+    // for this last comparison loop step (minsd, maxsd three times :P).
+
+    auto tmin_array = (double *)&tmins;
+    double min = tmin_array[0];
+    for (int axis = 1; axis < 3; ++axis) {
+        auto t0 = ((double *)&tmins)[axis];
+
+        if (t0 > min)
+            min = t0;
+    }
+
+    return min;
 }
 
 vec3 aabb::getNormal(point3 intersection) const
