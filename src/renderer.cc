@@ -259,21 +259,6 @@ static void gsim(color const &background, uint32 const spp,
     // want to keep the correspondence of rays[index] with atts[index] and
     // samples[index].
 
-    auto swap = [&](auto i, decltype(i) j) {
-        assert(i != j);
-        // @perf samples don't actually need swapping.
-        // Reason is we're not touching them once they're set.
-        std::swap(samples[i], samples[j]);
-        buffers.rays.swap(i, j);
-        std::swap(buffers.atts[i], buffers.atts[j]);
-        // @perf from `cms_end` onwards the constant_mediums array is not used.
-        std::swap(buffers.constant_mediums[i], buffers.constant_mediums[j]);
-        // @perf hit_selects is initialized when drawing constant mediums.
-        std::swap(buffers.hit_selects[i], buffers.hit_selects[j]);
-        // @perf hit_recs is only initialized for cms_end..nohits_begin
-        std::swap(buffers.hit_recs[i], buffers.hit_recs[j]);
-    };
-
     auto hit_select_swap = [&](auto const i, auto const k) {
         buffers.rays.swap(i, k);
         std::swap(buffers.atts[i], buffers.atts[k]);
@@ -395,17 +380,8 @@ static void gsim(color const &background, uint32 const spp,
             start = end;
         }
 
-        auto const bounces_end = partition(cms_end, lights_begin, swap,
-            [&](auto i) { return !buffers.scatters[i].near_zero(); });
-
-        // cms_end | <unsorted> | lights | nohit
-
-        // @perf we only know whether a ray is bounced when all the checks for
-        // other things have failed. Since we want bounces to the beginning, try
-        // sorting the other partitions first towards the right (negated) so
-        // that the bounces are left in the same place as now (after the cms).
-
-        // cms_end | bounces | no scatter | lights | nohit
+        // layout:
+        // cms_end | bounces  | lights | nohit
 
         // Constant mediums
         // @perf separate the constant medium results in two so that these two
@@ -428,7 +404,7 @@ static void gsim(color const &background, uint32 const spp,
         }
 
         // Bounces (but not constant mediums)
-        for (decltype(remaining) i = cms_end; i < bounces_end; ++i) {
+        for (decltype(remaining) i = cms_end; i < lights_begin; ++i) {
             auto &q = buffers.atts[i];
             auto [res, closestHit] = buffers.hit_selects[i];
             auto const &r = buffers.rays[i];
@@ -442,7 +418,7 @@ static void gsim(color const &background, uint32 const spp,
             q.emplace(tex, uv, p);
         }
 
-        for (decltype(remaining) i = cms_end; i < bounces_end; ++i) {
+        for (decltype(remaining) i = cms_end; i < lights_begin; ++i) {
             auto closestHit = buffers.hit_selects[i].second;
             auto &r = buffers.rays.rays[i];
 
@@ -454,7 +430,7 @@ static void gsim(color const &background, uint32 const spp,
 
         // Non-bounces: lights, no hits and no scatters.
 
-        // cms_end | bounces | no scatter | lights | nohit
+        // cms_end | bounces  | lights | nohit
         for (decltype(remaining) i = lights_begin; i < nohits_begin; ++i) {
             auto &q = buffers.atts[i];
             auto [res, closestHit] = buffers.hit_selects[i];
@@ -471,11 +447,7 @@ static void gsim(color const &background, uint32 const spp,
 
         // @perf this loop is equivalent to fill with skips due to commitSave
         // offset.
-        // cms_end | bounces | no scatter | lights | nohit
-        for (decltype(remaining) i = bounces_end; i < lights_begin; ++i) {
-            auto &q = buffers.atts[i];
-            q.reset();
-        }
+        // cms_end | bounces | lights | nohit
         for (decltype(remaining) i = nohits_begin; i < remaining; ++i) {
             auto &q = buffers.atts[i];
             q.reset();
@@ -484,12 +456,10 @@ static void gsim(color const &background, uint32 const spp,
         std::fill(samples + lights_begin, samples + nohits_begin,
             color { 1, 1, 1 });
 
-        std::fill(samples + bounces_end, samples + lights_begin,
-            color { 0, 0, 0 });
         std::fill(samples + nohits_begin, samples + remaining, background);
 
         // only cmResults and bounces get to the next level.
-        remaining = bounces_end;
+        remaining = lights_begin;
     }
 }
 
