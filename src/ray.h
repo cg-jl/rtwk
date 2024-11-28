@@ -35,8 +35,8 @@ struct ray {
 
 // @perf consider separating time from ray
 struct timed_ray {
-    ray &r;
-    double &time;
+    ray const &r;
+    double const &time;
 };
 
 struct ray_buffer {
