@@ -236,13 +236,9 @@ struct traversable_geometry {
             // @perf bulk box traversal
             std::transform(rays.rays, rays.rays + len, traversals, [&](auto const &r) { return data.box.traverse(r); });
             break;
-        case kind::sphere: {
-            // @perf bulk sphere traversal
-            auto iot = std::views::iota(decltype(len)(0), len);
-            std::transform(iot.begin(), iot.end(), traversals, [&](auto const i) {
-                return data.sphere.traverse(rays[i]);
-            });
-        } break;
+        case kind::sphere:
+            data.sphere.traverse(rays.rays, rays.times, len, traversals);
+            break;
         }
     }
 

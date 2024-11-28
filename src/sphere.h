@@ -38,8 +38,9 @@ struct sphere final {
         center_vec = center2 - center1;
     }
 
+    // @perf move sphere center compute to caller. That way we can cache it :]
     void hit(ray const *rays, double const *times, uint32 const len, double *results) const noexcept;
-    interval traverse(timed_ray r) const;
+    void traverse(ray const *rays, double const *times, uint32 const len, interval *results) const noexcept;
     static uvs getUVs(vec3 normal);
 
     vec3 getNormal(point3 const intersection, double time) const;
