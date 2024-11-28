@@ -38,7 +38,7 @@ struct sphere final {
         center_vec = center2 - center1;
     }
 
-    double hit(timed_ray r) const;
+    void hit(ray const *rays, double const *times, uint32 const len, double *results) const noexcept;
     interval traverse(timed_ray r) const;
     static uvs getUVs(vec3 normal);
 

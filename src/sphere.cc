@@ -1,47 +1,52 @@
 #include "sphere.h"
 
+#include <sys/types.h>
 #include <tracy/Tracy.hpp>
 
 #include "hittable.h"
 #include "trace_colors.h"
 
-point3 sphere_center(sphere const &sph, double time)
+static point3 sphere_center(sphere const &sph, double time)
 {
     // Linearly interpolate from center1 to center2 according to time, where
     // t=0 yields center1, and t=1 yields center2.
     return sph.center1 + time * sph.center_vec;
 }
 
-double sphere::hit(timed_ray r) const
+void sphere::hit(ray const *rays, double const *times, uint32 const len, double *results) const noexcept
 {
-    ZoneNamedN(_tracy, "sphere hit", filters::hit);
-    point3 center = sphere_center(*this, r.time);
-    vec3 oc = center - r.r.orig;
-    auto a = r.r.dir.length_squared();
-    // Distance from ray origin to sphere center parallel to the ray
-    // direction
-    auto oc_alongside_ray = dot(r.r.dir, oc);
-    auto c = oc.length_squared() - radius * radius;
+    // @perf think about splitting transform up.
+    // @perf `times` is not modified until the next pixel. Probably should cache it :]
+    std::transform(rays, rays + len, times, results, [&](auto const &r, auto const time) -> double {
+        ZoneNamedN(_tracy, "sphere hit", filters::hit);
+        point3 center = sphere_center(*this, time);
+        vec3 oc = center - r.orig;
+        auto a = r.dir.length_squared();
+        // Distance from ray origin to sphere center parallel to the ray
+        // direction
+        auto oc_alongside_ray = dot(r.dir, oc);
+        auto c = oc.length_squared() - radius * radius;
 
-    auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
-    if (discriminant < 0)
-        return 0;
+        auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
+        if (discriminant < 0)
+            return 0;
 
-    auto sqrtd = std::sqrt(discriminant);
+        auto sqrtd = std::sqrt(discriminant);
 
-    // If the ray is inside the sphere, we want the cut that gets
-    // us further, since the other cut is in the other direction.
-    // Otherwise we want the cut that is in the negative direction from the
-    // middle point (oc_alongside_ray). If the ray is pointing away from the
-    // sphere, we will catch this in `ray_t.contains`.
+        // If the ray is inside the sphere, we want the cut that gets
+        // us further, since the other cut is in the other direction.
+        // Otherwise we want the cut that is in the negative direction from the
+        // middle point (oc_alongside_ray). If the ray is pointing away from the
+        // sphere, we will catch this in `ray_t.contains`.
 
-    // c > 0 <=> |oc|^2 > r^2
-    auto selectedSqrt = c < minRayDist ? sqrtd : -sqrtd;
+        // c > 0 <=> |oc|^2 > r^2
+        auto selectedSqrt = c < minRayDist ? sqrtd : -sqrtd;
 
-    // Find the nearest root that lies in the acceptable range.
-    auto root = (oc_alongside_ray + selectedSqrt) / a;
+        // Find the nearest root that lies in the acceptable range.
+        auto root = (oc_alongside_ray + selectedSqrt) / a;
 
-    return root;
+        return root;
+    });
 }
 
 interval sphere::traverse(timed_ray r) const

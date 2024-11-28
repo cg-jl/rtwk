@@ -195,11 +195,7 @@ struct geometry_ptr {
             ptr.box->hit(rays.rays, len, results);
             break;
         case geometry_kind::sphere: {
-            // @perf bulk sphere hit
-            auto iot = std::views::iota(decltype(len)(0), len);
-            std::transform(iot.begin(), iot.end(), results, [&](auto const i) {
-                return ptr.sphere->hit(rays[i]);
-            });
+            ptr.sphere->hit(rays.rays, rays.times, len, results);
             break;
         }
         case geometry_kind::quad:
