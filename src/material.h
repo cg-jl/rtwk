@@ -11,6 +11,8 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include "ray.h"
+#include "rtweekend.h"
 #include "vec3.h"
 
 struct material {
@@ -38,7 +40,7 @@ struct material {
     {
     }
 
-    vec3 scatter(vec3 in_dir, vec3 const &normal, bool front_face) const;
+    void scatter(ray const *in_ray, vec3 const *normal, bool const *front_face, uint32 const len, vec3 *scattered) const noexcept;
 
     static constexpr material metal(double fuzz)
     {

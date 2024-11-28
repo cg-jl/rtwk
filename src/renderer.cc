@@ -125,13 +125,9 @@ static ray get_ray(settings const &s, camera const &cam, int i, int j)
     return ray(ray_origin, ray_direction);
 }
 
-// Aligns the normal so that it always points towards the ray origin.
-// Returs whether the face is at the front.
-static bool set_face_normal(vec3 in_dir, vec3 &normal)
+static bool is_front_face(vec3 in_dir, vec3 normal)
 {
-    auto front_face = dot(in_dir, normal) < 0;
-    normal = front_face ? normal : -normal;
-    return front_face;
+    return dot(in_dir, normal) < 0;
 }
 
 static vec3 random_in_unit_sphere()
@@ -181,10 +177,47 @@ struct countArrays {
 using select_res = std::pair<geometry_ptr, double>;
 using cm_res = std::pair<color const *, double>;
 
+// @perf remove this.
 struct hit_record {
-    vec3 normal;
-    uvs uv;
-    bool is_front;
+    vec3 const &normal;
+    uvs const &uv;
+    bool const &is_front;
+};
+
+struct hit_record_buffer {
+    vec3 *normal;
+    uvs *uv;
+    // @mem/@perf could be bitset.
+    bool *is_front;
+
+    static hit_record_buffer request(uint32 const spp)
+    {
+        return {
+            .normal = new vec3[spp],
+            .uv = new uvs[spp],
+            .is_front = new bool[spp],
+        };
+    }
+
+    auto constexpr operator[](uint32 const i) const noexcept
+    {
+        return hit_record { normal[i], uv[i], is_front[i] };
+    }
+
+    void swap(uint32 const i, uint32 const k) noexcept
+    {
+        std::swap(normal[i], normal[k]);
+        std::swap(uv[i], uv[k]);
+        std::swap(is_front[i], is_front[k]);
+    }
+
+    auto constexpr zip_view(uint32 const start, uint32 const end) const noexcept
+    {
+        return std::views::zip(
+            std::ranges::subrange(normal + start, normal + end),
+            std::ranges::subrange(uv + start, uv + end),
+            std::ranges::subrange(is_front + start, is_front + end));
+    }
 };
 
 struct GSim_Buffers {
@@ -193,7 +226,7 @@ struct GSim_Buffers {
     px_sampleq *atts;
     select_res *hit_selects;
     cm_res *constant_mediums;
-    hit_record *hit_recs;
+    hit_record_buffer hit_recs;
     vec3 *scatters;
     SampleCM_Buffers sample_cms;
     Select_Buffers select;
@@ -208,7 +241,7 @@ struct GSim_Buffers {
             .atts = new px_sampleq[spp],
             .hit_selects = new select_res[spp],
             .constant_mediums = new cm_res[spp],
-            .hit_recs = new hit_record[spp],
+            .hit_recs = hit_record_buffer::request(spp),
             .scatters = new vec3[spp],
             .sample_cms = SampleCM_Buffers::request(spp),
             .select = Select_Buffers::request(spp),
@@ -276,7 +309,7 @@ static void gsim(color const &background, uint32 const spp,
         buffers.rays.swap(i, k);
         std::swap(buffers.atts[i], buffers.atts[k]);
         std::swap(buffers.hit_selects[i], buffers.hit_selects[k]);
-        std::swap(buffers.hit_recs[i], buffers.hit_recs[k]);
+        buffers.hit_recs.swap(i, k);
     };
 
     // @perf check if fill() with nontemporal writes does something interesting.
@@ -326,24 +359,29 @@ static void gsim(color const &background, uint32 const spp,
             auto const res = buffers.hit_selects[start].first;
             auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects[i].first == res; });
 
-            std::transform(
-                buffers.hit_selects + start, buffers.hit_selects + end,
-                std::views::iota(start).begin(),
-                buffers.hit_recs + start,
-                [&](auto const &hit_res, auto const i) {
-                    auto [res, closestHit] = hit_res;
-                    auto const &r = buffers.rays[i];
-                    // @perf p is cheap, rest aren't.
-                    auto p = r.r.at(closestHit);
-                    auto normal = res.getNormal(p, r.time);
-                    auto front_face = set_face_normal(r.r.dir, normal);
-                    // @perf getUVs not always depends on both 'p' and 'normal'.
-                    // Since 'normal' is not cheap, maybe we want to know when
-                    // normal is required and when it isn't (partition?)
-                    auto uv = res.getUVs(p, normal);
+            // @perf divide hit_selects into its two components :]
+            std::transform(buffers.hit_selects + start, buffers.hit_selects + end, std::views::iota(start).begin(), buffers.hit_recs.normal + start, [&](auto const &hit_sel, auto const i) {
+                auto closestHit = hit_sel.second;
+                auto r = buffers.rays[i];
+                auto p = r.r.at(closestHit);
+                return res.getNormal(p, r.time);
+            });
 
-                    return hit_record { normal, uv, front_face };
-                });
+            // @perf partition instead of asking each time.
+            std::transform(buffers.rays.rays + start, buffers.rays.rays + end, buffers.hit_recs.normal + start, buffers.hit_recs.is_front + start, [&](auto const &r, auto const &normal) {
+                return is_front_face(r.dir, normal);
+            });
+
+            std::transform(buffers.hit_recs.is_front + start, buffers.hit_recs.is_front + end, buffers.hit_recs.normal + start, buffers.hit_recs.normal + start, [&](auto const is_front, auto const normal) {
+                return is_front ? normal : -normal;
+            });
+
+            std::transform(buffers.hit_recs.normal + start, buffers.hit_recs.normal + end, std::views::iota(start).begin(), buffers.hit_recs.uv + start, [&](auto const &normal, auto const i) {
+                auto closestHit = buffers.hit_selects[i].second;
+                auto r = buffers.rays[i];
+                auto p = r.r.at(closestHit);
+                return res.getUVs(p, normal);
+            });
 
             start = end;
         }
@@ -362,20 +400,12 @@ static void gsim(color const &background, uint32 const spp,
                 return buffers.hit_selects[i].first.relIndex == mat_index;
             });
 
-            std::transform(
-                buffers.hit_selects + start, buffers.hit_selects + end,
-                std::views::iota(start).begin(),
-                buffers.scatters + start, [&](auto const &hit_res, auto i) {
-                    auto [res, closestHit] = hit_res;
-                    auto const &r = buffers.rays[i];
-
-                    // @perf p is cheap, rest aren't.
-                    auto const &[normal, uv, front_face] = buffers.hit_recs[i];
-
-                    auto const &[mat, tex] = world.objects[res.relIndex];
-
-                    return mat.scatter(r.r.dir, normal, front_face);
-                });
+            world.objects[mat_index].mat.scatter(
+                buffers.rays.rays + start,
+                buffers.hit_recs.normal + start,
+                buffers.hit_recs.is_front + start,
+                end - start,
+                buffers.scatters + start);
 
             start = end;
         }

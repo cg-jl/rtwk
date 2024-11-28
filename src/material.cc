@@ -1,4 +1,5 @@
 #include "material.h"
+#include <ranges>
 
 #include <tracy/Tracy.hpp>
 
@@ -36,11 +37,12 @@ static vec3 random_unit_vector()
     return unit_vector(random_in_unit_sphere());
 }
 
-vec3 material::scatter(vec3 in_dir, vec3 const &normal, bool front_face) const
+static vec3 scatter(material const &mat, vec3 in_dir, vec3 const &normal, bool front_face)
 {
     ZoneScopedN("scatter");
     ZoneColor(Ctp::Pink);
-    switch (tag) {
+    using kind = material::kind;
+    switch (mat.tag) {
     case kind::diffuse_light:
         __builtin_unreachable();
         return {};
@@ -59,7 +61,7 @@ vec3 material::scatter(vec3 in_dir, vec3 const &normal, bool front_face) const
         return scatter_direction;
     }
     case kind::metal: {
-        auto fuzz = data.fuzz;
+        auto fuzz = mat.data.fuzz;
         ZoneScopedN("metal scatter");
         vec3 reflected = reflect(in_dir, normal);
         auto fv = fuzz * random_unit_vector();
@@ -67,7 +69,7 @@ vec3 material::scatter(vec3 in_dir, vec3 const &normal, bool front_face) const
         return reflected;
     }
     case kind::dielectric: {
-        auto refraction_index = data.refraction_index;
+        auto refraction_index = mat.data.refraction_index;
         ZoneScopedN("dielectric scatter");
         double ri = front_face ? (1.0 / refraction_index) : refraction_index;
 
@@ -85,4 +87,16 @@ vec3 material::scatter(vec3 in_dir, vec3 const &normal, bool front_face) const
         return direction;
     }
     }
+}
+
+void material::scatter(ray const *in_ray, vec3 const *normal, bool const *front_face, uint32 const len, vec3 *scattered) const noexcept
+{
+
+    std::transform(
+        in_ray, in_ray + len,
+        std::views::iota(decltype(len)(0)).begin(),
+        scattered, [&](auto const &hit_res, auto const i) {
+            auto const &r = in_ray[i];
+            return ::scatter(*this, r.dir, normal[i], front_face[i]);
+        });
 }
