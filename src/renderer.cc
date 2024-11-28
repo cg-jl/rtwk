@@ -305,7 +305,7 @@ static void gsim(color const &background, uint32 const spp,
             buffers.hit_selects, hit_select_swap);
 
         // What happens here? why is doing less swaps more costly here?
-        world.sampleCMs(buffers.rays, remaining, buffers.constant_mediums,
+        world.sampleCMs(buffers.rays.rays, buffers.rays.times, remaining, buffers.constant_mediums,
             buffers.sample_cms, hit_select_swap);
 
         using std::views::iota;

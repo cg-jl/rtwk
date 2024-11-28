@@ -65,9 +65,7 @@ struct aabb {
     }
 
     void hit(ray const *rays, uint32 const len, double *results) const noexcept;
-    // Helper method to traverse using an already existing `ray_t` and modifying
-    // it. It clobbers `ray_t`.
-    interval traverse(ray const &r) const;
+    void traverse(ray const *rays, uint32 const len, interval *results) const noexcept;
     uvs getUVs(point3 intersection) const;
     point3 getNormal(point3 intersection) const;
 

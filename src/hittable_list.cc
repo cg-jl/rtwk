@@ -69,11 +69,11 @@ enum bool32 : uint32_t { True = 0xFFFFFFFFul,
     False = 0x0ul };
 
 void hittable_list::sampleCMs(
-    ray_buffer rays, uint32_t const len,
+    ray const *rays, double const *times, uint32_t const len,
     std::pair<color const *, double> *results, SampleCM_Buffers buffers,
     std::function<void(uint32_t, uint32_t)> const &swap_rays) const noexcept
 {
-    std::transform(rays.rays, rays.rays + len, buffers.rayLength,
+    std::transform(rays, rays + len, buffers.rayLength,
         [](auto const &ray) { return ray.dir.length(); });
 
     std::fill(buffers.selected, buffers.selected + len, std::nullopt);
@@ -101,7 +101,7 @@ void hittable_list::sampleCMs(
 
         // @perf Later I could add partitioning to the mix so
         // I get less branch mispredicts.
-        cm.geom.traverse(rays, len, buffers.traversals);
+        cm.geom.traverse(rays, times, len, buffers.traversals);
 
         // Intersect with minimum distance that ray should travel.
         std::transform(buffers.rayLength, buffers.rayLength + len,

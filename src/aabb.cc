@@ -1,4 +1,5 @@
 #include "aabb.h"
+#include <algorithm>
 #include <utility>
 
 #include <immintrin.h>
@@ -33,10 +34,10 @@ static std::pair<__m256d, __m256d> get_t0s_t1s(aabb const &bb, ray const &r)
     return { t0s, t1s };
 }
 
-interval aabb::traverse(ray const &r) const
+static interval traverse(aabb const &bb, ray const &r) noexcept
 {
 
-    auto [t0s, t1s] = get_t0s_t1s(*this, r);
+    auto [t0s, t1s] = get_t0s_t1s(bb, r);
     auto tmins = _mm256_min_pd(t0s, t1s);
     auto tmaxs = _mm256_max_pd(t0s, t1s);
 
@@ -57,6 +58,14 @@ interval aabb::traverse(ray const &r) const
     }
 
     return ray_t;
+}
+
+void aabb::traverse(ray const *rays, uint32 const len, interval *results) const noexcept
+{
+    // @perf think about splitting the transform
+    std::transform(rays, rays + len, results, [&](auto const &r) {
+        return ::traverse(*this, r);
+    });
 }
 
 void aabb::hit(ray const *rays, uint32 const len, double *results) const noexcept

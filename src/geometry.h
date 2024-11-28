@@ -228,16 +228,16 @@ struct traversable_geometry {
     // direction and the origin point. The intersection is geometric based
     // (distance), not relative to the ray's "speed" on each direction.
 
-    void traverse(ray_buffer rays, uint32 const len, interval *traversals) const
+    void traverse(ray const *rays, double const *times, uint32 const len, interval *traversals) const
     {
         switch (kind) {
 
         case kind::box:
             // @perf bulk box traversal
-            std::transform(rays.rays, rays.rays + len, traversals, [&](auto const &r) { return data.box.traverse(r); });
+            data.box.traverse(rays, len, traversals);
             break;
         case kind::sphere:
-            data.sphere.traverse(rays.rays, rays.times, len, traversals);
+            data.sphere.traverse(rays, times, len, traversals);
             break;
         }
     }

@@ -167,8 +167,7 @@ void bvh::tree::hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, d
         auto const node_index = buffer.node_indices[0];
         auto const rays_for_node = partition(uint32(1), remaining, swap, [&](auto const i) { return buffer.node_indices[i] == node_index; });
 
-        // @perf transform with constant RHS (boxes[node_index])
-        std::transform(rays.rays, rays.rays + rays_for_node, buffer.t, [&](auto const &r) { return boxes[node_index].traverse(r); });
+        boxes[node_index].traverse(rays.rays, rays_for_node, buffer.t);
 
         std::transform(buffer.t, buffer.t + rays_for_node, results, buffer.t, [&](auto t, auto const &res) {
             auto const &closestHit = res.second;
