@@ -62,11 +62,6 @@ void material::scatter(ray const *in_ray, vec3 const *normals, bool const *front
             scattered, [&](auto const &hit_res, auto const i) -> vec3 {
                 auto const &normal = normals[i];
                 auto scatter_direction = normal + random_unit_vector();
-
-                // Catch degenerate scatter direction
-                if (scatter_direction.near_zero())
-                    scatter_direction = normal;
-
                 return scatter_direction;
             });
         break;
