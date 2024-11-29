@@ -24,18 +24,23 @@ static vec3 refract(vec3 uv, vec3 n, double etai_over_etat)
     vec3 r_out_parallel = -std::sqrt(std::abs(1.0 - r_out_perp.length_squared())) * n;
     return r_out_perp + r_out_parallel;
 }
-static vec3 random_in_unit_sphere()
+
+static void randoms_in_unit_sphere(vec3 *start, vec3 *end)
 {
-    while (true) {
-        auto p = random_vec(-1, 1);
-        if (p.length_squared() < 1)
-            return p;
+    while (start != end) {
+        // @perf generate random_vec with bulk :]
+        std::generate(start, end, []() { return random_vec(-1, 1); });
+        // keep trying only for the ones that haven't found their length squared.
+        end = std::partition(start, end, [&](auto const &p) {
+            return p.length_squared() >= 1;
+        });
     }
 }
 
-static vec3 random_unit_vector()
+static void random_unit_vectors(vec3 *start, vec3 *end)
 {
-    return unit_vector(random_in_unit_sphere());
+    randoms_in_unit_sphere(start, end);
+    std::transform(start, end, start, unit_vector);
 }
 
 void material::scatter(ray const *in_ray, vec3 const *normals, bool const *front_faces, uint32 const len, vec3 *scattered) const noexcept
@@ -50,13 +55,12 @@ void material::scatter(ray const *in_ray, vec3 const *normals, bool const *front
     case kind::isotropic:
         ZoneScopedN("isotropic scatter");
         // @perf bulk RNG :]
-        std::generate(scattered, scattered + len, random_unit_vector);
+        random_unit_vectors(scattered, scattered + len);
         break;
     case kind::lambertian:
         ZoneScopedN("lambertian scatter");
 
-        // @perf bulk RNG :]
-        std::generate(scattered, scattered + len, random_unit_vector);
+        random_unit_vectors(scattered, scattered + len);
         std::transform(normals, normals + len, scattered, scattered, [&](auto const &normal, auto const &rng) {
             return normal + rng;
         });
@@ -64,7 +68,7 @@ void material::scatter(ray const *in_ray, vec3 const *normals, bool const *front
     case kind::metal: {
         ZoneScopedN("metal scatter");
         // @perf might want a different buffer for random numbers and then add things to those.
-        std::generate(scattered, scattered + len, random_unit_vector);
+        random_unit_vectors(scattered, scattered + len);
         auto const fuzz = mat.data.fuzz;
         std::transform(scattered, scattered + len, scattered, [&](auto const &rng) { return fuzz * rng; });
         std::transform(in_ray, in_ray + len, std::views::iota(0).begin(), scattered, [&](auto const &r, auto const i) {
