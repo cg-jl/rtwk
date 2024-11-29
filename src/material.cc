@@ -2,6 +2,7 @@
 #include <ranges>
 
 #include <tracy/Tracy.hpp>
+#include <utility>
 
 #include "random.h"
 #include "trace_colors.h"
@@ -37,66 +38,83 @@ static vec3 random_unit_vector()
     return unit_vector(random_in_unit_sphere());
 }
 
-static vec3 scatter(material const &mat, vec3 in_dir, vec3 const &normal, bool front_face)
+void material::scatter(ray const *in_ray, vec3 const *normals, bool const *front_faces, uint32 const len, vec3 *scattered) const noexcept
 {
-    ZoneScopedN("scatter");
-    ZoneColor(Ctp::Pink);
-    using kind = material::kind;
+
+    auto const &mat = *this;
     switch (mat.tag) {
     case kind::diffuse_light:
         __builtin_unreachable();
-        return {};
-    case kind::isotropic: {
+        break;
+
+    case kind::isotropic:
         ZoneScopedN("isotropic scatter");
-        return random_unit_vector();
-    }
-    case kind::lambertian: {
+        // @perf bulk RNG :]
+        std::generate(scattered, scattered + len, []() { return random_unit_vector(); });
+        break;
+    case kind::lambertian:
         ZoneScopedN("lambertian scatter");
-        auto scatter_direction = normal + random_unit_vector();
 
-        // Catch degenerate scatter direction
-        if (scatter_direction.near_zero())
-            scatter_direction = normal;
+        // @perf check out.
+        std::transform(
+            in_ray, in_ray + len,
+            std::views::iota(decltype(len)(0)).begin(),
+            scattered, [&](auto const &hit_res, auto const i) -> vec3 {
+                auto const &normal = normals[i];
+                auto scatter_direction = normal + random_unit_vector();
 
-        return scatter_direction;
-    }
-    case kind::metal: {
-        auto fuzz = mat.data.fuzz;
+                // Catch degenerate scatter direction
+                if (scatter_direction.near_zero())
+                    scatter_direction = normal;
+
+                return scatter_direction;
+            });
+        break;
+    case kind::metal:
         ZoneScopedN("metal scatter");
-        vec3 reflected = reflect(in_dir, normal);
-        auto fv = fuzz * random_unit_vector();
-        reflected = unit_vector(reflected) + fv;
-        return reflected;
-    }
-    case kind::dielectric: {
-        auto refraction_index = mat.data.refraction_index;
+        // @perf check out.
+        std::transform(
+            in_ray, in_ray + len,
+            std::views::iota(decltype(len)(0)).begin(),
+            scattered, [&](auto const &hit_res, auto const i) -> vec3 {
+                auto const &r = in_ray[i];
+                auto const &in_dir = r.dir;
+                auto const &normal = normals[i];
+                auto fuzz = mat.data.fuzz;
+                vec3 reflected = reflect(in_dir, normal);
+                auto fv = fuzz * random_unit_vector();
+                reflected = unit_vector(reflected) + fv;
+                return reflected;
+            });
+        break;
+    case kind::dielectric:
         ZoneScopedN("dielectric scatter");
-        double ri = front_face ? (1.0 / refraction_index) : refraction_index;
+        // @perf check out.
+        std::transform(
+            in_ray, in_ray + len,
+            std::views::iota(decltype(len)(0)).begin(),
+            scattered, [&](auto const &hit_res, auto const i) -> vec3 {
+                auto const &r = in_ray[i];
+                auto const &in_dir = r.dir;
+                auto const &normal = normals[i];
+                auto const front_face = front_faces[i];
+                auto refraction_index = mat.data.refraction_index;
+                // @perf if front face was partitioned, this would be branchless :]
+                double ri = front_face ? (1.0 / refraction_index) : refraction_index;
 
-        vec3 unit_direction = unit_vector(in_dir);
-        double cos_theta = -dot(unit_direction, normal);
+                vec3 unit_direction = unit_vector(in_dir);
+                double cos_theta = -dot(unit_direction, normal);
 
-        bool cannot_refract = ri * ri * (1 - cos_theta * cos_theta) > 1.0;
-        vec3 direction;
+                bool cannot_refract = ri * ri * (1 - cos_theta * cos_theta) > 1.0;
+                vec3 direction;
 
-        if (cannot_refract || reflectance(cos_theta, ri) > random_double())
-            direction = reflect(unit_direction, normal);
-        else
-            direction = refract(unit_direction, normal, ri);
+                if (cannot_refract || reflectance(cos_theta, ri) > random_double())
+                    direction = reflect(unit_direction, normal);
+                else
+                    direction = refract(unit_direction, normal, ri);
 
-        return direction;
+                return direction;
+            });
+        break;
     }
-    }
-}
-
-void material::scatter(ray const *in_ray, vec3 const *normal, bool const *front_face, uint32 const len, vec3 *scattered) const noexcept
-{
-
-    std::transform(
-        in_ray, in_ray + len,
-        std::views::iota(decltype(len)(0)).begin(),
-        scattered, [&](auto const &hit_res, auto const i) {
-            auto const &r = in_ray[i];
-            return ::scatter(*this, r.dir, normal[i], front_face[i]);
-        });
 }
