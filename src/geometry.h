@@ -160,7 +160,7 @@ struct geometry_ptr {
     {
     }
 
-    vec3 getNormal(point3 const &__restrict intersection, double time) const
+    vec3 getNormal(point3 const &__restrict intersection, float time) const
     {
         switch (kind) {
         case geometry_kind::box:
@@ -186,7 +186,7 @@ struct geometry_ptr {
     }
 
     // Yields something less than `minRayDist` in `results` when the ray does not hit.
-    void hit(ray_buffer rays, uint32 const len, double *results) const
+    void hit(ray_buffer rays, uint32 const len, float *results) const
     {
         // geometry is already transformed, so we can skip and set the actual
         // point.
@@ -228,7 +228,7 @@ struct traversable_geometry {
     // direction and the origin point. The intersection is geometric based
     // (distance), not relative to the ray's "speed" on each direction.
 
-    void traverse(ray const *rays, double const *times, uint32 const len, interval *traversals) const
+    void traverse(ray const *rays, float const *times, uint32 const len, interval *traversals) const
     {
         switch (kind) {
 
@@ -255,7 +255,7 @@ struct traversable_geometry {
     }
 };
 
-inline void hitSpan(std::span<geometry const> objects, ray_buffer rays, uint32 const len, std::pair<geometry_ptr, double> *acc, double *backbuf)
+inline void hitSpan(std::span<geometry const> objects, ray_buffer rays, uint32 const len, std::pair<geometry_ptr, float> *acc, float *backbuf)
 {
     for (auto const &obj : objects) {
         auto ptr = geometry_ptr(obj);

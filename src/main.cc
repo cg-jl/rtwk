@@ -61,22 +61,22 @@ void bouncing_spheres()
 
     for (int a = -11; a < 11; a++) {
         for (int b = -11; b < 11; b++) {
-            auto choose_mat = random_double();
-            point3 center(a + 0.9 * random_double(), 0.2,
-                b + 0.9 * random_double());
+            auto choose_mat = random_float();
+            point3 center(a + 0.9 * random_float(), 0.2,
+                b + 0.9 * random_float());
 
             if ((center - point3(4, 0.2, 0)).length() > 0.9) {
                 if (choose_mat < 0.8) {
                     // diffuse
                     auto albedo = leak(texture::solid(random_vec() * random_vec()));
                     auto sphere_material = detail::lambertian;
-                    auto center2 = center + vec3(0, random_double(0, .5), 0);
+                    auto center2 = center + vec3(0, random_float(0, .5), 0);
                     world.addTree(lightInfo(detail::lambertian, albedo),
                         sphere(center, center2, 0.2));
                 } else if (choose_mat < 0.95) {
                     // metal
                     auto albedo = leak(texture::solid(random_vec(0.5, 1)));
-                    auto fuzz = random_double(0, 0.5);
+                    auto fuzz = random_float(0, 0.5);
                     auto sphere_material = (material::metal(fuzz));
                     world.addTree(lightInfo(sphere_material, albedo),
                         sphere(center, 0.2));
@@ -435,7 +435,7 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth)
             auto z0 = -1000.0 + j * w;
             auto y0 = 0.0;
             auto x1 = x0 + w;
-            auto y1 = random_double(1, 101);
+            auto y1 = random_float(1, 101);
             auto z1 = z0 + w;
 
             world.treebld.geoms.emplace_back(

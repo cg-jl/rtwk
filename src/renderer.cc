@@ -94,12 +94,12 @@ static vec3 sample_square()
 {
     // Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit
     // square.
-    return vec3(random_double() - 0.5, random_double() - 0.5, 0);
+    return vec3(random_float() - 0.5, random_float() - 0.5, 0);
 }
 static point3 random_in_unit_disk()
 {
     while (true) {
-        auto p = vec3 { random_double(-1., 1.), random_double(-1., 1.), 0 };
+        auto p = vec3 { random_float(-1., 1.), random_float(-1., 1.), 0 };
         if (p.length_squared() < 1)
             return p;
     }
@@ -174,8 +174,8 @@ struct countArrays {
 //   if it's in between, any algorithm (saturated or transitory) will behave
 //   mostly the same.
 
-using select_res = std::pair<geometry_ptr, double>;
-using cm_res = std::pair<color const *, double>;
+using select_res = std::pair<geometry_ptr, float>;
+using cm_res = std::pair<color const *, float>;
 
 // @perf remove this.
 struct hit_record {
@@ -236,7 +236,7 @@ struct GSim_Buffers {
         return {
             .rays = {
                 .rays = new ray[spp],
-                .times = new double[spp],
+                .times = new float[spp],
             },
             .atts = new px_sampleq[spp],
             .hit_selects = new select_res[spp],
@@ -252,7 +252,7 @@ struct GSim_Buffers {
 struct Scanline_Buffers {
     sampleMat attMat;
     countArrays counts;
-    double *multiplyBuffer;
+    float *multiplyBuffer;
     color *samples;
     GSim_Buffers gsim;
 
@@ -262,7 +262,7 @@ struct Scanline_Buffers {
             .attMat = sampleMat::request(spp, maxDepth),
             .counts = countArrays::request(spp),
             // @cleanup could make these part of the same allocation
-            .multiplyBuffer = new double[spp * maxDepth],
+            .multiplyBuffer = new float[spp * maxDepth],
             .samples = new color[spp],
             .gsim = GSim_Buffers::request(spp),
         };
@@ -509,7 +509,7 @@ static void scanLine(settings const &s, camera const &cam,
             buffers.gsim.rays.rays + s.samples_per_pixel,
             [&]() { return get_ray(s, cam, i, j); });
 
-        std::generate(buffers.gsim.rays.times, buffers.gsim.rays.times + s.samples_per_pixel, []() { return random_double(); });
+        std::generate(buffers.gsim.rays.times, buffers.gsim.rays.times + s.samples_per_pixel, []() { return random_float(); });
 
         // @perf Could do queue init before all of this, and just reset all each
         // iteration. That (filling with zeros with a stride) is easier to do
@@ -584,7 +584,7 @@ static void scanLine(settings const &s, camera const &cam,
                 {
                     // @perf I can further simplify this because
                     // `sample_noise`'s components are all the same, so I could
-                    // just fill an array of doubles.
+                    // just fill an array of floats.
                     ZoneScopedN("sample");
                     for (int i = 0; i < tally.noises; ++i) {
                         auto const &[noiseData, p] = buffers.attMat.noises[i];
@@ -697,7 +697,7 @@ static camera make_camera(settings const &s)
     auto theta = degrees_to_radians(s.vfov);
     auto h = tan(theta / 2);
     auto viewport_height = 2 * h * s.focus_dist;
-    auto viewport_width = viewport_height * (double(s.image_width) / cam.image_height);
+    auto viewport_width = viewport_height * (float(s.image_width) / cam.image_height);
 
     // Calculate the u,v,w unit basis vectors for the camera coordinate
     // frame.

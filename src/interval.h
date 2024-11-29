@@ -14,7 +14,7 @@
 
 #include "rtweekend.h"
 struct interval {
-    double min, max;
+    float min, max;
 
     constexpr interval()
         : min(+infinity)
@@ -22,7 +22,7 @@ struct interval {
     {
     } // Default interval is empty
 
-    constexpr interval(double min, double max)
+    constexpr interval(float min, float max)
         : min(min)
         , max(max)
     {
@@ -35,22 +35,22 @@ struct interval {
     {
     }
 
-    constexpr double size() const { return max - min; }
+    constexpr float size() const { return max - min; }
     constexpr bool isEmpty() const { return min >= max; }
 
-    constexpr bool contains(double x) const { return min <= x && x <= max; }
+    constexpr bool contains(float x) const { return min <= x && x <= max; }
 
-    constexpr bool surrounds(double x) const { return min < x && x < max; }
-    constexpr bool atBorder(double x) const
+    constexpr bool surrounds(float x) const { return min < x && x < max; }
+    constexpr bool atBorder(float x) const
     {
         return std::abs(min - x) <= 1e-8 || std::abs(x - max) <= 1e-8;
     }
 
-    constexpr double clamp(double x) const { return std::clamp(x, min, max); }
+    constexpr float clamp(float x) const { return std::clamp(x, min, max); }
 
-    constexpr double midPoint() const { return min + (max - min) / 2.; }
+    constexpr float midPoint() const { return min + (max - min) / 2.; }
 
-    constexpr interval expand(double delta) const
+    constexpr interval expand(float delta) const
     {
         auto padding = delta / 2;
         return interval(min - padding, max + padding);
@@ -60,12 +60,12 @@ struct interval {
 static constexpr interval empty_interval = interval(+infinity, -infinity);
 static constexpr interval universe_interval = interval(-infinity, +infinity);
 
-constexpr interval operator+(interval ival, double displacement)
+constexpr interval operator+(interval ival, float displacement)
 {
     return interval(ival.min + displacement, ival.max + displacement);
 }
 
-constexpr interval operator+(double displacement, interval ival)
+constexpr interval operator+(float displacement, interval ival)
 {
     return ival + displacement;
 }

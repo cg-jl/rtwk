@@ -6,19 +6,19 @@
 #include "hittable.h"
 #include "trace_colors.h"
 
-static point3 sphere_center(sphere const &sph, double time)
+static point3 sphere_center(sphere const &sph, float time)
 {
     // Linearly interpolate from center1 to center2 according to time, where
     // t=0 yields center1, and t=1 yields center2.
     return sph.center1 + time * sph.center_vec;
 }
 
-void sphere::hit(ray const *rays, double const *times, uint32 const len, double *results) const noexcept
+void sphere::hit(ray const *rays, float const *times, uint32 const len, float *results) const noexcept
 {
     ZoneNamedN(_tracy, "sphere hit", filters::hit);
     // @perf think about splitting transform up.
     // @perf `times` is not modified until the next pixel. Probably should cache it :]
-    std::transform(rays, rays + len, times, results, [&](auto const &r, auto const time) -> double {
+    std::transform(rays, rays + len, times, results, [&](auto const &r, auto const time) -> float {
         point3 center = sphere_center(*this, time);
         vec3 oc = center - r.orig;
         auto a = r.dir.length_squared();
@@ -49,7 +49,7 @@ void sphere::hit(ray const *rays, double const *times, uint32 const len, double 
     });
 }
 
-void sphere::traverse(ray const *rays, double const *times, uint32 const len, interval *results) const noexcept
+void sphere::traverse(ray const *rays, float const *times, uint32 const len, interval *results) const noexcept
 {
     // @perf separate transform into smaller pieces
     // @perf same thing wrt time.
@@ -109,7 +109,7 @@ aabb sphere::bounding_box() const
     return aabb(box1, box2);
 }
 
-vec3 sphere::getNormal(point3 const intersection, double time) const
+vec3 sphere::getNormal(point3 const intersection, float time) const
 {
     return (intersection - sphere_center(*this, time)) / radius;
 }

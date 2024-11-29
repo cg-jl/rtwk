@@ -7,7 +7,7 @@
 
 namespace rotateY {
 
-static point3 applyForward(point3 local, double sin_theta, double cos_theta)
+static point3 applyForward(point3 local, float sin_theta, float cos_theta)
 {
     auto p = local;
     p[0] = cos_theta * local[0] + sin_theta * local[2];
@@ -52,7 +52,7 @@ aabb transform::applyForward(aabb bbox) const noexcept
     return aabb(min, max);
 }
 
-transform::transform(double angleDegrees, vec3 offset) noexcept
+transform::transform(float angleDegrees, vec3 offset) noexcept
     : offset(offset)
 {
     auto angleRad = degrees_to_radians(angleDegrees);

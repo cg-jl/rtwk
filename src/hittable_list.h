@@ -21,32 +21,32 @@
 #include "interval.h"
 
 struct SampleCM_Buffers {
-    double *currentHit;
-    double *rayLength;
+    float *currentHit;
+    float *rayLength;
     std::optional<uint32_t> *selected;
     interval *traversals;
-    double *thit;
+    float *thit;
 
     static SampleCM_Buffers request(uint32_t const spp)
     {
         return {
-            .currentHit = new double[spp],
-            .rayLength = new double[spp],
+            .currentHit = new float[spp],
+            .rayLength = new float[spp],
             .selected = new std::optional<uint32_t>[spp],
             .traversals = new interval[spp],
-            .thit = new double[spp],
+            .thit = new float[spp],
         };
     }
 };
 
 struct Select_Buffers {
-    double *hit_span_backbuf;
+    float *hit_span_backbuf;
     bvh::Hit_Buffer bvh;
 
     static Select_Buffers request(uint32 const spp)
     {
         return {
-            .hit_span_backbuf = new double[spp],
+            .hit_span_backbuf = new float[spp],
             .bvh = bvh::Hit_Buffer::request(spp),
         };
     }
@@ -74,10 +74,10 @@ struct hittable_list {
 
     void transformAll(transform tf);
 
-    void select(ray_buffer rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, double> *results, std::function<void(uint32, uint32)> const &swap_rays) const noexcept;
+    void select(ray_buffer rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, float> *results, std::function<void(uint32, uint32)> const &swap_rays) const noexcept;
 
     void sampleCMs(
-        ray const *rays, double const *times, uint32_t const len,
-        std::pair<color const *, double> *results, SampleCM_Buffers buffers,
+        ray const *rays, float const *times, uint32_t const len,
+        std::pair<color const *, float> *results, SampleCM_Buffers buffers,
         std::function<void(uint32_t, uint32_t)> const &swap_rays) const noexcept;
 };

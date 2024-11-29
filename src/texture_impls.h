@@ -25,7 +25,7 @@ inline color sample_image(rtw_shared_image img, uvs uv)
     return { px[0], px[1], px[2] };
 }
 
-inline double sample_noise(texture::noise_data const &data, point3 const &p,
+inline float sample_noise(texture::noise_data const &data, point3 const &p,
     perlin const &perlin)
 {
     ZoneScopedN("noise");

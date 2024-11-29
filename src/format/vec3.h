@@ -3,12 +3,12 @@
 #include <format>
 
 template <>
-struct std::formatter<vec3> : public std::formatter<double> {
-    // NOTE: parsing is done by <double>
+struct std::formatter<vec3> : public std::formatter<float> {
+    // NOTE: parsing is done by <float>
 
     auto format(vec3 const &v, auto &ctx) const
     {
-        using df = std::formatter<double>;
+        using df = std::formatter<float>;
 
         *ctx.out()++ = '[';
         auto out = df::format(v[0], ctx);

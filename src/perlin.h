@@ -18,9 +18,9 @@ struct perlin {
 
     perlin();
 
-    double noise(point3 const &p) const;
+    float noise(point3 const &p) const;
 
-    double turb(point3 const &p, int depth) const;
+    float turb(point3 const &p, int depth) const;
 
     vec3 randvec[point_count];
     int perm_x[point_count];

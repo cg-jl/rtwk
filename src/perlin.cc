@@ -4,8 +4,8 @@
 
 static constexpr int point_count = 256;
 
-static double perlin_interp(vec3 const c[2][2][2], double u, double v,
-    double w)
+static float perlin_interp(vec3 const c[2][2][2], float u, float v,
+    float w)
 {
     auto uu = u * u * (3 - 2 * u);
     auto vv = v * v * (3 - 2 * v);
@@ -50,7 +50,7 @@ perlin::perlin()
     perlin_generate_perm(&perm_y);
     perlin_generate_perm(&perm_z);
 }
-double perlin::noise(point3 const &p) const
+float perlin::noise(point3 const &p) const
 {
     auto u = p.x() - floor(p.x());
     auto v = p.y() - floor(p.y());
@@ -69,7 +69,7 @@ double perlin::noise(point3 const &p) const
     return perlin_interp(c, u, v, w);
 }
 
-double perlin::turb(point3 const &p, int depth) const
+float perlin::turb(point3 const &p, int depth) const
 {
     auto accum = 0.0;
     auto temp_p = p;

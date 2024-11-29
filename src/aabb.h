@@ -18,7 +18,7 @@
 #include "vec3.h"
 
 struct aabb {
-    vec3 min alignas(32), max alignas(32);
+    vec3 min alignas(16), max alignas(16);
 
     // The default AABB is empty, since intervals are empty by default.
     constexpr aabb() = default;
@@ -64,7 +64,7 @@ struct aabb {
         return interval { min[n], max[n] };
     }
 
-    void hit(ray const *rays, uint32 const len, double *results) const noexcept;
+    void hit(ray const *rays, uint32 const len, float *results) const noexcept;
     void traverse(ray const *rays, uint32 const len, interval *results) const noexcept;
     uvs getUVs(point3 intersection) const;
     point3 getNormal(point3 intersection) const;
@@ -73,7 +73,7 @@ struct aabb {
     {
         // Returns the index of the longest axis of the bounding box.
 
-        double xsizes[3];
+        float xsizes[3];
         for (int axis = 0; axis < 3; ++axis) {
             xsizes[axis] = max[axis] - min[axis];
         }
@@ -89,7 +89,7 @@ private:
         // Adjust the AABB so that no side is narrower than some delta, padding
         // if necessary.
 
-        constexpr double delta = 0.0001;
+        constexpr float delta = 0.0001;
 
         for (int axis = 0; axis < 3; ++axis) {
             auto size = max[axis] - min[axis];

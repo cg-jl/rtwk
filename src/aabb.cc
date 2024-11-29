@@ -13,20 +13,21 @@
 // @perf My L1 cache size (per CPU) is: 32kiB!
 // L3 is 4MiB and L2 is 512kiB.
 
-static std::pair<__m256d, __m256d> get_t0s_t1s(aabb const &bb, ray const &r)
+// @perf using __m256 (8xfloat) to only work with 3.
+static std::pair<__m256, __m256> get_t0s_t1s(aabb const &bb, ray const &r)
 {
-    // NOTE: These load 4x double's, so the rightmost value (memory order) or
+    // NOTE: These load 4x float's, so the rightmost value (memory order) or
     // the leftmost value (register order) won't be used.
 
     // @perf for nontemporal loads we must have the ray aligned at a 32 byte
     // boundary.
 
-    auto adinvs = _mm256_loadu_pd((double *)&r.dir.e);
-    auto origs = _mm256_loadu_pd((double *)&r.orig.e);
+    auto adinvs = _mm256_loadu_ps((float *)&r.dir.e);
+    auto origs = _mm256_loadu_ps((float *)&r.orig.e);
     // @perf 'mins' has in its leftmost slot (register order) the first for
     // maxes. 'maxes' has in its leftmost slot (register order) garbage.
-    auto mins = (__m256d)_mm256_load_pd((double *)&bb.min.e);
-    auto maxes = (__m256d)_mm256_load_pd((double *)&bb.max.e);
+    auto mins = (__m256)_mm256_load_ps((float *)&bb.min.e);
+    auto maxes = (__m256)_mm256_load_ps((float *)&bb.max.e);
 
     // <garbo> <tx[2]> <tx[1]> <tx[0]> (register order)
     auto t0s = (mins - origs) / adinvs;
@@ -38,18 +39,18 @@ static interval traverse(aabb const &bb, ray const &r) noexcept
 {
 
     auto [t0s, t1s] = get_t0s_t1s(bb, r);
-    auto tmins = _mm256_min_pd(t0s, t1s);
-    auto tmaxs = _mm256_max_pd(t0s, t1s);
+    auto tmins = _mm256_min_ps(t0s, t1s);
+    auto tmaxs = _mm256_max_ps(t0s, t1s);
 
     // NOTE: @perf The compiler seems to be generating smarter code than I am
     // for this last comparison loop step (minsd, maxsd three times :P).
 
-    auto tmin_array = (double *)&tmins;
-    auto tmaxs_array = (double *)&tmaxs;
+    auto tmin_array = (float *)&tmins;
+    auto tmaxs_array = (float *)&tmaxs;
     interval ray_t { tmin_array[0], tmaxs_array[0] };
     for (int axis = 1; axis < 3; ++axis) {
-        auto t0 = ((double *)&tmins)[axis];
-        auto t1 = ((double *)&tmaxs)[axis];
+        auto t0 = ((float *)&tmins)[axis];
+        auto t1 = ((float *)&tmaxs)[axis];
 
         if (t0 > ray_t.min)
             ray_t.min = t0;
@@ -68,20 +69,20 @@ void aabb::traverse(ray const *rays, uint32 const len, interval *results) const 
     });
 }
 
-void aabb::hit(ray const *rays, uint32 const len, double *results) const noexcept
+void aabb::hit(ray const *rays, uint32 const len, float *results) const noexcept
 {
     // @perf think about splitting this transform.
     std::transform(rays, rays + len, results, [&](auto const &r) {
         auto [t0s, t1s] = get_t0s_t1s(*this, r);
-        auto tmins = _mm256_min_pd(t0s, t1s);
+        auto tmins = _mm256_min_ps(t0s, t1s);
 
         // NOTE: @perf The compiler seems to be generating smarter code than I am
         // for this last comparison loop step (minsd, maxsd three times :P).
 
-        auto tmin_array = (double *)&tmins;
-        double min = tmin_array[0];
+        auto tmin_array = (float *)&tmins;
+        float min = tmin_array[0];
         for (int axis = 1; axis < 3; ++axis) {
-            auto t0 = ((double *)&tmins)[axis];
+            auto t0 = ((float *)&tmins)[axis];
 
             if (t0 > min)
                 min = t0;
@@ -121,7 +122,7 @@ uvs aabb::getUVs(point3 intersection) const
         auto uintv = axis_interval(uaxis);
         auto vintv = axis_interval(vaxis);
 
-        double beta_distance;
+        float beta_distance;
         if (std::abs(intersection[axis] - intv.min) < 1e-8) {
             beta_distance = vintv.max;
         } else if (std::abs(intersection[axis] - intv.max) < 1e-8) {

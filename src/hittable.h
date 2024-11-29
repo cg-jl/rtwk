@@ -28,8 +28,8 @@ struct lightInfo {
 struct geometry;
 struct geometryFound {
     geometry const *ptr;
-    double hit;
+    float hit;
 };
 
 // Minimum ray distance prepared to remove any zero rounding errors.
-static constexpr double minRayDist = 0.001;
+static constexpr float minRayDist = 0.001;

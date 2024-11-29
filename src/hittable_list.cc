@@ -15,7 +15,7 @@
 #include "rtweekend.h"
 #include "trace_colors.h"
 
-void hittable_list::select(ray_buffer rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, double> *results, std::function<void(uint32, uint32)> const &swap_rays) const noexcept
+void hittable_list::select(ray_buffer rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, float> *results, std::function<void(uint32, uint32)> const &swap_rays) const noexcept
 {
 
     bvh::tree(treebld).hit(rays, len, results, buffers.bvh, swap_rays);
@@ -69,8 +69,8 @@ enum bool32 : uint32_t { True = 0xFFFFFFFFul,
     False = 0x0ul };
 
 void hittable_list::sampleCMs(
-    ray const *rays, double const *times, uint32_t const len,
-    std::pair<color const *, double> *results, SampleCM_Buffers buffers,
+    ray const *rays, float const *times, uint32_t const len,
+    std::pair<color const *, float> *results, SampleCM_Buffers buffers,
     std::function<void(uint32_t, uint32_t)> const &swap_rays) const noexcept
 {
     std::transform(rays, rays + len, buffers.rayLength,
@@ -133,7 +133,7 @@ void hittable_list::sampleCMs(
         // @perf random number generation could be taken a look for bulk
         // generation.
         std::generate(buffers.thit, buffers.thit + dispersed_before_start_begin,
-            [&]() { return random_double(); });
+            [&]() { return random_float(); });
 
         std::transform(buffers.thit,
             buffers.thit + dispersed_before_start_begin,

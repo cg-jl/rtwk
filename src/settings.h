@@ -23,13 +23,13 @@ struct settings {
     color background; // Scene background color
 
     // Ratio of image width over height. NOTE: Not used during render.
-    double aspect_ratio = 1.0;
+    float aspect_ratio = 1.0;
 
-    double vfov = 90; // Vertical view angle (field of view)
+    float vfov = 90; // Vertical view angle (field of view)
     point3 lookfrom = point3(0, 0, 0); // Point camera is looking from
     point3 lookat = point3(0, 0, -1); // Point camera is looking at
     vec3 vup = vec3(0, 1, 0); // Camera-relative "up" direction
 
-    double defocus_angle = 0; // Variation angle of rays through each pixel
-    double focus_dist = 10; // Distance from camera lookfrom point to plane of perfect focus
+    float defocus_angle = 0; // Variation angle of rays through each pixel
+    float focus_dist = 10; // Distance from camera lookfrom point to plane of perfect focus
 };

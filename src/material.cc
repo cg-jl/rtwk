@@ -7,7 +7,7 @@
 #include "random.h"
 #include "trace_colors.h"
 
-static double reflectance(double cosine, double refraction_index)
+static float reflectance(float cosine, float refraction_index)
 {
     // Use Schlick's approximation for reflectance.
     auto r0 = (1 - refraction_index) / (1 + refraction_index);
@@ -17,7 +17,7 @@ static double reflectance(double cosine, double refraction_index)
 static vec3 reflect(vec3 v, vec3 n) { return v - 2 * dot(v, n) * n; }
 
 // `uv`, `n` are assumed to be unit vectors.
-static vec3 refract(vec3 uv, vec3 n, double etai_over_etat)
+static vec3 refract(vec3 uv, vec3 n, float etai_over_etat)
 {
     auto cos_theta = -dot(uv, n);
     vec3 r_out_perp = etai_over_etat * (uv + cos_theta * n);
@@ -88,15 +88,15 @@ void material::scatter(ray const *in_ray, vec3 const *normals, bool const *front
                 auto const front_face = front_faces[i];
                 auto refraction_index = mat.data.refraction_index;
                 // @perf if front face was partitioned, this would be branchless :]
-                double ri = front_face ? (1.0 / refraction_index) : refraction_index;
+                float ri = front_face ? (1.0 / refraction_index) : refraction_index;
 
                 vec3 unit_direction = unit_vector(in_dir);
-                double cos_theta = -dot(unit_direction, normal);
+                float cos_theta = -dot(unit_direction, normal);
 
                 bool cannot_refract = ri * ri * (1 - cos_theta * cos_theta) > 1.0;
                 vec3 direction;
 
-                if (cannot_refract || reflectance(cos_theta, ri) > random_double())
+                if (cannot_refract || reflectance(cos_theta, ri) > random_float())
                     direction = reflect(unit_direction, normal);
                 else
                     direction = refract(unit_direction, normal, ri);

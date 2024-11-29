@@ -25,8 +25,8 @@ struct material {
     } tag;
 
     union Data {
-        double refraction_index;
-        double fuzz;
+        float refraction_index;
+        float fuzz;
 
         // NOTE: These constructors and destructors allow me to construct
         // everything easily.
@@ -42,14 +42,14 @@ struct material {
 
     void scatter(ray const *in_ray, vec3 const *normal, bool const *front_face, uint32 const len, vec3 *scattered) const noexcept;
 
-    static constexpr material metal(double fuzz)
+    static constexpr material metal(float fuzz)
     {
         Data d;
         d.fuzz = fuzz;
         return material(material::kind::metal, d);
     }
 
-    static constexpr material dielectric(double ir)
+    static constexpr material dielectric(float ir)
     {
         Data d;
         d.refraction_index = ir;

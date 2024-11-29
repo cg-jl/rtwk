@@ -3,7 +3,7 @@
 
 #include <tracy/Tracy.hpp>
 
-texture texture::checker(double scale, texture const *even,
+texture texture::checker(float scale, texture const *even,
     texture const *odd)
 {
     data d;
@@ -27,7 +27,7 @@ texture texture::image(char const *filename)
     return texture(tag::image, std::move(d));
 }
 
-texture texture::noise(double scale)
+texture texture::noise(float scale)
 {
     data d;
     new (&d.noise) noise_data { scale };

@@ -27,7 +27,7 @@ struct ray {
     {
     }
 
-    point3 at(double t) const { return orig + t * dir; }
+    point3 at(float t) const { return orig + t * dir; }
 
     point3 orig;
     vec3 dir;
@@ -36,12 +36,12 @@ struct ray {
 // @perf consider separating time from ray
 struct timed_ray {
     ray const &r;
-    double const &time;
+    float const &time;
 };
 
 struct ray_buffer {
     ray *rays;
-    double *times;
+    float *times;
 
     timed_ray operator[](size_t i) const { return { rays[i], times[i] }; }
 

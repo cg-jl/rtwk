@@ -24,14 +24,14 @@
 // these 'instantiate buffers' must also be separated.
 struct sphere final {
     // Stationary Sphere
-    sphere(point3 const &center, double radius)
+    sphere(point3 const &center, float radius)
         : center1(center)
         , radius(fmax(0, radius))
     {
     }
 
     // Moving Sphere
-    sphere(point3 const &center1, point3 const &center2, double radius)
+    sphere(point3 const &center1, point3 const &center2, float radius)
         : center1(center1)
         , radius(fmax(0, radius))
     {
@@ -39,17 +39,17 @@ struct sphere final {
     }
 
     // @perf move sphere center compute to caller. That way we can cache it :]
-    void hit(ray const *rays, double const *times, uint32 const len, double *results) const noexcept;
-    void traverse(ray const *rays, double const *times, uint32 const len, interval *results) const noexcept;
+    void hit(ray const *rays, float const *times, uint32 const len, float *results) const noexcept;
+    void traverse(ray const *rays, float const *times, uint32 const len, interval *results) const noexcept;
     static uvs getUVs(vec3 normal);
 
-    vec3 getNormal(point3 const intersection, double time) const;
+    vec3 getNormal(point3 const intersection, float time) const;
 
     aabb bounding_box() const;
 
     static sphere applyTransform(sphere a, transform tf) noexcept;
 
     point3 center1;
-    double radius;
+    float radius;
     vec3 center_vec;
 };

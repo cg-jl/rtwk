@@ -54,14 +54,14 @@ struct Hit_Buffer {
     uint32 *node_indices;
     interval *t;
     // @mem this can be shared with Select_Buffers.
-    double *cmp_res;
+    float *cmp_res;
 
     static Hit_Buffer request(uint32 const spp)
     {
         return {
             .node_indices = new uint32[spp],
             .t = new interval[spp],
-            .cmp_res = new double[spp],
+            .cmp_res = new float[spp],
         };
     }
 };
@@ -82,6 +82,6 @@ struct tree {
     {
     }
 
-    void hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, double> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> const &swap_rays) const noexcept;
+    void hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, float> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> const &swap_rays) const noexcept;
 };
 }; // namespace bvh

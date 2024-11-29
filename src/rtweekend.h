@@ -26,26 +26,26 @@ using uint32 = uint32_t;
 
 // Constants
 
-static constexpr double infinity = 1e11;
-static constexpr double pi = 3.1415926535897932385;
+static constexpr float infinity = 1e11;
+static constexpr float pi = 3.1415926535897932385;
 
 // Utility Functions
 
-inline double degrees_to_radians(double degrees)
+inline float degrees_to_radians(float degrees)
 {
     return degrees * pi / 180.0;
 }
 
-inline double random_double(double min, double max)
+inline float random_float(float min, float max)
 {
     // Returns a random real in [min,max).
-    return min + (max - min) * random_double();
+    return min + (max - min) * random_float();
 }
 
 inline int random_int(int min, int max)
 {
     // Returns a random integer in [min,max].
-    return int(random_double(min, max + 1));
+    return int(random_float(min, max + 1));
 }
 
 struct range {
@@ -53,7 +53,7 @@ struct range {
 };
 
 struct uvs {
-    double u, v;
+    float u, v;
 };
 
 static auto partition(auto start, decltype(start) end, auto swap, auto pred)

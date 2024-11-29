@@ -23,11 +23,11 @@ struct texture {
     } kind;
 
     struct noise_data {
-        double scale;
+        float scale;
     };
 
     struct checker_data {
-        double inv_scale;
+        float inv_scale;
         texture const *even;
         texture const *odd;
     };
@@ -49,14 +49,14 @@ struct texture {
     {
     }
 
-    static texture checker(double scale, texture const *even,
+    static texture checker(float scale, texture const *even,
         texture const *odd);
 
     static texture solid(color col);
 
     static texture image(char const *filename);
 
-    static texture noise(double scale);
+    static texture noise(float scale);
 };
 
 namespace detail {

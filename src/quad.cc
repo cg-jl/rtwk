@@ -22,7 +22,7 @@ uvs quad::getUVs(point3 intersection) const
     return uv;
 }
 
-static bool is_interior(double a, double b)
+static bool is_interior(float a, float b)
 {
     static constexpr interval unit_interval = interval(0, 1);
     // Given the hit point in plane coordinates, return false if it is
@@ -34,12 +34,12 @@ static bool is_interior(double a, double b)
 
 // @perf length(u) == length(v)?
 // @perf dot(u,v ) == 0.
-void quad::hit(ray const *rays, uint32 const len, double *results) const noexcept
+void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
 {
     ZoneNamedN(_tracy, "quad hit", filters::hit);
     // @perf think about splitting this transform up.
     // @perf getUVs() could be cached :]
-    std::transform(rays, rays + len, results, [&](auto const &r) -> double {
+    std::transform(rays, rays + len, results, [&](auto const &r) -> float {
         auto n = cross(u, v);
         auto normal = unit_vector(n);
         // n.Q = (uxv).Q =(triple product expansion) = u.(vxQ) = v.(uxQ)
