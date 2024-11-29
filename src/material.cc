@@ -50,20 +50,16 @@ void material::scatter(ray const *in_ray, vec3 const *normals, bool const *front
     case kind::isotropic:
         ZoneScopedN("isotropic scatter");
         // @perf bulk RNG :]
-        std::generate(scattered, scattered + len, []() { return random_unit_vector(); });
+        std::generate(scattered, scattered + len, random_unit_vector);
         break;
     case kind::lambertian:
         ZoneScopedN("lambertian scatter");
 
-        // @perf check out.
-        std::transform(
-            in_ray, in_ray + len,
-            std::views::iota(decltype(len)(0)).begin(),
-            scattered, [&](auto const &hit_res, auto const i) -> vec3 {
-                auto const &normal = normals[i];
-                auto scatter_direction = normal + random_unit_vector();
-                return scatter_direction;
-            });
+        // @perf bulk RNG :]
+        std::generate(scattered, scattered + len, random_unit_vector);
+        std::transform(normals, normals + len, scattered, scattered, [&](auto const &normal, auto const &rng) {
+            return normal + rng;
+        });
         break;
     case kind::metal:
         ZoneScopedN("metal scatter");
