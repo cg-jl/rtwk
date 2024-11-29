@@ -61,23 +61,16 @@ void material::scatter(ray const *in_ray, vec3 const *normals, bool const *front
             return normal + rng;
         });
         break;
-    case kind::metal:
+    case kind::metal: {
         ZoneScopedN("metal scatter");
-        // @perf check out.
-        std::transform(
-            in_ray, in_ray + len,
-            std::views::iota(decltype(len)(0)).begin(),
-            scattered, [&](auto const &hit_res, auto const i) -> vec3 {
-                auto const &r = in_ray[i];
-                auto const &in_dir = r.dir;
-                auto const &normal = normals[i];
-                auto fuzz = mat.data.fuzz;
-                vec3 reflected = reflect(in_dir, normal);
-                auto fv = fuzz * random_unit_vector();
-                reflected = unit_vector(reflected) + fv;
-                return reflected;
-            });
-        break;
+        // @perf might want a different buffer for random numbers and then add things to those.
+        std::generate(scattered, scattered + len, random_unit_vector);
+        auto const fuzz = mat.data.fuzz;
+        std::transform(scattered, scattered + len, scattered, [&](auto const &rng) { return fuzz * rng; });
+        std::transform(in_ray, in_ray + len, std::views::iota(0).begin(), scattered, [&](auto const &r, auto const i) {
+            return unit_vector(reflect(r.dir, normals[i])) + scattered[i];
+        });
+    } break;
     case kind::dielectric:
         ZoneScopedN("dielectric scatter");
         // @perf check out.
