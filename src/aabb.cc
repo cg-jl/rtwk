@@ -14,8 +14,9 @@
 // @perf My L1 cache size (per CPU) is: 32kiB!
 // L3 is 4MiB and L2 is 512kiB.
 
-// @perf using __m256 (8xfloat) to only work with 3.
-static std::pair<__m256, __m256> get_t0s_t1s(aabb const &bb, ray const &r)
+// @perf using __m128 because if I use m256 I use 3/8 slots. With m128 I use 3/4,
+// which is significantly less drop rate. Still bad though.
+static std::pair<__m128, __m128> get_t0s_t1s(aabb const &bb, ray const &r)
 {
     // NOTE: These load 4x float's, so the rightmost value (memory order) or
     // the leftmost value (register order) won't be used.
@@ -23,12 +24,12 @@ static std::pair<__m256, __m256> get_t0s_t1s(aabb const &bb, ray const &r)
     // @perf for nontemporal loads we must have the ray aligned at a 32 byte
     // boundary.
 
-    auto adinvs = _mm256_loadu_ps((float *)&r.dir.e);
-    auto origs = _mm256_loadu_ps((float *)&r.orig.e);
+    auto adinvs = _mm_loadu_ps((float *)&r.dir.e);
+    auto origs = _mm_loadu_ps((float *)&r.orig.e);
     // @perf 'mins' has in its leftmost slot (register order) the first for
     // maxes. 'maxes' has in its leftmost slot (register order) garbage.
-    auto mins = (__m256)_mm256_load_ps((float *)&bb.min.e);
-    auto maxes = (__m256)_mm256_load_ps((float *)&bb.max.e);
+    auto mins = _mm_load_ps((float *)&bb.min.e);
+    auto maxes = _mm_load_ps((float *)&bb.max.e);
 
     // <garbo> <tx[2]> <tx[1]> <tx[0]> (register order)
     auto t0s = (mins - origs) / adinvs;
@@ -40,8 +41,8 @@ static interval traverse(aabb const &bb, ray const &r) noexcept
 {
 
     auto [t0s, t1s] = get_t0s_t1s(bb, r);
-    auto tmins = _mm256_min_ps(t0s, t1s);
-    auto tmaxs = _mm256_max_ps(t0s, t1s);
+    auto tmins = _mm_min_ps(t0s, t1s);
+    auto tmaxs = _mm_max_ps(t0s, t1s);
 
     // NOTE: @perf The compiler seems to be generating smarter code than I am
     // for this last comparison loop step (minsd, maxsd three times :P).
@@ -75,7 +76,7 @@ void aabb::hit(ray const *rays, uint32 const len, float *results) const noexcept
     // @perf think about splitting this transform.
     std::transform(rays, rays + len, results, [&](auto const &r) {
         auto [t0s, t1s] = get_t0s_t1s(*this, r);
-        auto tmins = _mm256_min_ps(t0s, t1s);
+        auto tmins = _mm_min_ps(t0s, t1s);
 
         // NOTE: @perf The compiler seems to be generating smarter code than I am
         // for this last comparison loop step (minsd, maxsd three times :P).
