@@ -159,21 +159,6 @@ struct geometry_ptr {
         : geometry_ptr(&gpref)
     {
     }
-
-    void getNormals(ray const *rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept
-    {
-        switch (kind) {
-        case geometry_kind::box:
-            ptr.box->getNormals(rays, dist, results, start, end);
-            break;
-        case geometry_kind::quad:
-            std::fill(results + start, results + end, ptr.quad->getNormal());
-            break;
-        case geometry_kind::sphere:
-            ptr.sphere->getNormals(rays, dist, times, results, start, end);
-            break;
-        }
-    }
 };
 
 struct traversable_geometry {

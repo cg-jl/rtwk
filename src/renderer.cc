@@ -406,8 +406,12 @@ static void gsim(color const &background, uint32 const spp,
             auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects.ptr[i] == res; });
 
             // @perf divide hit_selects into its two components :]
-            res.getNormals(buffers.rays.rays, buffers.hit_selects.dist, buffers.rays.times, buffers.hit_recs.normal, start, end);
-
+            auto const rays = buffers.rays.rays;
+            auto const dist = buffers.hit_selects.dist;
+            auto const times = buffers.rays.times;
+            auto const normals = buffers.hit_recs.normal;
+            // @perf inline getNormals. has no use being obstructed.
+            res.ptr.sphere->getNormals(rays, dist, times, normals, start, end);
             // @perf partition instead of asking each time.
             std::transform(buffers.rays.rays + start, buffers.rays.rays + end, buffers.hit_recs.normal + start, buffers.hit_recs.is_front + start, [&](auto const &r, auto const &normal) {
                 return is_front_face(r.dir, normal);
@@ -420,7 +424,6 @@ static void gsim(color const &background, uint32 const spp,
             using std::ranges::subrange;
             using std::ranges::views::zip;
 
-            auto const normals = buffers.hit_recs.normal;
             auto const results = buffers.hit_recs.uv;
 
             sphere::getUVs(normals, results, start, end);
@@ -431,7 +434,20 @@ static void gsim(color const &background, uint32 const spp,
             auto const res = buffers.hit_selects.ptr[start];
             auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects.ptr[i] == res; });
 
-            res.getNormals(buffers.rays.rays, buffers.hit_selects.dist, buffers.rays.times, buffers.hit_recs.normal, start, end);
+            auto const rays = buffers.rays.rays;
+            auto const dist = buffers.hit_selects.dist;
+            auto const normals = buffers.hit_recs.normal;
+            switch (res.kind) {
+            case geometry_kind::box:
+                res.ptr.box->getNormals(rays, dist, normals, start, end);
+                break;
+            case geometry_kind::quad:
+                std::fill(normals + start, normals + end, res.ptr.quad->getNormal());
+                break;
+            case geometry_kind::sphere:
+                std::unreachable();
+                break;
+            }
 
             // @perf partition instead of asking each time.
             std::transform(buffers.rays.rays + start, buffers.rays.rays + end, buffers.hit_recs.normal + start, buffers.hit_recs.is_front + start, [&](auto const &r, auto const &normal) {
@@ -445,8 +461,6 @@ static void gsim(color const &background, uint32 const spp,
             using std::ranges::subrange;
             using std::ranges::views::zip;
 
-            auto const rays = buffers.rays.rays;
-            auto const dist = buffers.hit_selects.dist;
             auto const results = buffers.hit_recs.uv;
 
             switch (res.kind) {
