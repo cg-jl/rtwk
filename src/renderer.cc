@@ -111,18 +111,54 @@ static point3 defocus_disk_sample(camera const &cam)
     return (p[0] * cam.defocus_disk_u) + (p[1] * cam.defocus_disk_v);
 }
 
-static ray get_ray(settings const &s, camera const &cam, int i, int j)
+struct GetRays_Buffers {
+    vec3 *px_sample;
+};
+
+static void generate_ray_dir_samples(vec3 *__restrict__ start, vec3 *__restrict__ end, camera const &cam, int i, int j)
 {
-    // Construct a camera ray originating from the defocus disk and directed
-    // at a randomly sampled point around the pixel location i, j.
+    std::generate(start, end, sample_square);
+    std::transform(start, end, start, [&](auto const offset) {
+        return cam.pixel00_loc + ((i + offset.x()) * cam.pixel_delta_u) + ((j + offset.y()) * cam.pixel_delta_v);
+    });
+}
 
-    auto offset = sample_square();
-    auto pixel_sample = cam.pixel00_loc + ((i + offset.x()) * cam.pixel_delta_u) + ((j + offset.y()) * cam.pixel_delta_v);
+static void px_sample_to_rays(ray *__restrict__ begin, ray *__restrict__ end, vec3 *__restrict__ pxsample, camera const &_cam)
+{
+    auto const len = end - begin;
+    std::transform(pxsample, pxsample + len, begin, [&](auto const pixel_sample) {
+        return ray(vec3 { 0, 0, 0 }, pixel_sample);
+    });
+}
 
-    auto ray_origin = (s.defocus_angle <= 0) ? vec3 { 0, 0, 0 } : defocus_disk_sample(cam);
-    auto ray_direction = pixel_sample - ray_origin;
+static void px_sample_with_defocus(ray *__restrict__ begin, ray *end, vec3 *__restrict__ pxsample, camera const &cam)
+{
+    auto const len = end - begin;
+    // we start on the right half of the ray origs:
+    // each time we consume 1 of vec3, we write 2 vec3 (ray)
+    // a + 2*i <= b + i => b > a + i => b >= a + len (0 <= i < len)
+    auto ray_orig_start = (vec3 *)begin + len;
+    auto ray_orig_end = (vec3 *)&begin[len];
+    // @perf bulk disk sample :]
+    std::generate(ray_orig_start, ray_orig_end, [&]() {
+        return defocus_disk_sample(cam);
+    });
+    std::transform(pxsample, pxsample + len, ray_orig_start, begin, [&](auto const pixel_sample, auto const ray_origin) {
+        auto ray_direction = pixel_sample - ray_origin;
 
-    return ray(ray_origin, ray_direction);
+        return ray(ray_origin, ray_direction);
+    });
+}
+
+typedef void (*dir_sample_to_ray_fn)(ray *__restrict__, ray *__restrict__, vec3 *__restrict__, camera const &);
+
+// Construct a camera ray originating from the defocus disk and directed
+// at a randomly sampled point around the pixel location i, j.
+static void get_rays(ray *__restrict__ begin, ray *__restrict__ end, camera const &cam, int i, int j, GetRays_Buffers buffers, dir_sample_to_ray_fn to_rays)
+{
+    auto const len = end - begin;
+    generate_ray_dir_samples(buffers.px_sample, buffers.px_sample + len, cam, i, j);
+    to_rays(begin, end, buffers.px_sample, cam);
 }
 
 static bool is_front_face(vec3 in_dir, vec3 normal)
@@ -512,7 +548,7 @@ static void gsim(color const &background, uint32 const spp,
 
 static void scanLine(settings const &s, camera const &cam,
     hittable_list const &world, int const j, color *pixels,
-    Scanline_Buffers buffers, perlin const &noise)
+    Scanline_Buffers buffers, perlin const &noise, dir_sample_to_ray_fn to_rays)
 {
     // NOTE: @maybe a matrix only for the solids and vectors for the  other
     // types works better. geometrySim could also return whether it is
@@ -522,9 +558,8 @@ static void scanLine(settings const &s, camera const &cam,
 
     for (int i = 0; i < s.image_width; i++) {
         // Initialize all the rays
-        std::generate(buffers.gsim.rays.rays,
-            buffers.gsim.rays.rays + s.samples_per_pixel,
-            [&]() { return get_ray(s, cam, i, j); });
+        get_rays(buffers.gsim.rays.rays, buffers.gsim.rays.rays + s.samples_per_pixel, cam, i, j, GetRays_Buffers { .px_sample = buffers.gsim.scatters },
+            to_rays);
 
         std::generate(buffers.gsim.rays.times, buffers.gsim.rays.times + s.samples_per_pixel, []() { return random_float(); });
 
@@ -681,7 +716,7 @@ static void renderThread(settings const &s, camera const &cam,
     std::atomic<int> &__restrict__ tileid,
     std::atomic<int> &__restrict__ remain_scanlines,
     size_t const stop_at, hittable_list const &world,
-    color *pixels) noexcept
+    color *pixels, dir_sample_to_ray_fn to_rays) noexcept
 {
     // NOTE: @waste @mem Could reuse a solids lane (maybe the last/first one)
     // for the final lane.
@@ -697,7 +732,7 @@ static void renderThread(settings const &s, camera const &cam,
             return;
 
         // TODO: render worker state struct
-        scanLine(s, cam, world, j, pixels, buffers, *noise.get());
+        scanLine(s, cam, world, j, pixels, buffers, *noise.get(), to_rays);
 
         remain_scanlines.fetch_sub(1, std::memory_order_acq_rel);
         remain_scanlines.notify_one();
@@ -783,11 +818,12 @@ void render(hittable_list world, settings s)
     rtwk::stopwatch render_timer;
     render_timer.start();
     std::atomic<int> tileid alignas(64);
+    auto const to_rays = s.defocus_angle <= 0 ? px_sample_to_rays : px_sample_with_defocus;
     // worker loop
 #pragma omp parallel
     {
         ::renderThread(s, cam, tileid, remain_scanlines, stop_at, world,
-            pixels.get());
+            pixels.get(), to_rays);
     }
     auto render_time = render_timer.stop();
     rtwk::print_duration(std::cout, "Render", render_time);
