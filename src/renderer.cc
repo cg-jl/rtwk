@@ -419,7 +419,6 @@ static void gsim(color const &background, uint32 const spp,
             auto const &mat = world.objects[mat_index].mat;
 
             material::scatter_dielectric(mat.data.refraction_index, buffers.rays.rays + start, buffers.hit_recs.is_front + start, buffers.hit_recs.normal + start, buffers.scatters + start, buffers.scatters + end);
-            break;
 
             start = end;
         }
