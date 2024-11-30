@@ -74,7 +74,7 @@ struct hittable_list {
 
     void transformAll(transform tf);
 
-    void select(ray_buffer rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, float> *results, std::function<void(uint32, uint32)> const &swap_rays) const noexcept;
+    void select(ray_buffer rays, uint32 const len, Select_Buffers buffers, hit_span_buf results, std::function<void(uint32, uint32)> const &swap_rays) const noexcept;
 
     void sampleCMs(
         ray const *rays, float const *times, uint32_t const len,

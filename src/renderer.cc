@@ -212,7 +212,7 @@ struct GSim_Buffers {
     // inputs
     ray_buffer rays;
     px_sampleq *atts;
-    select_res *hit_selects;
+    hit_span_buf hit_selects;
     cm_res *constant_mediums;
     hit_record_buffer hit_recs;
     vec3 *scatters;
@@ -227,7 +227,7 @@ struct GSim_Buffers {
                 .times = new float[spp],
             },
             .atts = new px_sampleq[spp],
-            .hit_selects = new select_res[spp],
+            .hit_selects = hit_span_buf::request(spp),
             .constant_mediums = new cm_res[spp],
             .hit_recs = hit_record_buffer::request(spp),
             .scatters = new vec3[spp],
@@ -283,20 +283,20 @@ static void gsim(color const &background, uint32 const spp,
     auto hit_select_swap = [&](auto const i, auto const k) {
         buffers.rays.swap(i, k);
         std::swap(buffers.atts[i], buffers.atts[k]);
-        std::swap(buffers.hit_selects[i], buffers.hit_selects[k]);
+        buffers.hit_selects.swap(i, k);
     };
 
     auto cms_and_hitsels_swap = [&](auto const i, auto const k) {
         buffers.rays.swap(i, k);
         std::swap(buffers.atts[i], buffers.atts[k]);
-        std::swap(buffers.hit_selects[i], buffers.hit_selects[k]);
+        buffers.hit_selects.swap(i, k);
         std::swap(buffers.constant_mediums[i], buffers.constant_mediums[k]);
     };
 
     auto swap_hitsels_hitrecs = [&](auto const i, auto const k) {
         buffers.rays.swap(i, k);
         std::swap(buffers.atts[i], buffers.atts[k]);
-        std::swap(buffers.hit_selects[i], buffers.hit_selects[k]);
+        buffers.hit_selects.swap(i, k);
         buffers.hit_recs.swap(i, k);
     };
 
@@ -332,24 +332,23 @@ static void gsim(color const &background, uint32 const spp,
         using std::views::iota;
 
         auto const cms_end = partition(decltype(remaining)(0), remaining, cms_and_hitsels_swap, [&](auto i) {
-            auto [res, closestHit] = buffers.hit_selects[i];
+            auto [res, closestHit] = buffers.hit_selects.zip(remaining)[i];
             auto [cmColor, cmHit] = buffers.constant_mediums[i];
             return cmColor and (!res or cmHit < closestHit);
         });
 
         auto const nohits_begin = partition(cms_end, remaining, hit_select_swap, [&](auto i) {
-            auto const &res = buffers.hit_selects[i].first;
+            auto const &res = buffers.hit_selects.ptr[i];
 
             return bool(res);
         });
 
         for (uint32 start = cms_end; start < nohits_begin;) {
-            auto const res = buffers.hit_selects[start].first;
-            auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects[i].first == res; });
+            auto const res = std::get<geometry_ptr &>(buffers.hit_selects.zip(remaining)[start]);
+            auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return std::get<geometry_ptr &>(buffers.hit_selects.zip(nohits_begin)[i]) == res; });
 
             // @perf divide hit_selects into its two components :]
-            std::transform(buffers.hit_selects + start, buffers.hit_selects + end, std::views::iota(start).begin(), buffers.hit_recs.normal + start, [&](auto const &hit_sel, auto const i) {
-                auto closestHit = hit_sel.second;
+            std::transform(buffers.hit_selects.dist + start, buffers.hit_selects.dist + end, std::views::iota(start).begin(), buffers.hit_recs.normal + start, [&](auto const closestHit, auto const i) {
                 auto r = buffers.rays[i];
                 auto p = r.r.at(closestHit);
                 return res.getNormal(p, r.time);
@@ -365,7 +364,7 @@ static void gsim(color const &background, uint32 const spp,
             });
 
             std::transform(buffers.hit_recs.normal + start, buffers.hit_recs.normal + end, std::views::iota(start).begin(), buffers.hit_recs.uv + start, [&](auto const &normal, auto const i) {
-                auto closestHit = buffers.hit_selects[i].second;
+                auto closestHit = buffers.hit_selects.dist[i];
                 auto r = buffers.rays[i];
                 auto p = r.r.at(closestHit);
                 return res.getUVs(p, normal);
@@ -383,7 +382,7 @@ static void gsim(color const &background, uint32 const spp,
 
         // @dep requires uvs (normals aswell right now).
         auto const lights_begin = partition(cms_end, nohits_begin, swap_hitsels_hitrecs, [&](auto i) {
-            auto const &res = buffers.hit_selects[i].first;
+            auto const &res = buffers.hit_selects.ptr[i];
             auto const &mat = world.objects[res.relIndex].mat;
             return mat.tag != material::kind::diffuse_light;
         });
@@ -391,30 +390,30 @@ static void gsim(color const &background, uint32 const spp,
         // @perf partition isotropics before everything that requires normals/uvs. This way I can cut the number
         // of such that get calculated and also retain the contiguous space.
         auto const isotropics_begin = partition(cms_end, lights_begin, swap_hitsels_hitrecs, [&](auto const i) {
-            auto const &res = buffers.hit_selects[i].first;
+            auto const &res = buffers.hit_selects.ptr[i];
             auto const &mat = world.objects[res.relIndex].mat;
             return mat.tag != material::kind::isotropic;
         });
 
         // @dep requires normals
         auto const lambertians_begin = partition(cms_end, isotropics_begin, swap_hitsels_hitrecs, [&](auto const i) {
-            auto const &res = buffers.hit_selects[i].first;
+            auto const &res = buffers.hit_selects.ptr[i];
             auto const &mat = world.objects[res.relIndex].mat;
             return mat.tag != material::kind::lambertian;
         });
 
         // @dep requires normal.
         auto const metals_begin = partition(cms_end, lambertians_begin, swap_hitsels_hitrecs, [&](auto const i) {
-            auto const &res = buffers.hit_selects[i].first;
+            auto const &res = buffers.hit_selects.ptr[i];
             auto const &mat = world.objects[res.relIndex].mat;
             return mat.tag != material::kind::metal;
         });
 
         // Dielectrics (the rest). @dep requires is_front, normal
         for (uint32 start = cms_end; start < metals_begin;) {
-            auto const mat_index = buffers.hit_selects[start].first.relIndex;
+            auto const mat_index = buffers.hit_selects.ptr[start].relIndex;
             auto const end = partition(start + 1, metals_begin, swap_hitsels_hitrecs, [&](auto const i) {
-                return buffers.hit_selects[i].first.relIndex == mat_index;
+                return buffers.hit_selects.ptr[i].relIndex == mat_index;
             });
 
             auto const &mat = world.objects[mat_index].mat;
@@ -425,9 +424,9 @@ static void gsim(color const &background, uint32 const spp,
             start = end;
         }
         for (uint32 start = metals_begin; start < lambertians_begin;) {
-            auto const mat_index = buffers.hit_selects[start].first.relIndex;
+            auto const mat_index = buffers.hit_selects.ptr[start].relIndex;
             auto const end = partition(start + 1, lambertians_begin, swap_hitsels_hitrecs, [&](auto const i) {
-                return buffers.hit_selects[i].first.relIndex == mat_index;
+                return buffers.hit_selects.ptr[i].relIndex == mat_index;
             });
 
             auto const &mat = world.objects[mat_index].mat;
@@ -469,7 +468,7 @@ static void gsim(color const &background, uint32 const spp,
         // Bounces (but not constant mediums)
         for (decltype(remaining) i = cms_end; i < lights_begin; ++i) {
             auto &q = buffers.atts[i];
-            auto [res, closestHit] = buffers.hit_selects[i];
+            auto [res, closestHit] = buffers.hit_selects.zip(lights_begin)[i];
             auto const &r = buffers.rays[i];
 
             // @perf p is cheap, rest aren't.
@@ -481,7 +480,7 @@ static void gsim(color const &background, uint32 const spp,
         }
 
         for (decltype(remaining) i = cms_end; i < lights_begin; ++i) {
-            auto closestHit = buffers.hit_selects[i].second;
+            auto closestHit = buffers.hit_selects.dist[i];
             auto &r = buffers.rays.rays[i];
 
             // @perf p is cheap, rest aren't.
@@ -495,7 +494,7 @@ static void gsim(color const &background, uint32 const spp,
         // cms_end | bounces  | lights | nohit
         for (decltype(remaining) i = lights_begin; i < nohits_begin; ++i) {
             auto &q = buffers.atts[i];
-            auto [res, closestHit] = buffers.hit_selects[i];
+            auto [res, closestHit] = buffers.hit_selects.zip(nohits_begin)[i];
             auto const &r = buffers.rays[i];
 
             // @perf p is cheap, rest aren't.

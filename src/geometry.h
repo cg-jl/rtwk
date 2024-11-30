@@ -255,19 +255,47 @@ struct traversable_geometry {
     }
 };
 
-inline void hitSpan(std::span<geometry const> objects, ray_buffer rays, uint32 const len, std::pair<geometry_ptr, float> *acc, float *backbuf)
+struct hit_span_buf {
+    geometry_ptr *ptr;
+    float *dist;
+
+    auto constexpr zip(auto end, decltype(end) start = 0) const noexcept
+    {
+        return std::ranges::views::zip(
+            std::ranges::subrange(ptr + start, ptr + end),
+            std::ranges::subrange(dist + start, dist + end));
+    }
+
+    void swap(auto const i, auto const k)
+    {
+        std::swap(ptr[i], ptr[k]);
+        std::swap(dist[i], dist[k]);
+    }
+
+    static hit_span_buf request(uint32 const spp)
+    {
+        return {
+            .ptr = new geometry_ptr[spp],
+            .dist = new float[spp],
+        };
+    }
+};
+
+inline void hitSpan(std::span<geometry const> objects, ray_buffer rays, uint32 len, hit_span_buf acc, float *backbuf)
 {
     for (auto const &obj : objects) {
         auto ptr = geometry_ptr(obj);
         // @perf bulk geometry hit :]
         ptr.hit(rays, len, backbuf);
-        std::transform(backbuf, backbuf + len, acc, acc, [&](auto const new_d, auto const &old_d) {
-            auto const &closestHit = old_d.second;
 
-            if (interval { minRayDist, closestHit }.contains(new_d))
-                return std::pair { ptr, new_d };
-            else
-                return old_d;
-        });
+        // @perf could be swapping things around ?
+        for (decltype(len) i = 0; i < len; ++i) {
+            auto const closestHit = acc.dist[i];
+            auto const new_d = backbuf[i];
+            if (interval { minRayDist, closestHit }.contains(new_d)) {
+                acc.ptr[i] = ptr;
+                acc.dist[i] = new_d;
+            }
+        }
     }
 }

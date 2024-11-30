@@ -148,10 +148,10 @@ void bvh::tree_builder::prepareForRender() noexcept
     }
 }
 
-void bvh::tree::hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, float> *results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> const &swap_rays) const noexcept
+void bvh::tree::hit(ray_buffer rays, uint32 const len, hit_span_buf results, bvh::Hit_Buffer buffer, std::function<void(uint32, uint32)> const &swap_rays) const noexcept
 {
     ZoneNamedN(zone, "bvh_tree hit", filters::treeHit);
-    std::fill(results, results + len, std::pair { nullptr, infinity });
+    std::fill(results.zip(len).begin(), results.zip(len).end(), std::pair { nullptr, infinity });
     std::fill(buffer.node_indices, buffer.node_indices + len, 0);
 
     auto swap = [&](auto i, auto j) {
@@ -169,8 +169,9 @@ void bvh::tree::hit(ray_buffer rays, uint32 const len, std::pair<geometry_ptr, f
 
         boxes[node_index].traverse(rays.rays, rays_for_node, buffer.t);
 
-        std::transform(buffer.t, buffer.t + rays_for_node, results, buffer.t, [&](auto t, auto const &res) {
-            auto const &closestHit = res.second;
+        // @perf only distances are required here.
+        std::transform(buffer.t, buffer.t + rays_for_node, results.zip(len).begin(), buffer.t, [&](auto t, auto const &res) {
+            auto const &closestHit = std::get<float&>(res);
             t.max = std::min(t.max, closestHit);
             // @perf may be specialized to its own loop.
             t.min = std::max(t.min, minRayDist);

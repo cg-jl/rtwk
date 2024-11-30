@@ -15,7 +15,7 @@
 #include "rtweekend.h"
 #include "trace_colors.h"
 
-void hittable_list::select(ray_buffer rays, uint32 const len, Select_Buffers buffers, std::pair<geometry_ptr, float> *results, std::function<void(uint32, uint32)> const &swap_rays) const noexcept
+void hittable_list::select(ray_buffer rays, uint32 const len, Select_Buffers buffers, hit_span_buf results, std::function<void(uint32, uint32)> const &swap_rays) const noexcept
 {
 
     bvh::tree(treebld).hit(rays, len, results, buffers.bvh, swap_rays);
