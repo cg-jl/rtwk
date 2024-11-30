@@ -406,11 +406,7 @@ static void gsim(color const &background, uint32 const spp,
             auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects.ptr[i] == res; });
 
             // @perf divide hit_selects into its two components :]
-            std::transform(buffers.hit_selects.dist + start, buffers.hit_selects.dist + end, std::views::iota(start).begin(), buffers.hit_recs.normal + start, [&](auto const closestHit, auto const i) {
-                auto r = buffers.rays[i];
-                auto p = r.r.at(closestHit);
-                return res.getNormal(p, r.time);
-            });
+            res.getNormals(buffers.rays.rays, buffers.hit_selects.dist, buffers.rays.times, buffers.hit_recs.normal, start, end);
 
             // @perf partition instead of asking each time.
             std::transform(buffers.rays.rays + start, buffers.rays.rays + end, buffers.hit_recs.normal + start, buffers.hit_recs.is_front + start, [&](auto const &r, auto const &normal) {
@@ -435,12 +431,7 @@ static void gsim(color const &background, uint32 const spp,
             auto const res = buffers.hit_selects.ptr[start];
             auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects.ptr[i] == res; });
 
-            // @perf divide hit_selects into its two components :]
-            std::transform(buffers.hit_selects.dist + start, buffers.hit_selects.dist + end, std::views::iota(start).begin(), buffers.hit_recs.normal + start, [&](auto const closestHit, auto const i) {
-                auto r = buffers.rays[i];
-                auto p = r.r.at(closestHit);
-                return res.getNormal(p, r.time);
-            });
+            res.getNormals(buffers.rays.rays, buffers.hit_selects.dist, buffers.rays.times, buffers.hit_recs.normal, start, end);
 
             // @perf partition instead of asking each time.
             std::transform(buffers.rays.rays + start, buffers.rays.rays + end, buffers.hit_recs.normal + start, buffers.hit_recs.is_front + start, [&](auto const &r, auto const &normal) {

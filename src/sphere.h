@@ -43,7 +43,7 @@ struct sphere final {
     void traverse(ray const *rays, float const *times, uint32 const len, interval *results) const noexcept;
     static void getUVs(vec3 const *normals, uvs *results, uint32 start, uint32 end) noexcept;
 
-    vec3 getNormal(point3 const intersection, float time) const;
+    void getNormals(ray const *rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept;
 
     aabb bounding_box() const;
 

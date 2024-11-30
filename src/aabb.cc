@@ -94,11 +94,11 @@ void aabb::hit(ray const *rays, uint32 const len, float *results) const noexcept
     });
 }
 
-vec3 aabb::getNormal(point3 intersection) const
+static vec3 getNormal(aabb const &bb, point3 intersection)
 {
     // @perf could be simd'ized if required.
     for (int axis = 0; axis < 3; ++axis) {
-        auto intv = axis_interval(axis);
+        auto intv = bb.axis_interval(axis);
 
         if (std::abs(intersection[axis] - intv.min) > 1e-8 && std::abs(intersection[axis] - intv.max) > 1e-8) {
             continue;
@@ -109,6 +109,15 @@ vec3 aabb::getNormal(point3 intersection) const
         return v;
     }
     std::unreachable();
+}
+
+void aabb::getNormals(ray const *rays, float const *dist, vec3 *results, uint32 start, uint32 end) const noexcept
+{
+    // @perf split transforms?
+    std::transform(dist + start, dist + end, rays, results + start, [&](auto const closestHit, auto const &r) {
+        auto intersection = r.at(closestHit);
+        return ::getNormal(*this, intersection);
+    });
 }
 
 using std::ranges::subrange;

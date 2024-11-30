@@ -160,15 +160,18 @@ struct geometry_ptr {
     {
     }
 
-    vec3 getNormal(point3 const &__restrict intersection, float time) const
+    void getNormals(ray const *rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept
     {
         switch (kind) {
         case geometry_kind::box:
-            return ptr.box->getNormal(intersection);
+            ptr.box->getNormals(rays, dist, results, start, end);
+            break;
         case geometry_kind::quad:
-            return ptr.quad->getNormal();
+            std::fill(results + start, results + end, ptr.quad->getNormal());
+            break;
         case geometry_kind::sphere:
-            return ptr.sphere->getNormal(intersection, time);
+            ptr.sphere->getNormals(rays, dist, times, results, start, end);
+            break;
         }
     }
 };

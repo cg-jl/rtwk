@@ -1,5 +1,6 @@
 #include "sphere.h"
 
+#include <ranges>
 #include <sys/types.h>
 #include <tracy/Tracy.hpp>
 
@@ -115,9 +116,9 @@ aabb sphere::bounding_box() const
     return aabb(box1, box2);
 }
 
-vec3 sphere::getNormal(point3 const intersection, float time) const
+static vec3 getNormal(sphere const &sph, point3 const intersection, float time)
 {
-    return (intersection - sphere_center(*this, time)) / radius;
+    return (intersection - sphere_center(sph, time)) / sph.radius;
 }
 
 sphere sphere::applyTransform(sphere a, transform tf) noexcept
@@ -126,4 +127,14 @@ sphere sphere::applyTransform(sphere a, transform tf) noexcept
     a.center1 = tf.applyForward(a.center1);
     a.center_vec = tf.applyForward(previous + a.center_vec) - a.center1;
     return a;
+}
+void sphere::getNormals(ray const *rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept
+{
+    // @pefr check out.
+    std::transform(dist + start, dist + end, std::views::iota(start).begin(), results + start, [&](auto const closestHit, auto const i) {
+        auto r = rays[i];
+        auto time = times[i];
+        auto intersection = r.at(closestHit);
+        return ::getNormal(*this, intersection, time);
+    });
 }
