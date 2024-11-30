@@ -96,6 +96,7 @@ static vec3 sample_square()
     // square.
     return vec3(random_float() - 0.5, random_float() - 0.5, 0);
 }
+// @perf use vec2 for this?
 static point3 random_in_unit_disk()
 {
     while (true) {
@@ -104,11 +105,14 @@ static point3 random_in_unit_disk()
             return p;
     }
 }
-static point3 defocus_disk_sample(camera const &cam)
+
+static void defocus_disk_samples(camera const &cam, point3 *__restrict__ start, point3 *__restrict__ end)
 {
-    // Returns a random point in the camera defocus disk.
-    auto p = random_in_unit_disk();
-    return (p[0] * cam.defocus_disk_u) + (p[1] * cam.defocus_disk_v);
+    // @perf bulk random_in_unit_disk
+    std::generate(start, end, random_in_unit_disk);
+    std::transform(start, end, start, [&](auto p) {
+        return p[0] * cam.defocus_disk_u + p[1] * cam.defocus_disk_v;
+    });
 }
 
 struct GetRays_Buffers {
@@ -117,6 +121,7 @@ struct GetRays_Buffers {
 
 static void generate_ray_dir_samples(vec3 *__restrict__ start, vec3 *__restrict__ end, camera const &cam, int i, int j)
 {
+    // @perf bulk sample square
     std::generate(start, end, sample_square);
     std::transform(start, end, start, [&](auto const offset) {
         return cam.pixel00_loc + ((i + offset.x()) * cam.pixel_delta_u) + ((j + offset.y()) * cam.pixel_delta_v);
@@ -139,10 +144,7 @@ static void px_sample_with_defocus(ray *__restrict__ begin, ray *end, vec3 *__re
     // a + 2*i <= b + i => b > a + i => b >= a + len (0 <= i < len)
     auto ray_orig_start = (vec3 *)begin + len;
     auto ray_orig_end = (vec3 *)&begin[len];
-    // @perf bulk disk sample :]
-    std::generate(ray_orig_start, ray_orig_end, [&]() {
-        return defocus_disk_sample(cam);
-    });
+    defocus_disk_samples(cam, ray_orig_start, ray_orig_end);
     std::transform(pxsample, pxsample + len, ray_orig_start, begin, [&](auto const pixel_sample, auto const ray_origin) {
         auto ray_direction = pixel_sample - ray_origin;
 
