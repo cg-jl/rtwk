@@ -398,8 +398,8 @@ static void gsim(color const &background, uint32 const spp,
         });
 
         for (uint32 start = cms_end; start < nohits_begin;) {
-            auto const res = std::get<geometry_ptr &>(buffers.hit_selects.zip(remaining)[start]);
-            auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return std::get<geometry_ptr &>(buffers.hit_selects.zip(nohits_begin)[i]) == res; });
+            auto const res = buffers.hit_selects.ptr[start];
+            auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects.ptr[i] == res; });
 
             // @perf divide hit_selects into its two components :]
             std::transform(buffers.hit_selects.dist + start, buffers.hit_selects.dist + end, std::views::iota(start).begin(), buffers.hit_recs.normal + start, [&](auto const closestHit, auto const i) {
