@@ -189,25 +189,6 @@ struct geometry_ptr {
             break;
         }
     }
-
-    // Yields something less than `minRayDist` in `results` when the ray does not hit.
-    void hit(ray_buffer rays, uint32 const len, float *results) const
-    {
-        // geometry is already transformed, so we can skip and set the actual
-        // point.
-        switch (kind) {
-        case geometry_kind::box:
-            ptr.box->hit(rays.rays, len, results);
-            break;
-        case geometry_kind::sphere: {
-            ptr.sphere->hit(rays.rays, rays.times, len, results);
-            break;
-        }
-        case geometry_kind::quad:
-            ptr.quad->hit(rays.rays, len, results);
-            break;
-        }
-    }
 };
 
 struct traversable_geometry {
@@ -291,7 +272,18 @@ inline void hitSpan(std::span<geometry const> objects, ray_buffer rays, uint32 l
     for (auto const &obj : objects) {
         auto ptr = geometry_ptr(obj);
         // @perf bulk geometry hit :]
-        ptr.hit(rays, len, backbuf);
+        switch (ptr.kind) {
+        case geometry_kind::box:
+            ptr.ptr.box->hit(rays.rays, len, backbuf);
+            break;
+        case geometry_kind::sphere: {
+            ptr.ptr.sphere->hit(rays.rays, rays.times, len, backbuf);
+            break;
+        }
+        case geometry_kind::quad:
+            ptr.ptr.quad->hit(rays.rays, len, backbuf);
+            break;
+        }
 
         // @perf could be swapping things around ?
         for (decltype(len) i = 0; i < len; ++i) {
