@@ -397,7 +397,41 @@ static void gsim(color const &background, uint32 const spp,
             return bool(res);
         });
 
-        for (uint32 start = cms_end; start < nohits_begin;) {
+        auto const spheres_end = partition(cms_end, nohits_begin, hit_select_swap, [&](auto const i) {
+            return buffers.hit_selects.ptr[i].kind == geometry_kind::sphere;
+        });
+
+        for (uint32 start = cms_end; start < spheres_end;) {
+            auto const res = buffers.hit_selects.ptr[start];
+            auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects.ptr[i] == res; });
+
+            // @perf divide hit_selects into its two components :]
+            std::transform(buffers.hit_selects.dist + start, buffers.hit_selects.dist + end, std::views::iota(start).begin(), buffers.hit_recs.normal + start, [&](auto const closestHit, auto const i) {
+                auto r = buffers.rays[i];
+                auto p = r.r.at(closestHit);
+                return res.getNormal(p, r.time);
+            });
+
+            // @perf partition instead of asking each time.
+            std::transform(buffers.rays.rays + start, buffers.rays.rays + end, buffers.hit_recs.normal + start, buffers.hit_recs.is_front + start, [&](auto const &r, auto const &normal) {
+                return is_front_face(r.dir, normal);
+            });
+
+            std::transform(buffers.hit_recs.is_front + start, buffers.hit_recs.is_front + end, buffers.hit_recs.normal + start, buffers.hit_recs.normal + start, [&](auto const is_front, auto const normal) {
+                return is_front ? normal : -normal;
+            });
+
+            using std::ranges::subrange;
+            using std::ranges::views::zip;
+
+            auto const normals = buffers.hit_recs.normal;
+            auto const results = buffers.hit_recs.uv;
+
+            sphere::getUVs(normals, results, start, end);
+
+            start = end;
+        }
+        for (uint32 start = spheres_end; start < nohits_begin;) {
             auto const res = buffers.hit_selects.ptr[start];
             auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects.ptr[i] == res; });
 
@@ -421,7 +455,6 @@ static void gsim(color const &background, uint32 const spp,
             using std::ranges::views::zip;
 
             auto const rays = buffers.rays.rays;
-            auto const normals = buffers.hit_recs.normal;
             auto const dist = buffers.hit_selects.dist;
             auto const results = buffers.hit_recs.uv;
 
@@ -430,7 +463,7 @@ static void gsim(color const &background, uint32 const spp,
                 res.ptr.box->getUVs(rays, dist, results, start, end);
                 break;
             case geometry_kind::sphere:
-                sphere::getUVs(normals, results, start, end);
+                std::unreachable();
                 break;
             case geometry_kind::quad:
                 res.ptr.quad->getUVs(rays, dist, results, start, end);
@@ -534,7 +567,8 @@ static void gsim(color const &background, uint32 const spp,
         // Bounces (but not constant mediums)
         for (decltype(remaining) i = cms_end; i < nohits_begin; ++i) {
             auto &q = buffers.atts[i];
-            auto [res, closestHit] = buffers.hit_selects.zip(nohits_begin)[i];
+            auto res = buffers.hit_selects.ptr[i];
+            auto closestHit = buffers.hit_selects.dist[i];
             auto const &r = buffers.rays[i];
 
             // @perf p is cheap, rest aren't.
