@@ -1,5 +1,6 @@
 #include "aabb.h"
 #include <algorithm>
+#include <ranges>
 #include <utility>
 
 #include <immintrin.h>
@@ -109,33 +110,44 @@ vec3 aabb::getNormal(point3 intersection) const
     std::unreachable();
 }
 
-// @perf could be optimized to use swizzled vectors.
-uvs aabb::getUVs(point3 intersection) const
+using std::ranges::subrange;
+using std::ranges::views::zip;
+void aabb::getUVs(ray const *rays, float const *dist, uvs *results, uint32 start, uint32 end) const noexcept
 {
-    // search for the "box" that borders the point interval, since we know that
-    // the point is already within the bounds of the box.
-    for (int axis = 0; axis < 3; ++axis) {
-        auto uaxis = (axis + 2) % 3;
-        auto vaxis = (axis + 1) % 3;
+    // @perf separate transform :]
+    std::ranges::transform(zip(
+                               subrange(rays + start, rays + end),
+                               subrange(dist + start, dist + end)),
+        results + start, [&](auto const &t) -> uvs {
+            // @perf could be optimized to use swizzled vectors.
+            auto const &[r, closestHit] = t;
+            auto intersection = r.at(closestHit);
+            auto const &bb = *this;
+            // search for the "box" that borders the point interval, since we know that
+            // the point is already within the bounds of the box.
+            for (int axis = 0; axis < 3; ++axis) {
+                auto uaxis = (axis + 2) % 3;
+                auto vaxis = (axis + 1) % 3;
 
-        auto intv = axis_interval(axis);
-        auto uintv = axis_interval(uaxis);
-        auto vintv = axis_interval(vaxis);
+                auto intv = bb.axis_interval(axis);
+                auto uintv = bb.axis_interval(uaxis);
+                auto vintv = bb.axis_interval(vaxis);
 
-        float beta_distance;
-        if (std::abs(intersection[axis] - intv.min) < 1e-8) {
-            beta_distance = vintv.max;
-        } else if (std::abs(intersection[axis] - intv.max) < 1e-8) {
-            beta_distance = vintv.min;
-        } else {
-            continue;
-        }
-        auto inv_u_mag = 1 / uintv.size();
-        auto inv_v_mag = 1 / vintv.size();
-        uvs uv;
-        uv.u = inv_u_mag * (intersection[uaxis] - uintv.min);
-        uv.v = -inv_v_mag * (intersection[vaxis] - beta_distance);
-        return uv;
-    }
-    std::unreachable();
+                float beta_distance;
+                if (std::abs(intersection[axis] - intv.min) < 1e-8) {
+                    beta_distance = vintv.max;
+                } else if (std::abs(intersection[axis] - intv.max) < 1e-8) {
+                    beta_distance = vintv.min;
+                } else {
+                    continue;
+                }
+                auto inv_u_mag = 1 / uintv.size();
+                auto inv_v_mag = 1 / vintv.size();
+                uvs uv;
+                uv.u = inv_u_mag * (intersection[uaxis] - uintv.min);
+                uv.v = -inv_v_mag * (intersection[vaxis] - beta_distance);
+                return uv;
+            }
+            std::unreachable();
+        });
 }

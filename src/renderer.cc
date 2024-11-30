@@ -420,15 +420,13 @@ static void gsim(color const &background, uint32 const spp,
             using std::ranges::subrange;
             using std::ranges::views::zip;
 
-            std::ranges::transform(zip(
-                                       subrange(buffers.hit_recs.normal + start, buffers.hit_recs.normal + end),
-                                       subrange(buffers.rays.rays + start, buffers.rays.rays + end),
-                                       subrange(buffers.hit_selects.dist + start, buffers.hit_selects.dist + end)),
-                buffers.hit_recs.uv + start, [&](auto const &t) {
-                    auto const &[normal, r, closestHit] = t;
-                    auto p = r.at(closestHit);
-                    return res.getUVs(p, normal);
-                });
+            res.getUVs(
+                buffers.hit_recs.normal,
+                buffers.rays.rays,
+                buffers.hit_selects.dist,
+                buffers.hit_recs.uv,
+                start,
+                end);
 
             start = end;
         }

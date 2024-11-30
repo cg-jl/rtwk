@@ -37,7 +37,7 @@ struct quad {
 
     void hit(ray const *rays, uint32 const len, float *results) const noexcept;
 
-    uvs getUVs(point3 intersection) const;
+    void getUVs(ray const *rays, float const *dist, uvs *results, uint32 start, uint32 end) const noexcept;
     vec3 getNormal() const;
 
     static quad applyTransform(quad q, transform tf) noexcept;

@@ -89,15 +89,21 @@ void sphere::traverse(ray const *rays, float const *times, uint32 const len, int
 //     <1 0 0> yields <0.50 0.50>       <-1  0  0> yields <0.00 0.50>
 //     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
 //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
-uvs sphere::getUVs(vec3 normal)
+void sphere::getUVs(vec3 const *normals, uvs *results, uint32 start, uint32 end) noexcept
 {
-    auto theta = std::acos(-normal.y());
-    auto phi = std::atan2(-normal.z(), normal.x()) + pi;
+    // @perf check out.
+    using std::ranges::subrange;
+    std::ranges::transform(
+        subrange(normals + start, normals + end),
+        results + start, [&](auto const &normal) -> uvs {
+            auto theta = std::acos(-normal.y());
+            auto phi = std::atan2(-normal.z(), normal.x()) + pi;
 
-    uvs uv;
-    uv.u = phi / (2 * pi);
-    uv.v = theta / pi;
-    return uv;
+            uvs uv;
+            uv.u = phi / (2 * pi);
+            uv.v = theta / pi;
+            return uv;
+        });
 }
 
 aabb sphere::bounding_box() const

@@ -41,7 +41,7 @@ struct sphere final {
     // @perf move sphere center compute to caller. That way we can cache it :]
     void hit(ray const *rays, float const *times, uint32 const len, float *results) const noexcept;
     void traverse(ray const *rays, float const *times, uint32 const len, interval *results) const noexcept;
-    static uvs getUVs(vec3 normal);
+    static void getUVs(vec3 const *normals, uvs *results, uint32 start, uint32 end) noexcept;
 
     vec3 getNormal(point3 const intersection, float time) const;
 

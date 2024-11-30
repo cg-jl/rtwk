@@ -172,16 +172,21 @@ struct geometry_ptr {
         }
     }
 
-    uvs getUVs(point3 const &__restrict intersection,
-        point3 const &__restrict normal) const
+    void getUVs(point3 const *__restrict__ normals, ray const *__restrict__ rays, float const *dist, uvs *results, uint32 start, uint32 end) const
     {
+        using std::ranges::subrange;
+        using std::ranges::views::zip;
+
         switch (kind) {
         case geometry_kind::box:
-            return ptr.box->getUVs(intersection);
+            ptr.box->getUVs(rays, dist, results, start, end);
+            break;
         case geometry_kind::sphere:
-            return ptr.sphere->getUVs(normal);
+            sphere::getUVs(normals, results, start, end);
+            break;
         case geometry_kind::quad:
-            return ptr.quad->getUVs(intersection);
+            ptr.quad->getUVs(rays, dist, results, start, end);
+            break;
         }
     }
 

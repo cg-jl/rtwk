@@ -66,7 +66,7 @@ struct aabb {
 
     void hit(ray const *rays, uint32 const len, float *results) const noexcept;
     void traverse(ray const *rays, uint32 const len, interval *results) const noexcept;
-    uvs getUVs(point3 intersection) const;
+    void getUVs(ray const *rays, float const *dist, uvs *results, uint32 start, uint32 end) const noexcept;
     point3 getNormal(point3 intersection) const;
 
     constexpr int longest_axis() const

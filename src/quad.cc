@@ -1,25 +1,40 @@
 #include "quad.h"
 
+#include <ranges>
 #include <tracy/Tracy.hpp>
 
 #include "trace_colors.h"
 
 // @perf length(u) == length(v)?
-uvs quad::getUVs(point3 intersection) const
+static uvs getUVs(quad const &q, point3 intersection)
 {
     // I have to make a base change, from [x y z] to [n u v], then extract the u
     // and the v
 
-    vec3 pq = intersection - Q;
-    auto v_squared = v.length_squared();
-    auto u_squared = u.length_squared();
-    auto dot_uq = dot(u, pq);
-    auto dot_vq = dot(v, pq);
+    vec3 pq = intersection - q.Q;
+    auto v_squared = q.v.length_squared();
+    auto u_squared = q.u.length_squared();
+    auto dot_uq = dot(q.u, pq);
+    auto dot_vq = dot(q.v, pq);
     // (a×b)⋅(c×d) = (a⋅c)(b⋅d) - (a⋅d)(b⋅c)
     uvs uv;
     uv.u = dot_uq / u_squared;
     uv.v = dot_vq / v_squared;
     return uv;
+}
+
+void quad::getUVs(ray const *rays, float const *dist, uvs *results, uint32 start, uint32 end) const noexcept
+{
+    using std::ranges::subrange;
+    using std::ranges::views::zip;
+    std::ranges::transform(zip(
+                               subrange(rays + start, rays + end),
+                               subrange(dist + start, dist + end)),
+        results + start, [&](auto const &t) -> uvs {
+            auto const &[r, closestHit] = t;
+            auto p = r.at(closestHit);
+            return ::getUVs(*this, p);
+        });
 }
 
 static bool is_interior(float a, float b)
@@ -58,7 +73,8 @@ void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
         // coordinates.
         auto intersection = r.at(t);
         // @perf dot(u,v) == 0. Try to find a relationship with `t`.
-        auto uv = getUVs(intersection);
+        // @perf may want to make a bulk visit :]
+        auto uv = ::getUVs(*this, intersection);
 
         if (!is_interior(uv.u, uv.v))
             return {};
