@@ -465,9 +465,9 @@ static void gsim(color const &background, uint32 const spp,
         }
 
         // Bounces (but not constant mediums)
-        for (decltype(remaining) i = cms_end; i < lights_begin; ++i) {
+        for (decltype(remaining) i = cms_end; i < nohits_begin; ++i) {
             auto &q = buffers.atts[i];
-            auto [res, closestHit] = buffers.hit_selects.zip(lights_begin)[i];
+            auto [res, closestHit] = buffers.hit_selects.zip(nohits_begin)[i];
             auto const &r = buffers.rays[i];
 
             // @perf p is cheap, rest aren't.
@@ -491,18 +491,6 @@ static void gsim(color const &background, uint32 const spp,
         // Non-bounces: lights, no hits and no scatters.
 
         // cms_end | bounces  | lights | nohit
-        for (decltype(remaining) i = lights_begin; i < nohits_begin; ++i) {
-            auto &q = buffers.atts[i];
-            auto [res, closestHit] = buffers.hit_selects.zip(nohits_begin)[i];
-            auto const &r = buffers.rays[i];
-
-            // @perf p is cheap, rest aren't.
-            auto p = r.r.at(closestHit);
-            auto const uv = buffers.hit_recs.uv[i];
-            auto const tex = world.objects[res.relIndex].tex;
-
-            q.emplace(tex, uv, p);
-        }
 
         // @perf this loop is equivalent to fill with skips due to commitSave
         // offset.
