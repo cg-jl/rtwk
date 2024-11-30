@@ -431,24 +431,19 @@ static void gsim(color const &background, uint32 const spp,
         adjustNormalsToOutwardFace(buffers.rays.rays, buffers.hit_recs.normal, buffers.hit_recs.is_front, cms_end, spheres_end);
         sphere::getUVs(buffers.hit_recs.normal, buffers.hit_recs.uv, cms_end, spheres_end);
 
-        for (uint32 start = spheres_end; start < nohits_begin;) {
+        auto const quads_end = partition(spheres_end, nohits_begin, hit_select_swap, [&](auto const i) {
+            return buffers.hit_selects.ptr[i].kind == geometry_kind::quad;
+        });
+
+        for (uint32 start = spheres_end; start < quads_end;) {
             auto const res = buffers.hit_selects.ptr[start];
             auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects.ptr[i] == res; });
 
             auto const rays = buffers.rays.rays;
             auto const dist = buffers.hit_selects.dist;
             auto const normals = buffers.hit_recs.normal;
-            switch (res.kind) {
-            case geometry_kind::box:
-                res.ptr.box->getNormals(rays, dist, normals, start, end);
-                break;
-            case geometry_kind::quad:
-                std::fill(normals + start, normals + end, res.ptr.quad->getNormal());
-                break;
-            case geometry_kind::sphere:
-                std::unreachable();
-                break;
-            }
+
+            std::fill(normals + start, normals + end, res.ptr.quad->getNormal());
 
             adjustNormalsToOutwardFace(rays, normals, buffers.hit_recs.is_front, start, end);
 
@@ -457,17 +452,28 @@ static void gsim(color const &background, uint32 const spp,
 
             auto const results = buffers.hit_recs.uv;
 
-            switch (res.kind) {
-            case geometry_kind::box:
-                res.ptr.box->getUVs(rays, dist, results, start, end);
-                break;
-            case geometry_kind::sphere:
-                std::unreachable();
-                break;
-            case geometry_kind::quad:
-                res.ptr.quad->getUVs(rays, dist, results, start, end);
-                break;
-            }
+            res.ptr.quad->getUVs(rays, dist, results, start, end);
+
+            start = end;
+        }
+        for (uint32 start = quads_end; start < nohits_begin;) {
+            auto const res = buffers.hit_selects.ptr[start];
+            auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects.ptr[i] == res; });
+
+            auto const rays = buffers.rays.rays;
+            auto const dist = buffers.hit_selects.dist;
+            auto const normals = buffers.hit_recs.normal;
+
+            res.ptr.box->getNormals(rays, dist, normals, start, end);
+
+            adjustNormalsToOutwardFace(rays, normals, buffers.hit_recs.is_front, start, end);
+
+            using std::ranges::subrange;
+            using std::ranges::views::zip;
+
+            auto const results = buffers.hit_recs.uv;
+
+            res.ptr.box->getUVs(rays, dist, results, start, end);
 
             start = end;
         }
