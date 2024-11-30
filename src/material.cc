@@ -2,10 +2,8 @@
 #include <ranges>
 
 #include <tracy/Tracy.hpp>
-#include <utility>
 
 #include "random.h"
-#include "trace_colors.h"
 
 static float reflectance(float cosine, float refraction_index)
 {
@@ -43,66 +41,59 @@ static void random_unit_vectors(vec3 *start, vec3 *end)
     std::transform(start, end, start, unit_vector);
 }
 
-void material::scatter(ray const *in_ray, vec3 const *normals, bool const *front_faces, uint32 const len, vec3 *scattered) const noexcept
+void material::scatter_isotropic(vec3 *scattered, vec3 *end) noexcept
 {
+    ZoneScopedN("isotropic scatter");
+    random_unit_vectors(scattered, end);
+}
 
-    auto const &mat = *this;
-    switch (mat.tag) {
-    case kind::diffuse_light:
-        __builtin_unreachable();
-        break;
+void material::scatter_lambertian(vec3 const *normals, uint32 const len, vec3 *scattered) noexcept
+{
+    ZoneScopedN("lambertian scatter");
 
-    case kind::isotropic:
-        ZoneScopedN("isotropic scatter");
-        // @perf bulk RNG :]
-        random_unit_vectors(scattered, scattered + len);
-        break;
-    case kind::lambertian:
-        ZoneScopedN("lambertian scatter");
+    random_unit_vectors(scattered, scattered + len);
+    std::transform(normals, normals + len, scattered, scattered, [&](auto const &normal, auto const &rng) {
+        return normal + rng;
+    });
+}
+void material::scatter_metal(float const fuzz, ray const *in_ray, vec3 const *normals, vec3 *scattered, vec3 *end) noexcept
+{
+    ZoneScopedN("metal scatter");
+    // @perf might want a different buffer for random numbers and then add things to those.
+    random_unit_vectors(scattered, end);
+    auto const len = end - scattered;
+    std::transform(scattered, scattered + len, scattered, [&](auto const &rng) { return fuzz * rng; });
+    std::transform(in_ray, in_ray + len, std::views::iota(0).begin(), scattered, [&](auto const &r, auto const i) {
+        return unit_vector(reflect(r.dir, normals[i])) + scattered[i];
+    });
+}
+void material::scatter_dielectric(float const refraction_index, ray const *in_ray, bool const *front_faces, vec3 const *normals, vec3 *scattered, vec3 *end) noexcept
+{
+    ZoneScopedN("dielectric scatter");
+    // @perf check out.
+    auto const len = end - scattered;
+    std::transform(
+        in_ray, in_ray + len,
+        std::views::iota(decltype(len)(0)).begin(),
+        scattered, [&](auto const &hit_res, auto const i) -> vec3 {
+            auto const &r = in_ray[i];
+            auto const &in_dir = r.dir;
+            auto const &normal = normals[i];
+            auto const front_face = front_faces[i];
+            // @perf if front face was partitioned, this would be branchless :]
+            float ri = front_face ? (1.0 / refraction_index) : refraction_index;
 
-        random_unit_vectors(scattered, scattered + len);
-        std::transform(normals, normals + len, scattered, scattered, [&](auto const &normal, auto const &rng) {
-            return normal + rng;
+            vec3 unit_direction = unit_vector(in_dir);
+            float cos_theta = -dot(unit_direction, normal);
+
+            bool cannot_refract = ri * ri * (1 - cos_theta * cos_theta) > 1.0;
+            vec3 direction;
+
+            if (cannot_refract || reflectance(cos_theta, ri) > random_float())
+                direction = reflect(unit_direction, normal);
+            else
+                direction = refract(unit_direction, normal, ri);
+
+            return direction;
         });
-        break;
-    case kind::metal: {
-        ZoneScopedN("metal scatter");
-        // @perf might want a different buffer for random numbers and then add things to those.
-        random_unit_vectors(scattered, scattered + len);
-        auto const fuzz = mat.data.fuzz;
-        std::transform(scattered, scattered + len, scattered, [&](auto const &rng) { return fuzz * rng; });
-        std::transform(in_ray, in_ray + len, std::views::iota(0).begin(), scattered, [&](auto const &r, auto const i) {
-            return unit_vector(reflect(r.dir, normals[i])) + scattered[i];
-        });
-    } break;
-    case kind::dielectric:
-        ZoneScopedN("dielectric scatter");
-        // @perf check out.
-        std::transform(
-            in_ray, in_ray + len,
-            std::views::iota(decltype(len)(0)).begin(),
-            scattered, [&](auto const &hit_res, auto const i) -> vec3 {
-                auto const &r = in_ray[i];
-                auto const &in_dir = r.dir;
-                auto const &normal = normals[i];
-                auto const front_face = front_faces[i];
-                auto refraction_index = mat.data.refraction_index;
-                // @perf if front face was partitioned, this would be branchless :]
-                float ri = front_face ? (1.0 / refraction_index) : refraction_index;
-
-                vec3 unit_direction = unit_vector(in_dir);
-                float cos_theta = -dot(unit_direction, normal);
-
-                bool cannot_refract = ri * ri * (1 - cos_theta * cos_theta) > 1.0;
-                vec3 direction;
-
-                if (cannot_refract || reflectance(cos_theta, ri) > random_float())
-                    direction = reflect(unit_direction, normal);
-                else
-                    direction = refract(unit_direction, normal, ri);
-
-                return direction;
-            });
-        break;
-    }
 }

@@ -40,7 +40,10 @@ struct material {
     {
     }
 
-    void scatter(ray const *in_ray, vec3 const *normal, bool const *front_face, uint32 const len, vec3 *scattered) const noexcept;
+    static void scatter_isotropic(vec3 *scattered, vec3 *end) noexcept;
+    static void scatter_lambertian(vec3 const *normal, uint32 const len, vec3 *scattered) noexcept;
+    static void scatter_metal(float const fuzz, ray const *in_ray, vec3 const *normals, vec3 *scattered, vec3 *end) noexcept;
+    static void scatter_dielectric(float const refraction_index, ray const *in_ray, bool const *front_faces, vec3 const *normals, vec3 *scattered, vec3 *end) noexcept;
 
     static constexpr material metal(float fuzz)
     {

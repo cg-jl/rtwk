@@ -386,29 +386,74 @@ static void gsim(color const &background, uint32 const spp,
             start = end;
         }
 
-        // @perf Think about making lights be at the end of all so that the
-        // zeroed-queue region is conntiguous.
+        // @perf The materials that have the same object pointer already have the same material (and same material index!)
+        // So partitioning first by material tag and then by object pointer holds the invariant for mat kind partitions.
+
+        // @perf probably could partition these before calculating uvs/normals etc. Less swaps.
+
+        // @perf All of them need uvs. So UVs requiring normals on all object kinds is blocking optimization.
+
+        // @dep requires uvs (normals aswell right now).
         auto const lights_begin = partition(cms_end, nohits_begin, swap_hitsels_hitrecs, [&](auto i) {
             auto const &res = buffers.hit_selects[i].first;
             auto const &mat = world.objects[res.relIndex].mat;
             return mat.tag != material::kind::diffuse_light;
         });
 
-        for (uint32 start = cms_end; start < lights_begin;) {
+        // @perf partition isotropics before everything that requires normals/uvs. This way I can cut the number
+        // of such that get calculated and also retain the contiguous space.
+        auto const isotropics_begin = partition(cms_end, lights_begin, swap_hitsels_hitrecs, [&](auto const i) {
+            auto const &res = buffers.hit_selects[i].first;
+            auto const &mat = world.objects[res.relIndex].mat;
+            return mat.tag != material::kind::isotropic;
+        });
+
+        // @dep requires normals
+        auto const lambertians_begin = partition(cms_end, isotropics_begin, swap_hitsels_hitrecs, [&](auto const i) {
+            auto const &res = buffers.hit_selects[i].first;
+            auto const &mat = world.objects[res.relIndex].mat;
+            return mat.tag != material::kind::lambertian;
+        });
+
+        // @dep requires normal.
+        auto const metals_begin = partition(cms_end, lambertians_begin, swap_hitsels_hitrecs, [&](auto const i) {
+            auto const &res = buffers.hit_selects[i].first;
+            auto const &mat = world.objects[res.relIndex].mat;
+            return mat.tag != material::kind::metal;
+        });
+
+        // Dielectrics (the rest). @dep requires is_front, normal
+        for (uint32 start = cms_end; start < metals_begin;) {
             auto const mat_index = buffers.hit_selects[start].first.relIndex;
-            auto const end = partition(start + 1, lights_begin, swap_hitsels_hitrecs, [&](auto const i) {
+            auto const end = partition(start + 1, metals_begin, swap_hitsels_hitrecs, [&](auto const i) {
                 return buffers.hit_selects[i].first.relIndex == mat_index;
             });
 
-            world.objects[mat_index].mat.scatter(
-                buffers.rays.rays + start,
-                buffers.hit_recs.normal + start,
-                buffers.hit_recs.is_front + start,
-                end - start,
-                buffers.scatters + start);
+            auto const &mat = world.objects[mat_index].mat;
+
+            material::scatter_dielectric(mat.data.refraction_index, buffers.rays.rays + start, buffers.hit_recs.is_front + start, buffers.hit_recs.normal + start, buffers.scatters + start, buffers.scatters + end);
+            break;
 
             start = end;
         }
+        for (uint32 start = metals_begin; start < lambertians_begin;) {
+            auto const mat_index = buffers.hit_selects[start].first.relIndex;
+            auto const end = partition(start + 1, lambertians_begin, swap_hitsels_hitrecs, [&](auto const i) {
+                return buffers.hit_selects[i].first.relIndex == mat_index;
+            });
+
+            auto const &mat = world.objects[mat_index].mat;
+
+            material::scatter_metal(
+                mat.data.fuzz,
+                buffers.rays.rays + start, buffers.hit_recs.normal + start, buffers.scatters + start, buffers.scatters + end);
+
+            start = end;
+        }
+
+        material::scatter_lambertian(buffers.hit_recs.normal + lambertians_begin, isotropics_begin - lambertians_begin, buffers.scatters + lambertians_begin);
+
+        material::scatter_isotropic(buffers.scatters + isotropics_begin, buffers.scatters + lights_begin);
 
         // layout:
         // cms_end | bounces  | lights | nohit
