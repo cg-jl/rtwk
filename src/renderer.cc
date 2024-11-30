@@ -90,18 +90,20 @@ struct px_sampleq {
     commitSave commit() { return tally; }
     void reset() { tally = {}; }
 };
-static vec3 sample_square()
+using vec2 = std::array<float, 2>;
+static vec2 sample_square()
 {
     // Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit
     // square.
-    return vec3(random_float() - 0.5, random_float() - 0.5, 0);
+    return vec2 { random_float() - 0.5f, random_float() - 0.5f };
 }
+
 // @perf use vec2 for this?
-static point3 random_in_unit_disk()
+static vec2 random_in_unit_disk()
 {
     while (true) {
-        auto p = vec3 { random_float(-1., 1.), random_float(-1., 1.), 0 };
-        if (p.length_squared() < 1)
+        auto p = vec2 { random_float(-1., 1.), random_float(-1., 1.) };
+        if (p[0] * p[0] + p[1] * p[1] < 1)
             return p;
     }
 }
@@ -109,8 +111,13 @@ static point3 random_in_unit_disk()
 static void defocus_disk_samples(camera const &cam, point3 *__restrict__ start, point3 *__restrict__ end)
 {
     // @perf bulk random_in_unit_disk
-    std::generate(start, end, random_in_unit_disk);
-    std::transform(start, end, start, [&](auto p) {
+    // To prevent aliasing with different strides:
+    // a + 3*i < b + 2*i => b > a + i => b >= a + len
+    auto const len = end - start;
+    auto const v2_start = (vec2 *)start + len;
+    auto const v2_end = v2_start + len;
+    std::generate(v2_start, v2_end, random_in_unit_disk);
+    std::transform(v2_start, v2_end, start, [&](auto p) {
         return p[0] * cam.defocus_disk_u + p[1] * cam.defocus_disk_v;
     });
 }
@@ -122,9 +129,15 @@ struct GetRays_Buffers {
 static void generate_ray_dir_samples(vec3 *__restrict__ start, vec3 *__restrict__ end, camera const &cam, int i, int j)
 {
     // @perf bulk sample square
-    std::generate(start, end, sample_square);
-    std::transform(start, end, start, [&](auto const offset) {
-        return cam.pixel00_loc + ((i + offset.x()) * cam.pixel_delta_u) + ((j + offset.y()) * cam.pixel_delta_v);
+    // To prevent aliasing with different strides:
+    // a + 3*i < b + 2*i => b > a + i => b >= a + len
+    auto const len = end - start;
+    auto const v2_start = (vec2 *)start + len;
+    auto const v2_end = v2_start + len;
+    std::generate(v2_start, v2_end, sample_square);
+    // @perf this can be split in more transforms.
+    std::transform(v2_start, v2_end, start, [&](auto const offset) {
+        return cam.pixel00_loc + ((i + offset[0]) * cam.pixel_delta_u) + ((j + offset[1]) * cam.pixel_delta_v);
     });
 }
 
