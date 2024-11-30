@@ -311,6 +311,19 @@ struct Scanline_Buffers {
     }
 };
 
+// Adjust normals to outwards facing normals. Fills is_front[i] depending on whether `normal` was already
+static void adjustNormalsToOutwardFace(ray const *rays, vec3 *normals, bool *is_front, uint32 start, uint32 end)
+{
+    // @perf partition instead of asking each time.
+    std::transform(rays + start, rays + end, normals + start, is_front + start, [&](auto const &r, auto const &normal) {
+        return is_front_face(r.dir, normal);
+    });
+
+    std::transform(is_front + start, is_front + end, normals + start, normals + start, [&](auto const is_front, auto const normal) {
+        return is_front ? normal : -normal;
+    });
+}
+
 // FIXME: I'm in the middle of a refactoring.
 // I am trying to make everything reflect the multi-to-multi dynamism of rays,
 // so I have to think about processing multiple rays faster. Since I'm already
@@ -412,14 +425,8 @@ static void gsim(color const &background, uint32 const spp,
             auto const normals = buffers.hit_recs.normal;
             // @perf inline getNormals. has no use being obstructed.
             res.ptr.sphere->getNormals(rays, dist, times, normals, start, end);
-            // @perf partition instead of asking each time.
-            std::transform(buffers.rays.rays + start, buffers.rays.rays + end, buffers.hit_recs.normal + start, buffers.hit_recs.is_front + start, [&](auto const &r, auto const &normal) {
-                return is_front_face(r.dir, normal);
-            });
 
-            std::transform(buffers.hit_recs.is_front + start, buffers.hit_recs.is_front + end, buffers.hit_recs.normal + start, buffers.hit_recs.normal + start, [&](auto const is_front, auto const normal) {
-                return is_front ? normal : -normal;
-            });
+            adjustNormalsToOutwardFace(rays, normals, buffers.hit_recs.is_front, start, end);
 
             using std::ranges::subrange;
             using std::ranges::views::zip;
@@ -449,14 +456,7 @@ static void gsim(color const &background, uint32 const spp,
                 break;
             }
 
-            // @perf partition instead of asking each time.
-            std::transform(buffers.rays.rays + start, buffers.rays.rays + end, buffers.hit_recs.normal + start, buffers.hit_recs.is_front + start, [&](auto const &r, auto const &normal) {
-                return is_front_face(r.dir, normal);
-            });
-
-            std::transform(buffers.hit_recs.is_front + start, buffers.hit_recs.is_front + end, buffers.hit_recs.normal + start, buffers.hit_recs.normal + start, [&](auto const is_front, auto const normal) {
-                return is_front ? normal : -normal;
-            });
+            adjustNormalsToOutwardFace(rays, normals, buffers.hit_recs.is_front, start, end);
 
             using std::ranges::subrange;
             using std::ranges::views::zip;
