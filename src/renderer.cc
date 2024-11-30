@@ -91,11 +91,14 @@ struct px_sampleq {
     void reset() { tally = {}; }
 };
 using vec2 = std::array<float, 2>;
-static vec2 sample_square()
+
+// Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit
+// square.
+static void sample_squares(vec2 *__restrict__ start, vec2 *__restrict__ end)
 {
-    // Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit
-    // square.
-    return vec2 { random_float() - 0.5f, random_float() - 0.5f };
+    // @perf bulk RNG.
+    std::generate((float *)start, (float *)end, [] { return random_float(); });
+    std::transform((float *)start, (float *)end, (float *)start, [](auto x) { return x - 0.5f; });
 }
 
 // @perf use vec2 for this?
@@ -134,7 +137,7 @@ static void generate_ray_dir_samples(vec3 *__restrict__ start, vec3 *__restrict_
     auto const len = end - start;
     auto const v2_start = (vec2 *)start + len;
     auto const v2_end = v2_start + len;
-    std::generate(v2_start, v2_end, sample_square);
+    sample_squares(v2_start, v2_end);
     // @perf this can be split in more transforms.
     std::transform(v2_start, v2_end, start, [&](auto const offset) {
         return cam.pixel00_loc + ((i + offset[0]) * cam.pixel_delta_u) + ((j + offset[1]) * cam.pixel_delta_v);
