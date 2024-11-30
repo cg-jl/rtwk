@@ -420,13 +420,22 @@ static void gsim(color const &background, uint32 const spp,
             using std::ranges::subrange;
             using std::ranges::views::zip;
 
-            res.getUVs(
-                buffers.hit_recs.normal,
-                buffers.rays.rays,
-                buffers.hit_selects.dist,
-                buffers.hit_recs.uv,
-                start,
-                end);
+            auto const rays = buffers.rays.rays;
+            auto const normals = buffers.hit_recs.normal;
+            auto const dist = buffers.hit_selects.dist;
+            auto const results = buffers.hit_recs.uv;
+
+            switch (res.kind) {
+            case geometry_kind::box:
+                res.ptr.box->getUVs(rays, dist, results, start, end);
+                break;
+            case geometry_kind::sphere:
+                sphere::getUVs(normals, results, start, end);
+                break;
+            case geometry_kind::quad:
+                res.ptr.quad->getUVs(rays, dist, results, start, end);
+                break;
+            }
 
             start = end;
         }
