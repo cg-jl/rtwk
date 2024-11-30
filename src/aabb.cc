@@ -94,29 +94,33 @@ void aabb::hit(ray const *rays, uint32 const len, float *results) const noexcept
     });
 }
 
-static vec3 getNormal(aabb const &bb, point3 intersection)
+static vec3 vabs(vec3 x)
 {
-    // @perf could be simd'ized if required.
-    for (int axis = 0; axis < 3; ++axis) {
-        auto intv = bb.axis_interval(axis);
-
-        if (std::abs(intersection[axis] - intv.min) > 1e-8 && std::abs(intersection[axis] - intv.max) > 1e-8) {
-            continue;
-        }
-
-        vec3 v { 0, 0, 0 };
-        v[axis] = 1;
-        return v;
-    }
-    std::unreachable();
+    return { std::abs(x[0]), std::abs(x[1]), std::abs(x[2]) };
 }
 
 void aabb::getNormals(ray const *rays, float const *dist, vec3 *results, uint32 start, uint32 end) const noexcept
 {
-    // @perf split transforms?
+
     std::transform(dist + start, dist + end, rays, results + start, [&](auto const closestHit, auto const &r) {
         auto intersection = r.at(closestHit);
-        return ::getNormal(*this, intersection);
+        auto const min_intersect = vabs(intersection - min);
+        auto const max_intersect = vabs(intersection - max);
+        auto const min_of_both = vec3 {
+            std::min(min_intersect[0], max_intersect[0]),
+            std::min(min_intersect[1], max_intersect[1]),
+            std::min(min_intersect[2], max_intersect[2]),
+        };
+        return min_of_both;
+    });
+
+    // @perf split transforms?
+    std::transform(results + start, results + end, results + start, [&](auto const min_of_both) {
+        auto const idx = std::distance(min_of_both.e, std::find_if(min_of_both.e, &min_of_both.e[3], [](auto const x) { return x <= 1e-8; }));
+
+        vec3 v { 0, 0, 0 };
+        v[idx] = 1;
+        return v;
     });
 }
 
