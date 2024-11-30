@@ -426,17 +426,10 @@ static void gsim(color const &background, uint32 const spp,
             // @perf inline getNormals. has no use being obstructed.
             res.ptr.sphere->getNormals(rays, dist, times, normals, start, end);
 
-            adjustNormalsToOutwardFace(rays, normals, buffers.hit_recs.is_front, start, end);
-
-            using std::ranges::subrange;
-            using std::ranges::views::zip;
-
-            auto const results = buffers.hit_recs.uv;
-
-            sphere::getUVs(normals, results, start, end);
-
             start = end;
         }
+        adjustNormalsToOutwardFace(buffers.rays.rays, buffers.hit_recs.normal, buffers.hit_recs.is_front, cms_end, spheres_end);
+        sphere::getUVs(buffers.hit_recs.normal, buffers.hit_recs.uv, cms_end, spheres_end);
         for (uint32 start = spheres_end; start < nohits_begin;) {
             auto const res = buffers.hit_selects.ptr[start];
             auto const end = partition(start + 1, nohits_begin, hit_select_swap, [&](auto const i) { return buffers.hit_selects.ptr[i] == res; });
