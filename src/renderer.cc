@@ -177,13 +177,6 @@ struct countArrays {
 using select_res = std::pair<geometry_ptr, float>;
 using cm_res = std::pair<color const *, float>;
 
-// @perf remove this.
-struct hit_record {
-    vec3 const &normal;
-    uvs const &uv;
-    bool const &is_front;
-};
-
 struct hit_record_buffer {
     vec3 *normal;
     uvs *uv;
@@ -197,11 +190,6 @@ struct hit_record_buffer {
             .uv = new uvs[spp],
             .is_front = new bool[spp],
         };
-    }
-
-    auto constexpr operator[](uint32 const i) const noexcept
-    {
-        return hit_record { normal[i], uv[i], is_front[i] };
     }
 
     void swap(uint32 const i, uint32 const k) noexcept
@@ -486,9 +474,8 @@ static void gsim(color const &background, uint32 const spp,
 
             // @perf p is cheap, rest aren't.
             auto p = r.r.at(closestHit);
-            auto const &[normal, uv, front_face] = buffers.hit_recs[i];
-
-            auto const &tex = world.objects[res.relIndex].tex;
+            auto const uv = buffers.hit_recs.uv[i];
+            auto const tex = world.objects[res.relIndex].tex;
 
             q.emplace(tex, uv, p);
         }
@@ -513,9 +500,8 @@ static void gsim(color const &background, uint32 const spp,
 
             // @perf p is cheap, rest aren't.
             auto p = r.r.at(closestHit);
-            auto const &[normal, uv, front_face] = buffers.hit_recs[i];
-
-            auto const &[mat, tex] = world.objects[res.relIndex];
+            auto const uv = buffers.hit_recs.uv[i];
+            auto const tex = world.objects[res.relIndex].tex;
 
             q.emplace(tex, uv, p);
         }
