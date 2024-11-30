@@ -5,7 +5,6 @@
 #include <tracy/Tracy.hpp>
 
 #include "hittable.h"
-#include "trace_colors.h"
 
 static point3 sphere_center(sphere const &sph, float time)
 {
@@ -116,11 +115,6 @@ aabb sphere::bounding_box() const
     return aabb(box1, box2);
 }
 
-static vec3 getNormal(sphere const &sph, point3 const intersection, float time)
-{
-    return (intersection - sphere_center(sph, time)) / sph.radius;
-}
-
 sphere sphere::applyTransform(sphere a, transform tf) noexcept
 {
     auto previous = a.center1;
@@ -130,11 +124,14 @@ sphere sphere::applyTransform(sphere a, transform tf) noexcept
 }
 void sphere::getNormals(ray const *rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept
 {
-    // @pefr check out.
-    std::transform(dist + start, dist + end, std::views::iota(start).begin(), results + start, [&](auto const closestHit, auto const i) {
-        auto r = rays[i];
-        auto time = times[i];
-        auto intersection = r.at(closestHit);
-        return ::getNormal(*this, intersection, time);
+    std::transform(dist + start, dist + end, rays, results + start, [&](auto const closestHit, auto const &r) {
+        return r.at(closestHit);
+    });
+    std::transform(results + start, results + end, times, results + start, [&](auto const intersection, auto const time) {
+        return intersection - sphere_center(*this, time);
+    });
+    // normalize.
+    std::transform(results + start, results + end, results + start, [rad = radius](auto const r2center) {
+        return r2center / rad;
     });
 }
