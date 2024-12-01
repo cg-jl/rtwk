@@ -102,8 +102,11 @@ static vec3 vabs(vec3 x)
 void aabb::getNormals(ray const *rays, float const *dist, vec3 *results, uint32 start, uint32 end) const noexcept
 {
 
-    std::transform(dist + start, dist + end, rays, results + start, [&](auto const closestHit, auto const &r) {
-        auto intersection = r.at(closestHit);
+    std::transform(dist + start, dist + end, rays + start, results + start, [&](auto const closestHit, auto const &r) {
+        return r.at(closestHit);
+    });
+
+    std::transform(results + start, results + end, results + start, [&](auto const intersection) {
         auto const min_intersect = vabs(intersection - min);
         auto const max_intersect = vabs(intersection - max);
         auto const min_of_both = vec3 {
@@ -114,8 +117,7 @@ void aabb::getNormals(ray const *rays, float const *dist, vec3 *results, uint32 
         return min_of_both;
     });
 
-    // @perf split transforms?
-    std::transform(results + start, results + end, results + start, [&](auto const min_of_both) {
+    std::transform(results + start, results + end, results + start, [&](auto const &min_of_both) {
         auto const idx = std::distance(min_of_both.e, std::find_if(min_of_both.e, &min_of_both.e[3], [](auto const x) { return x <= 1e-8; }));
 
         vec3 v { 0, 0, 0 };
