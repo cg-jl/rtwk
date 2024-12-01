@@ -94,11 +94,6 @@ void aabb::hit(ray const *rays, uint32 const len, float *results) const noexcept
     });
 }
 
-static vec3 vabs(vec3 x)
-{
-    return { std::abs(x[0]), std::abs(x[1]), std::abs(x[2]) };
-}
-
 void aabb::getNormals(ray const *rays, float const *dist, vec3 *results, uint32 start, uint32 end) const noexcept
 {
 
@@ -106,24 +101,21 @@ void aabb::getNormals(ray const *rays, float const *dist, vec3 *results, uint32 
         return r.at(closestHit);
     });
 
-    std::transform(results + start, results + end, results + start, [&](auto const intersection) {
-        auto const min_intersect = vabs(intersection - min);
-        auto const max_intersect = vabs(intersection - max);
-        auto const min_of_both = vec3 {
-            std::min(min_intersect[0], max_intersect[0]),
-            std::min(min_intersect[1], max_intersect[1]),
-            std::min(min_intersect[2], max_intersect[2]),
-        };
-        return min_of_both;
-    });
+    auto const fstart = 3 * start;
+    auto const fend = 3 * end;
+    auto const fresults = (float *)results;
 
-    std::transform(results + start, results + end, results + start, [&](auto const &min_of_both) {
-        auto const idx = std::distance(min_of_both.e, std::find_if(min_of_both.e, &min_of_both.e[3], [](auto const x) { return x <= 1e-8; }));
-
-        vec3 v { 0, 0, 0 };
-        v[idx] = 1;
-        return v;
-    });
+    auto const eps = 1e-8f;
+    for (auto i = fstart; i < fend; ++i) {
+        auto const axis = (i - fstart) % 3;
+        auto const min_intersect = std::abs(fresults[i] - min[axis]);
+        auto const max_intersect = std::abs(fresults[i] - max[axis]);
+        auto const min_of_both = std::min(min_intersect, max_intersect);
+        auto const has_one_before = (axis != 0) && (fresults[i - 1] == 1.f);
+        auto const has_two_before = (axis == 2) && (fresults[i - 2] == 1.f);
+        auto const has_this = min_of_both < eps;
+        fresults[i] = float(has_this & !has_two_before & !has_one_before);
+    }
 }
 
 using std::ranges::subrange;
