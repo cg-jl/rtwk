@@ -1,3 +1,4 @@
 set -ex
-cmake --build build-dbg
+sed -ie 's/CMAKE_BUILD_TYPE.*/CMAKE_BUILD_TYPE:STRING=Debug/' build/CMakeCache.txt
+cmake --build build
 gdb ./build-dbg/rt

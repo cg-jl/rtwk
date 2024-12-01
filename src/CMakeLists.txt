@@ -55,7 +55,6 @@ target_compile_options(rt PRIVATE
         -fcolor-diagnostics
         -fdiagnostics-show-template-tree
         #-fconcepts-diagnostics-depth=4
-        -flto
 )
 
 include(CheckIPOSupported)
@@ -67,6 +66,7 @@ if (ipo_supported)
     else ()
         message(STATUS "Enabling LTO for release mode")
         set_property(TARGET rt PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+        target_compile_options(rt PRIVATE -flto)
     endif ()
 else ()
     message(WARNING "LTO is not supported and thus will not be enabled: ${error}")
