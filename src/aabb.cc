@@ -131,6 +131,9 @@ void aabb::getUVs(ray const *rays, float const *dist, uvs *results, uint32 start
             auto const &[r, closestHit] = t;
             auto intersection = r.at(closestHit);
             auto const &bb = *this;
+
+            // FIXME: There is some bug here that makes the loop not find any appropiate interval for the hit.
+
             // search for the "box" that borders the point interval, since we know that
             // the point is already within the bounds of the box.
             for (int axis = 0; axis < 3; ++axis) {

@@ -132,6 +132,8 @@ void sphere::getNormals(ray const *rays, float const *dist, float const *times, 
     });
     // normalize.
     std::transform(results + start, results + end, results + start, [rad = radius](auto const r2center) {
+        // FIXME: Some of the intersections here are not at a distance 'radius' away from the calculated center.
+        // Are we swapping things correctly in renderer?
         return r2center / rad;
     });
 }
