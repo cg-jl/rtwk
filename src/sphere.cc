@@ -5,6 +5,7 @@
 #include <tracy/Tracy.hpp>
 
 #include "hittable.h"
+#include "interval.h"
 
 static point3 sphere_center(sphere const &sph, float time)
 {
@@ -49,11 +50,47 @@ void sphere::hit(ray const *rays, float const *times, uint32 const len, float *r
     });
 }
 
-void sphere::traverse(ray const *rays, float const *times, uint32 const len, interval *results) const noexcept
+void sphere::traverse(ray const *rays, float const *times, uint32 const len, interval_buffer results) const noexcept
 {
+
+    struct zipped_outbuf {
+        interval_buffer const *results;
+        uint32 index;
+
+        struct assign_proxy {
+            float *min;
+            float *max;
+
+            assign_proxy &operator=(interval x)
+            {
+                *min = x.min;
+                *max = x.max;
+                return *this;
+            }
+
+            operator interval() const noexcept { return { *min, *max }; }
+        };
+
+        assign_proxy operator*() const noexcept
+        {
+            return assign_proxy {
+                .min = results->mins + index,
+                .max = results->maxes + index
+            };
+        }
+
+        zipped_outbuf &operator++() noexcept
+        {
+            ++index;
+            return *this;
+        }
+
+        auto constexpr operator<=>(zipped_outbuf const &other) { return index <=> other.index; }
+    };
+
     // @perf separate transform into smaller pieces
     // @perf same thing wrt time.
-    std::transform(rays, rays + len, times, results, [&](auto const &r, auto const time) {
+    std::transform(rays, rays + len, times, zipped_outbuf { &results, 0 }, [&](auto const &r, auto const time) {
         // NOTE: @cutnpaste from sphere::hit
         ZoneNamedNC(_tracy, "sphere traverse", Ctp::Mantle, filters::hit);
         point3 center = sphere_center(*this, time);

@@ -24,8 +24,9 @@ struct SampleCM_Buffers {
     float *currentHit;
     float *rayLength;
     std::optional<uint32_t> *selected;
-    interval *traversals;
+    interval_buffer traversals;
     float *thit;
+    aabb::Traverse_Buffers bb;
 
     static SampleCM_Buffers request(uint32_t const spp)
     {
@@ -33,8 +34,10 @@ struct SampleCM_Buffers {
             .currentHit = new float[spp],
             .rayLength = new float[spp],
             .selected = new std::optional<uint32_t>[spp],
-            .traversals = new interval[spp],
+            .traversals = interval_buffer::request(spp),
             .thit = new float[spp],
+            // @mem I want to reuse memory
+            .bb = aabb::Traverse_Buffers::request(spp),
         };
     }
 };

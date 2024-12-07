@@ -69,3 +69,34 @@ constexpr interval operator+(float displacement, interval ival)
 {
     return ival + displacement;
 }
+
+struct interval_buffer {
+    float *mins;
+    float *maxes;
+
+    static interval_buffer request(uint32 spp)
+    {
+        return {
+            .mins = new float[spp],
+            .maxes = new float[spp],
+        };
+    }
+
+    auto constexpr operator[](auto i)
+    {
+        return interval { mins[i], maxes[i] };
+    }
+
+    void swap(auto i, decltype(i) k) const noexcept
+    {
+        std::swap(mins[i], mins[k]);
+        std::swap(maxes[i], maxes[k]);
+    }
+
+    auto constexpr zip(auto end, decltype(end) start = 0) const
+    {
+        return std::ranges::views::zip(
+            std::ranges::subrange(mins + start, mins + end),
+            std::ranges::subrange(maxes + start, maxes + end));
+    }
+};

@@ -2,8 +2,6 @@
 
 #include <algorithm>
 #include <functional>
-#include <print>
-#include <ranges>
 #include <sys/types.h>
 #include <tracy/Tracy.hpp>
 
@@ -13,14 +11,13 @@
 #include "hittable.h"
 #include "ray.h"
 #include "rtweekend.h"
-#include "trace_colors.h"
 
 void hittable_list::select(ray_buffer rays, uint32 const len, Select_Buffers buffers, hit_span_buf results, std::function<void(uint32, uint32)> const &swap_rays) const noexcept
 {
 
     bvh::tree(treebld).hit(rays, len, results, buffers.bvh, swap_rays);
 
-    hitSpan(selectGeoms, rays, len, results, buffers.hit_span_backbuf);
+    hitSpan(selectGeoms, buffers.bvh.bb_hit, rays, len, results, buffers.hit_span_backbuf);
 }
 
 void hittable_list::transformAll(transform tf)
@@ -84,7 +81,7 @@ void hittable_list::sampleCMs(
         std::swap(buffers.currentHit[i], buffers.currentHit[j]);
         std::swap(buffers.selected[i], buffers.selected[j]);
         std::swap(buffers.rayLength[i], buffers.rayLength[j]);
-        std::swap(buffers.traversals[i], buffers.traversals[j]);
+        buffers.traversals.swap(i, j);
         std::swap(buffers.thit[i], buffers.thit[j]);
         std::swap(results[i], results[j]);
         swap_rays(i, j);
@@ -101,15 +98,14 @@ void hittable_list::sampleCMs(
 
         // @perf Later I could add partitioning to the mix so
         // I get less branch mispredicts.
-        cm.geom.traverse(rays, times, len, buffers.traversals);
+        cm.geom.traverse(rays, times, len, { buffers.bb }, buffers.traversals);
 
         // Intersect with minimum distance that ray should travel.
         std::transform(buffers.rayLength, buffers.rayLength + len,
-            buffers.traversals, buffers.traversals,
-            [&](auto const rayLength, auto t) {
+            buffers.traversals.mins, buffers.traversals.mins,
+            [&](auto const rayLength, auto tmin) {
                 auto const minDist = rayLength * minRayDist;
-                t.min = std::max(t.min, minDist);
-                return t;
+                return std::max(tmin, minDist);
             });
 
         auto const isempty_begin = partition(
@@ -140,8 +136,7 @@ void hittable_list::sampleCMs(
             buffers.thit, log);
         std::transform(
             buffers.thit, buffers.thit + dispersed_before_start_begin,
-            buffers.traversals, buffers.thit, [&](auto l, auto const &t) {
-                auto const tstart = t.min;
+            buffers.traversals.mins, buffers.thit, [&](auto l, auto const tstart) {
                 return cm.neg_inv_density * l + tstart;
             });
 

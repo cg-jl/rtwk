@@ -52,16 +52,20 @@ struct tree_builder {
 
 struct Hit_Buffer {
     uint32 *node_indices;
-    interval *t;
+    interval_buffer t;
     // @mem this can be shared with Select_Buffers.
     float *cmp_res;
+    aabb::Traverse_Buffers bb_traverse;
+    aabb::Hit_Buffers bb_hit;
 
     static Hit_Buffer request(uint32 const spp)
     {
         return {
             .node_indices = new uint32[spp],
-            .t = new interval[spp],
+            .t = interval_buffer::request(spp),
             .cmp_res = new float[spp],
+            .bb_traverse = aabb::Traverse_Buffers::request(spp),
+            .bb_hit = aabb::Hit_Buffers::request(spp),
         };
     }
 };

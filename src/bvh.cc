@@ -167,20 +167,21 @@ void bvh::tree::hit(ray_buffer rays, uint32 const len, hit_span_buf results, bvh
         auto const node_index = buffer.node_indices[0];
         auto const rays_for_node = partition(uint32(1), remaining, swap, [&](auto const i) { return buffer.node_indices[i] == node_index; });
 
-        boxes[node_index].traverse(rays.rays, rays_for_node, buffer.t);
+        boxes[node_index].traverse(rays.rays, rays_for_node, buffer.bb_traverse, buffer.t);
 
         // @perf only distances are required here.
-        std::transform(buffer.t, buffer.t + rays_for_node, results.zip(len).begin(), buffer.t, [&](auto t, auto const &res) {
-            auto const &closestHit = std::get<float&>(res);
-            t.max = std::min(t.max, closestHit);
+        std::transform(buffer.t.zip(rays_for_node).begin(), buffer.t.zip(rays_for_node).end(), results.zip(rays_for_node).begin(), buffer.t.zip(rays_for_node).begin(), [&](auto t, auto const &res) {
+            auto const &closestHit = std::get<float &>(res);
+            auto &[tmin, tmax] = t;
+            tmax = std::min(tmax, closestHit);
             // @perf may be specialized to its own loop.
-            t.min = std::max(t.min, minRayDist);
+            tmin = std::max(tmin, minRayDist);
             return t;
         });
 
         auto swap_with_t = [&](auto i, auto j) {
             swap(i, j);
-            std::swap(buffer.t[i], buffer.t[j]);
+            buffer.t.swap(i, j);
         };
 
         // NOTE: Thanks to this partition, we know know that the index selection
@@ -218,7 +219,7 @@ void bvh::tree::hit(ray_buffer rays, uint32 const len, hit_span_buf results, bvh
 
             auto span = std::span { geoms + n.objectIndex, size_t(n.objectCount) };
 
-            hitSpan(span, rays, empty_begin, results, buffer.cmp_res);
+            hitSpan(span, buffer.bb_hit, rays, empty_begin, results, buffer.cmp_res);
         }
         remaining = partition(uint32(0), remaining, swap, [&](auto const i) {
             return buffer.node_indices[i] < tree_end;

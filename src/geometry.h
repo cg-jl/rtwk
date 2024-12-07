@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <bit>
 #include <cstdint>
-#include <iterator>
 #include <ranges>
 #include <span>
 #include <tracy/Tracy.hpp>
@@ -14,9 +13,7 @@
 #include "quad.h"
 #include "ray.h"
 #include "sphere.h"
-#include "trace_colors.h"
 #include "transforms.h"
-#include "vec3.h"
 
 //  @maybe separating them in tags is interesting
 // for hitSelect but not for constantMediums.
@@ -184,13 +181,17 @@ struct traversable_geometry {
     // direction and the origin point. The intersection is geometric based
     // (distance), not relative to the ray's "speed" on each direction.
 
-    void traverse(ray const *rays, float const *times, uint32 const len, interval *traversals) const
+    struct Traverse_Buffers {
+        aabb::Traverse_Buffers bb;
+    };
+
+    void traverse(ray const *rays, float const *times, uint32 const len, Traverse_Buffers buffers, interval_buffer traversals) const
     {
         switch (kind) {
 
         case kind::box:
             // @perf bulk box traversal
-            data.box.traverse(rays, len, traversals);
+            data.box.traverse(rays, len, buffers.bb, traversals);
             break;
         case kind::sphere:
             data.sphere.traverse(rays, times, len, traversals);
@@ -237,14 +238,14 @@ struct hit_span_buf {
     }
 };
 
-inline void hitSpan(std::span<geometry const> objects, ray_buffer rays, uint32 len, hit_span_buf acc, float *backbuf)
+inline void hitSpan(std::span<geometry const> objects, aabb::Hit_Buffers aabb_bufs, ray_buffer rays, uint32 len, hit_span_buf acc, float *backbuf)
 {
     for (auto const &obj : objects) {
         auto ptr = geometry_ptr(obj);
         // @perf bulk geometry hit :]
         switch (ptr.kind) {
         case geometry_kind::box:
-            ptr.ptr.box->hit(rays.rays, len, backbuf);
+            ptr.ptr.box->hit(rays.rays, len, aabb_bufs, backbuf);
             break;
         case geometry_kind::sphere: {
             ptr.ptr.sphere->hit(rays.rays, rays.times, len, backbuf);

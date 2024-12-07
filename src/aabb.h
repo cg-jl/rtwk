@@ -64,8 +64,41 @@ struct aabb {
         return interval { min[n], max[n] };
     }
 
-    void hit(ray const *rays, uint32 const len, float *results) const noexcept;
-    void traverse(ray const *rays, uint32 const len, interval *results) const noexcept;
+    struct Hit_Buffers {
+        vec3 *mins;
+        vec3 *t0s;
+        vec3 *t1s;
+
+        // @mem might want to merge with traverse!
+        static Hit_Buffers request(uint32 spp)
+        {
+            return {
+                .mins = new vec3[spp],
+                .t0s = new vec3[spp],
+                .t1s = new vec3[spp],
+            };
+        }
+    };
+
+    struct Traverse_Buffers {
+        vec3 *mins;
+        vec3 *maxs;
+        vec3 *t0s;
+        vec3 *t1s;
+
+        static Traverse_Buffers request(uint32 spp)
+        {
+            return {
+                .mins = new vec3[spp],
+                .maxs = new vec3[spp],
+                .t0s = new vec3[spp],
+                .t1s = new vec3[spp],
+            };
+        }
+    };
+
+    void hit(ray const *rays, uint32 const len, Hit_Buffers buffers, float *__restrict__ results) const noexcept;
+    void traverse(ray const *rays, uint32 const len, Traverse_Buffers buffers, interval_buffer results) const noexcept;
     void getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 start, uint32 end) const noexcept;
     void getNormals(ray const *rays, float const *dist, vec3 *results, uint32 start, uint32 end) const noexcept;
 

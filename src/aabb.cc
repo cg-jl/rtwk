@@ -12,7 +12,6 @@
 
 #include "interval.h"
 #include "simd.h"
-#include "trace_colors.h"
 
 // @perf My L1 cache size (per CPU) is: 32kiB!
 // L3 is 4MiB and L2 is 512kiB.
@@ -40,60 +39,89 @@ static std::pair<__m128, __m128> get_t0s_t1s(aabb const &bb, ray const &r)
     return { t0s, t1s };
 }
 
-void aabb::traverse(ray const *rays, uint32 const len, interval *results) const noexcept
+static void reduce_transposed(float const *__restrict__ src, uint32 vec3_len, float *__restrict__ dst, auto reduce_scalar)
 {
-    // @perf think about splitting the transform
-    std::transform(rays, rays + len, results, [&](auto const &r) {
-        auto t0s = (min - r.orig) / r.dir;
-        auto t1s = (max - r.orig) / r.dir;
+    typedef float coord_array[vec3_len];
 
-        auto tmins = vec3 {
-            std::min(t0s[0], t1s[0]),
-            std::min(t0s[1], t1s[1]),
-            std::min(t0s[2], t1s[2]),
-        };
-        auto tmaxs = vec3 {
-            std::max(t0s[0], t1s[0]),
-            std::max(t0s[1], t1s[1]),
-            std::max(t0s[2], t1s[2]),
-        };
+    auto tmp_coord = (coord_array *)src;
+    auto const len = vec3_len;
+    auto const results = dst;
 
-        interval ray_t { tmins[0], tmaxs[0] };
-        for (int axis = 1; axis < 3; ++axis) {
-            auto t0 = tmins[axis];
-            auto t1 = tmaxs[axis];
-
-            if (t0 > ray_t.min)
-                ray_t.min = t0;
-            if (t1 < ray_t.max)
-                ray_t.max = t1;
+    // @perf use 8-wide blocks
+    for (auto k = 0uz; k < 3; ++k) {
+        for (auto i = 0uz; i < len; i++) {
+            tmp_coord[0][i] = reduce_scalar(tmp_coord[0][i], tmp_coord[k][i]);
         }
+    }
 
-        return ray_t;
-    });
+    for (auto i = 0uz; i < len; ++i) {
+        results[i] = tmp_coord[0][i];
+    }
 }
 
-void aabb::hit(ray const *rays, uint32 const len, float *results) const noexcept
+static void transpose_into(vec3 const *__restrict__ src, uint32 vec3_len, float *__restrict__ dst)
 {
-    // @perf think about splitting this transform.
-    std::transform(rays, rays + len, results, [&](auto const &r) {
-        auto [t0s, t1s] = get_t0s_t1s(*this, r);
-        auto tmins = _mm_min_ps(t0s, t1s);
+    typedef float coord_array[vec3_len];
 
-        // NOTE: @perf The compiler seems to be generating smarter code than I am
-        // for this last comparison loop step (minsd, maxsd three times :P).
+    auto *dst_coord = (coord_array *)dst;
 
-        auto tmin_array = (float *)&tmins;
-        float min = tmin_array[0];
-        for (int axis = 1; axis < 3; ++axis) {
-            auto t0 = ((float *)&tmins)[axis];
-
-            if (t0 > min)
-                min = t0;
+    // 1. transpose
+    for (auto i = 0uz; i < vec3_len; ++i) {
+        for (auto k = 0u; k < 3; ++k) {
+            dst_coord[k][i] = src[i][k];
         }
+    }
+}
 
-        return min;
-    });
+static void calc_transposed_ts(vec3 p, ray const *rays, uint32 const len, float *__restrict__ dst)
+{
+    typedef float coord_array[len];
+
+    for (auto k = 0u; k < 3; ++k) {
+        for (auto i = 0u; i < len; ++i) {
+            ((coord_array *)dst)[k][i] = (p[k] - rays[i].orig[k]) / rays[i].dir[k];
+        }
+    }
+}
+
+static void calc_t0s_t1s(vec3 min, vec3 max, ray const *rays, uint32 const len, float *__restrict__ t0s, float *__restrict__ t1s)
+{
+    calc_transposed_ts(min, rays, len, t0s);
+    calc_transposed_ts(max, rays, len, t1s);
+}
+
+void aabb::traverse(ray const *rays, uint32 const len, Traverse_Buffers buffers, interval_buffer results) const noexcept
+{
+
+    calc_t0s_t1s(min, max, rays, len, (float *)buffers.t0s, (float *)buffers.t1s);
+
+    // @perf pre-copying these and then reducing is much better for caching, since now there's
+    // only two input streams to cache.
+    std::copy(buffers.t0s, &buffers.t0s[len], buffers.mins);
+    std::copy(buffers.t0s, &buffers.t0s[len], buffers.maxs);
+
+    // @mem I can reuse one of the buffers as mins/maxes. Right now it would be `maxes` because it's the last thing that reads from t0 and t1.
+    std::transform((float *)buffers.mins, (float *)&buffers.mins[len], (float *)buffers.t1s, (float *)buffers.mins, [](auto a, auto b) { return std::min(a, b); });
+
+    std::transform((float *)buffers.maxs, (float *)&buffers.maxs[len], (float *)buffers.t1s, (float *)buffers.maxs, [](auto a, auto b) { return std::max(a, b); });
+
+    // @mem I could do the reducing on only one at a time and reduce memory consumption.
+    // Doing this without reusing arrays seems to make things slower though.
+    reduce_transposed((float *)buffers.maxs, len, results.maxes, [](auto a, auto b) { return std::min(a, b); });
+    reduce_transposed((float *)buffers.mins, len, results.mins, [](auto a, auto b) { return std::max(a, b); });
+}
+
+void aabb::hit(ray const *rays, uint32 const len, Hit_Buffers buffers, float *__restrict__ results) const noexcept
+{
+
+    calc_t0s_t1s(min, max, rays, len, (float *)buffers.t0s, (float *)buffers.t1s);
+
+    std::copy(buffers.t0s, &buffers.t0s[len], buffers.mins);
+
+    // @perf abstract n make it a zip_with with block transform
+    std::transform((float *)buffers.mins, (float *)&buffers.mins[len], (float *)buffers.t1s, (float *)buffers.mins, [](auto a, auto b) { return std::min(a, b); });
+
+    reduce_transposed((float *)buffers.mins, len, results, [](auto a, auto b) { return std::max(a, b); });
 }
 
 [[clang::always_inline]] static inline simd::floats extend_threef(float z0, float z1, float z2)
