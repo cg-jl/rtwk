@@ -40,37 +40,36 @@ static std::pair<__m128, __m128> get_t0s_t1s(aabb const &bb, ray const &r)
     return { t0s, t1s };
 }
 
-static interval traverse(aabb const &bb, ray const &r) noexcept
-{
-
-    auto [t0s, t1s] = get_t0s_t1s(bb, r);
-    auto tmins = _mm_min_ps(t0s, t1s);
-    auto tmaxs = _mm_max_ps(t0s, t1s);
-
-    // NOTE: @perf The compiler seems to be generating smarter code than I am
-    // for this last comparison loop step (minsd, maxsd three times :P).
-
-    auto tmin_array = (float *)&tmins;
-    auto tmaxs_array = (float *)&tmaxs;
-    interval ray_t { tmin_array[0], tmaxs_array[0] };
-    for (int axis = 1; axis < 3; ++axis) {
-        auto t0 = ((float *)&tmins)[axis];
-        auto t1 = ((float *)&tmaxs)[axis];
-
-        if (t0 > ray_t.min)
-            ray_t.min = t0;
-        if (t1 < ray_t.max)
-            ray_t.max = t1;
-    }
-
-    return ray_t;
-}
-
 void aabb::traverse(ray const *rays, uint32 const len, interval *results) const noexcept
 {
     // @perf think about splitting the transform
     std::transform(rays, rays + len, results, [&](auto const &r) {
-        return ::traverse(*this, r);
+        auto t0s = (min - r.orig) / r.dir;
+        auto t1s = (max - r.orig) / r.dir;
+
+        auto tmins = vec3 {
+            std::min(t0s[0], t1s[0]),
+            std::min(t0s[1], t1s[1]),
+            std::min(t0s[2], t1s[2]),
+        };
+        auto tmaxs = vec3 {
+            std::max(t0s[0], t1s[0]),
+            std::max(t0s[1], t1s[1]),
+            std::max(t0s[2], t1s[2]),
+        };
+
+        interval ray_t { tmins[0], tmaxs[0] };
+        for (int axis = 1; axis < 3; ++axis) {
+            auto t0 = tmins[axis];
+            auto t1 = tmaxs[axis];
+
+            if (t0 > ray_t.min)
+                ray_t.min = t0;
+            if (t1 < ray_t.max)
+                ray_t.max = t1;
+        }
+
+        return ray_t;
     });
 }
 

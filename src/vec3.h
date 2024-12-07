@@ -94,6 +94,11 @@ constexpr vec3 operator*(float t, vec3 v)
     return vec3(t * v.e[0], t * v.e[1], t * v.e[2]);
 }
 
+constexpr vec3 operator/(vec3 u, vec3 v)
+{
+    return { u[0] / v[0], u[1] / v[1], u[2] / v[2] };
+}
+
 constexpr vec3 operator*(vec3 v, float t) { return t * v; }
 
 constexpr vec3 operator/(vec3 v, float t) { return (1 / t) * v; }
