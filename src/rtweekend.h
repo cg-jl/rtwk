@@ -52,6 +52,7 @@ struct range {
     uint32_t start, end;
 };
 
+// @perf use SOA version for this!
 struct uvs {
     float u, v;
 };

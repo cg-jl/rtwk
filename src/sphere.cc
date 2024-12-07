@@ -122,7 +122,7 @@ sphere sphere::applyTransform(sphere a, transform tf) noexcept
     a.center_vec = tf.applyForward(previous + a.center_vec) - a.center1;
     return a;
 }
-void sphere::getNormals(ray const *rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept
+[[clang::noinline]] void sphere::getNormals(ray const *rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept
 {
     std::transform(dist + start, dist + end, rays, results + start, [&](auto const closestHit, auto const &r) {
         return r.at(closestHit);
@@ -130,10 +130,15 @@ void sphere::getNormals(ray const *rays, float const *dist, float const *times, 
     std::transform(results + start, results + end, times, results + start, [&](auto const intersection, auto const time) {
         return intersection - sphere_center(*this, time);
     });
+
     // normalize.
-    std::transform(results + start, results + end, results + start, [rad = radius](auto const r2center) {
+    auto *fresults = (float *)results;
+    auto const fstart = start * 3;
+    auto const fend = end * 3;
+
+    std::transform(fresults + fstart, fresults + fend, fresults + fstart, [rad = radius](auto const coord) {
         // FIXME: Some of the intersections here are not at a distance 'radius' away from the calculated center.
         // Are we swapping things correctly in renderer?
-        return r2center / rad;
+        return coord / rad;
     });
 }
