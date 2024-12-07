@@ -271,13 +271,16 @@ void aabb::getNormals(ray const *rays, float const *dist, vec3 *results, uint32 
 
 using std::ranges::subrange;
 using std::ranges::views::zip;
-void aabb::getUVs(ray const *rays, float const *dist, uvs *results, uint32 start, uint32 end) const noexcept
+void aabb::getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 start, uint32 end) const noexcept
 {
-    // @perf separate transform :]
+
+    // @perf cache intersections, normals.
+
+    // @perf cutnpaste transform
     std::ranges::transform(zip(
                                subrange(rays + start, rays + end),
                                subrange(dist + start, dist + end)),
-        results + start, [&](auto const &t) -> uvs {
+        results.u + start, [&](auto const &t) -> float {
             // @perf could be optimized to use swizzled vectors.
             auto const &[r, closestHit] = t;
             auto intersection = r.at(closestHit);
@@ -287,10 +290,40 @@ void aabb::getUVs(ray const *rays, float const *dist, uvs *results, uint32 start
             // the point is already within the bounds of the box.
             for (int axis = 0; axis < 3; ++axis) {
                 auto uaxis = (axis + 2) % 3;
-                auto vaxis = (axis + 1) % 3;
 
                 auto intv = bb.axis_interval(axis);
                 auto uintv = bb.axis_interval(uaxis);
+
+                if (std::abs(intersection[axis] - intv.min) < 1e-8) {
+                } else if (std::abs(intersection[axis] - intv.max) < 1e-8) {
+                } else {
+                    continue;
+                }
+                auto inv_u_mag = 1 / uintv.size();
+                return inv_u_mag * (intersection[uaxis] - uintv.min);
+            }
+            // FIXME: There is some bug here that makes the loop not find any appropiate interval for the hit.
+            // Running under debug makes it trigger stack smashing
+            return 0;
+            std::unreachable();
+        });
+
+    // @perf separate transform :]
+    std::ranges::transform(zip(
+                               subrange(rays + start, rays + end),
+                               subrange(dist + start, dist + end)),
+        results.v + start, [&](auto const &t) -> float {
+            // @perf could be optimized to use swizzled vectors.
+            auto const &[r, closestHit] = t;
+            auto intersection = r.at(closestHit);
+            auto const &bb = *this;
+
+            // search for the "box" that borders the point interval, since we know that
+            // the point is already within the bounds of the box.
+            for (int axis = 0; axis < 3; ++axis) {
+                auto vaxis = (axis + 1) % 3;
+
+                auto intv = bb.axis_interval(axis);
                 auto vintv = bb.axis_interval(vaxis);
 
                 float beta_distance;
@@ -301,16 +334,12 @@ void aabb::getUVs(ray const *rays, float const *dist, uvs *results, uint32 start
                 } else {
                     continue;
                 }
-                auto inv_u_mag = 1 / uintv.size();
                 auto inv_v_mag = 1 / vintv.size();
-                uvs uv;
-                uv.u = inv_u_mag * (intersection[uaxis] - uintv.min);
-                uv.v = -inv_v_mag * (intersection[vaxis] - beta_distance);
-                return uv;
+                return -inv_v_mag * (intersection[vaxis] - beta_distance);
             }
             // FIXME: There is some bug here that makes the loop not find any appropiate interval for the hit.
             // Running under debug makes it trigger stack smashing
-            return { 0, 0 };
+            return 0;
             std::unreachable();
         });
 }

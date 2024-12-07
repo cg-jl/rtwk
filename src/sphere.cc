@@ -89,20 +89,21 @@ void sphere::traverse(ray const *rays, float const *times, uint32 const len, int
 //     <1 0 0> yields <0.50 0.50>       <-1  0  0> yields <0.00 0.50>
 //     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
 //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
-void sphere::getUVs(vec3 const *normals, uvs *results, uint32 start, uint32 end) noexcept
+void sphere::getUVs(vec3 const *normals, uv_buffer results, uint32 start, uint32 end) noexcept
 {
-    // @perf check out.
-    using std::ranges::subrange;
-    std::ranges::transform(
-        subrange(normals + start, normals + end),
-        results + start, [&](auto const &normal) -> uvs {
-            auto theta = std::acos(-normal.y());
-            auto phi = std::atan2(-normal.z(), normal.x()) + pi;
 
-            uvs uv;
-            uv.u = phi / (2 * pi);
-            uv.v = theta / pi;
-            return uv;
+    std::transform(
+        normals + start, normals + end,
+        results.v, [&](auto const &normal) {
+            auto theta = std::acos(-normal.y());
+            return theta / pi;
+        });
+
+    std::transform(
+        normals + start, normals + end,
+        results.u, [&](auto const &normal) {
+            auto phi = std::atan2(-normal.z(), normal.x()) + pi;
+            return phi / (2 * pi);
         });
 }
 

@@ -19,7 +19,7 @@
 using deferNoise = std::pair<texture::noise_data, point3>;
 
 // TODO: @maybe I could collect images by their pointer?
-using deferImage = std::pair<rtw_shared_image, uvs>;
+using deferImage = std::pair<rtw_shared_image, single_uvs>;
 
 // Origin is at world origin.
 struct camera {
@@ -67,7 +67,7 @@ struct px_sampleq {
 
     void emplaceSolid(color solid) { ptrs.solids[tally.solids++] = solid; }
 
-    void emplace(texture const *tex, uvs uv, point3 p)
+    void emplace(texture const *tex, single_uvs uv, point3 p)
     {
         tex = traverseChecker(tex, p);
         switch (tex->kind) {
@@ -233,7 +233,7 @@ using cm_res = std::pair<color const *, float>;
 
 struct hit_record_buffer {
     vec3 *normal;
-    uvs *uv;
+    uv_buffer uv;
     // @mem/@perf could be bitset.
     bool *is_front;
 
@@ -241,7 +241,7 @@ struct hit_record_buffer {
     {
         return {
             .normal = new vec3[spp],
-            .uv = new uvs[spp],
+            .uv = uv_buffer::request(spp),
             .is_front = new bool[spp],
         };
     }
@@ -249,7 +249,7 @@ struct hit_record_buffer {
     void swap(uint32 const i, uint32 const k) noexcept
     {
         std::swap(normal[i], normal[k]);
-        std::swap(uv[i], uv[k]);
+        uv.swap(i, k);
         std::swap(is_front[i], is_front[k]);
     }
 
@@ -257,7 +257,7 @@ struct hit_record_buffer {
     {
         return std::views::zip(
             std::ranges::subrange(normal + start, normal + end),
-            std::ranges::subrange(uv + start, uv + end),
+            uv.zip_view(start, end),
             std::ranges::subrange(is_front + start, is_front + end));
     }
 };

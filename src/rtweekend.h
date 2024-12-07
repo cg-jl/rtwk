@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <memory>
+#include <ranges>
 
 #include "random.h"
 
@@ -52,9 +53,40 @@ struct range {
     uint32_t start, end;
 };
 
-// @perf use SOA version for this!
-struct uvs {
+struct single_uvs {
     float u, v;
+};
+
+struct uv_buffer {
+    float *u;
+    float *v;
+
+    static uv_buffer request(uint32 spp)
+    {
+        return {
+            .u = new float[spp],
+            .v = new float[spp],
+        };
+    }
+
+    void swap(uint32 const i, uint32 const k) noexcept
+    {
+        std::swap(u[i], u[k]);
+        std::swap(v[i], v[k]);
+    }
+
+    auto constexpr zip_view(uint32 const start, uint32 const end) const noexcept
+    {
+        return std::views::zip(
+            std::ranges::subrange(u + start, u + end),
+            std::ranges::subrange(v + start, v + end));
+    }
+
+    // @perf remove.
+    single_uvs operator[](uint32 i) const noexcept
+    {
+        return single_uvs { u[i], v[i] };
+    }
 };
 
 static auto partition(auto start, decltype(start) end, auto swap, auto pred)

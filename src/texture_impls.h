@@ -6,7 +6,7 @@
 #include "texture.h"
 #include "trace_colors.h"
 
-inline color sample_image(rtw_shared_image img, uvs uv)
+inline color sample_image(rtw_shared_image img, single_uvs uv)
 {
     ZoneScopedN("image");
     ZoneColor(Ctp::Teal);

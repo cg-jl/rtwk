@@ -66,7 +66,7 @@ struct aabb {
 
     void hit(ray const *rays, uint32 const len, float *results) const noexcept;
     void traverse(ray const *rays, uint32 const len, interval *results) const noexcept;
-    void getUVs(ray const *rays, float const *dist, uvs *results, uint32 start, uint32 end) const noexcept;
+    void getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 start, uint32 end) const noexcept;
     void getNormals(ray const *rays, float const *dist, vec3 *results, uint32 start, uint32 end) const noexcept;
 
     constexpr int longest_axis() const
