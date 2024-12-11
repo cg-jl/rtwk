@@ -38,8 +38,19 @@ struct sphere final {
         center_vec = center2 - center1;
     }
 
+    struct Hit_Buffers {
+        vec3 *ocs;
+
+        static Hit_Buffers request(uint32 spp)
+        {
+            return {
+                .ocs = new vec3[spp],
+            };
+        }
+    };
+
     // @perf move sphere center compute to caller. That way we can cache it :]
-    void hit(ray const *rays, float const *times, uint32 const len, float *results) const noexcept;
+    void hit(ray const *rays, float const *noalias times, Hit_Buffers buffers, uint32 const len, float *noalias results) const noexcept;
     void traverse(ray const *rays, float const *times, uint32 const len, interval_buffer results) const noexcept;
     static void getUVs(vec3 const *normals, uv_buffer results, uint32 start, uint32 end) noexcept;
 

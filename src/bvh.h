@@ -57,6 +57,7 @@ struct Hit_Buffer {
     float *cmp_res;
     aabb::Traverse_Buffers bb_traverse;
     aabb::Hit_Buffers bb_hit;
+    sphere::Hit_Buffers sphere_hit;
 
     static Hit_Buffer request(uint32 const spp)
     {
@@ -66,6 +67,7 @@ struct Hit_Buffer {
             .cmp_res = new float[spp],
             .bb_traverse = aabb::Traverse_Buffers::request(spp),
             .bb_hit = aabb::Hit_Buffers::request(spp),
+            .sphere_hit = sphere::Hit_Buffers::request(spp),
         };
     }
 };

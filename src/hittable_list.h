@@ -22,7 +22,6 @@
 
 struct SampleCM_Buffers {
     float *currentHit;
-    float *rayLength;
     std::optional<uint32_t> *selected;
     interval_buffer traversals;
     float *thit;
@@ -32,7 +31,6 @@ struct SampleCM_Buffers {
     {
         return {
             .currentHit = new float[spp],
-            .rayLength = new float[spp],
             .selected = new std::optional<uint32_t>[spp],
             .traversals = interval_buffer::request(spp),
             .thit = new float[spp],

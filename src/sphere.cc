@@ -14,37 +14,35 @@ static point3 sphere_center(sphere const &sph, float time)
     return sph.center1 + time * sph.center_vec;
 }
 
-void sphere::hit(ray const *rays, float const *times, uint32 const len, float *results) const noexcept
+void sphere::hit(ray const *rays, float const *noalias times, Hit_Buffers buffers, uint32 const len, float *noalias results) const noexcept
 {
     ZoneNamedN(_tracy, "sphere hit", filters::hit);
-    // @perf think about splitting transform up.
+
     // @perf `times` is not modified until the next pixel. Probably should cache it :]
-    std::transform(rays, rays + len, times, results, [&](auto const &r, auto const time) -> float {
-        point3 center = sphere_center(*this, time);
-        vec3 oc = center - r.orig;
-        auto a = r.dir.length_squared();
+    std::transform(times, times + len, buffers.ocs, [&](auto const time) {
+        return sphere_center(*this, time);
+    });
+
+    // @perf separate ray orig and dir
+    std::transform(buffers.ocs, buffers.ocs + len, rays, buffers.ocs, [&](auto const center, auto const &r) {
+        return center - r.orig;
+    });
+
+    // @perf separte ray orig and dir
+    // @perf think about splitting transform up.
+    std::transform(rays, rays + len, buffers.ocs, results, [&](auto const &r, auto const oc) -> float {
         // Distance from ray origin to sphere center parallel to the ray
         // direction
         auto oc_alongside_ray = dot(r.dir, oc);
         auto c = oc.length_squared() - radius * radius;
 
-        auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
-        if (discriminant < 0)
-            return 0;
+        auto discriminant = oc_alongside_ray * oc_alongside_ray - c;
 
+        // sqrt() will return NaN if the discriminant is negative, which will be discarded by hitSpan.
         auto sqrtd = std::sqrt(discriminant);
 
-        // If the ray is inside the sphere, we want the cut that gets
-        // us further, since the other cut is in the other direction.
-        // Otherwise we want the cut that is in the negative direction from the
-        // middle point (oc_alongside_ray). If the ray is pointing away from the
-        // sphere, we will catch this in `ray_t.contains`.
-
-        // c > 0 <=> |oc|^2 > r^2
-        auto selectedSqrt = c < minRayDist ? sqrtd : -sqrtd;
-
-        // Find the nearest root that lies in the acceptable range.
-        auto root = (oc_alongside_ray + selectedSqrt) / a;
+        // Always use - sqrtd for the min distance.
+        auto root = (oc_alongside_ray - sqrtd);
 
         return root;
     });
@@ -95,15 +93,12 @@ void sphere::traverse(ray const *rays, float const *times, uint32 const len, int
         ZoneNamedNC(_tracy, "sphere traverse", Ctp::Mantle, filters::hit);
         point3 center = sphere_center(*this, time);
         vec3 oc = center - r.orig;
-        auto a = r.dir.length_squared();
         // Distance from ray origin to sphere center parallel to the ray
         // direction
         auto oc_alongside_ray = dot(r.dir, oc);
         auto c = oc.length_squared() - radius * radius;
 
-        auto discriminant = oc_alongside_ray * oc_alongside_ray - a * c;
-        if (discriminant < 0)
-            return interval { infinity, -infinity };
+        auto discriminant = oc_alongside_ray * oc_alongside_ray - c;
 
         auto sqrtd = std::sqrt(discriminant);
 

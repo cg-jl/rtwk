@@ -238,7 +238,7 @@ struct hit_span_buf {
     }
 };
 
-inline void hitSpan(std::span<geometry const> objects, aabb::Hit_Buffers aabb_bufs, ray_buffer rays, uint32 len, hit_span_buf acc, float *backbuf)
+inline void hitSpan(std::span<geometry const> objects, aabb::Hit_Buffers aabb_bufs, sphere::Hit_Buffers sphere_bufs, ray_buffer rays, uint32 len, hit_span_buf acc, float *backbuf)
 {
     for (auto const &obj : objects) {
         auto ptr = geometry_ptr(obj);
@@ -248,7 +248,7 @@ inline void hitSpan(std::span<geometry const> objects, aabb::Hit_Buffers aabb_bu
             ptr.ptr.box->hit(rays.rays, len, aabb_bufs, backbuf);
             break;
         case geometry_kind::sphere: {
-            ptr.ptr.sphere->hit(rays.rays, rays.times, len, backbuf);
+            ptr.ptr.sphere->hit(rays.rays, rays.times, sphere_bufs, len, backbuf);
             break;
         }
         case geometry_kind::quad:

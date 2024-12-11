@@ -17,6 +17,8 @@
 
 #include "random.h"
 
+#define noalias __restrict__ 
+
 // C++ Std Usings
 
 using std::fabs;

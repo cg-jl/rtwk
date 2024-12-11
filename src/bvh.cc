@@ -219,7 +219,7 @@ void bvh::tree::hit(ray_buffer rays, uint32 const len, hit_span_buf results, bvh
 
             auto span = std::span { geoms + n.objectIndex, size_t(n.objectCount) };
 
-            hitSpan(span, buffer.bb_hit, rays, empty_begin, results, buffer.cmp_res);
+            hitSpan(span, buffer.bb_hit, buffer.sphere_hit, rays, empty_begin, results, buffer.cmp_res);
         }
         remaining = partition(uint32(0), remaining, swap, [&](auto const i) {
             return buffer.node_indices[i] < tree_end;

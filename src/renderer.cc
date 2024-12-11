@@ -324,6 +324,13 @@ static void adjustNormalsToOutwardFace(ray const *rays, vec3 *normals, bool *is_
     });
 }
 
+static void normalize_rays(ray *rays, uint32 len)
+{
+    for (auto i = 0; i < len; ++i) {
+        rays[i].dir = unit_vector(rays[i].dir);
+    }
+}
+
 // FIXME: I'm in the middle of a refactoring.
 // I am trying to make everything reflect the multi-to-multi dynamism of rays,
 // so I have to think about processing multiple rays faster. Since I'm already
@@ -611,6 +618,10 @@ static void gsim(color const &background, uint32 const spp,
 
         std::fill(samples + nohits_begin, samples + remaining, background);
 
+        // normalize all new rays.
+        // @perf only need to normalize some material bounces and get_rays
+        normalize_rays(buffers.rays.rays, lights_begin);
+
         // only cmResults and bounces get to the next level.
         remaining = lights_begin;
     }
@@ -630,6 +641,8 @@ static void scanLine(settings const &s, camera const &cam,
         // Initialize all the rays
         get_rays(buffers.gsim.rays.rays, buffers.gsim.rays.rays + s.samples_per_pixel, cam, i, j, GetRays_Buffers { .px_sample = buffers.gsim.scatters },
             to_rays);
+
+        normalize_rays(buffers.gsim.rays.rays, s.samples_per_pixel);
 
         std::generate(buffers.gsim.rays.times, buffers.gsim.rays.times + s.samples_per_pixel, []() { return random_float(); });
 

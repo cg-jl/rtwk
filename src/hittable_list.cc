@@ -17,7 +17,7 @@ void hittable_list::select(ray_buffer rays, uint32 const len, Select_Buffers buf
 
     bvh::tree(treebld).hit(rays, len, results, buffers.bvh, swap_rays);
 
-    hitSpan(selectGeoms, buffers.bvh.bb_hit, rays, len, results, buffers.hit_span_backbuf);
+    hitSpan(selectGeoms, buffers.bvh.bb_hit, buffers.bvh.sphere_hit, rays, len, results, buffers.hit_span_backbuf);
 }
 
 void hittable_list::transformAll(transform tf)
@@ -70,8 +70,6 @@ void hittable_list::sampleCMs(
     std::pair<color const *, float> *results, SampleCM_Buffers buffers,
     std::function<void(uint32_t, uint32_t)> const &swap_rays) const noexcept
 {
-    std::transform(rays, rays + len, buffers.rayLength,
-        [](auto const &ray) { return ray.dir.length(); });
 
     std::fill(buffers.selected, buffers.selected + len, std::nullopt);
     std::fill(buffers.currentHit, buffers.currentHit + len, infinity);
@@ -80,7 +78,6 @@ void hittable_list::sampleCMs(
     auto swap = [&](auto i, decltype(i) j) {
         std::swap(buffers.currentHit[i], buffers.currentHit[j]);
         std::swap(buffers.selected[i], buffers.selected[j]);
-        std::swap(buffers.rayLength[i], buffers.rayLength[j]);
         buffers.traversals.swap(i, j);
         std::swap(buffers.thit[i], buffers.thit[j]);
         std::swap(results[i], results[j]);
@@ -101,11 +98,10 @@ void hittable_list::sampleCMs(
         cm.geom.traverse(rays, times, len, { buffers.bb }, buffers.traversals);
 
         // Intersect with minimum distance that ray should travel.
-        std::transform(buffers.rayLength, buffers.rayLength + len,
-            buffers.traversals.mins, buffers.traversals.mins,
-            [&](auto const rayLength, auto tmin) {
-                auto const minDist = rayLength * minRayDist;
-                return std::max(tmin, minDist);
+        std::transform(
+            buffers.traversals.mins, buffers.traversals.mins + len, buffers.traversals.mins,
+            [&](auto const tmin) {
+                return std::max(tmin, minRayDist);
             });
 
         auto const isempty_begin = partition(
@@ -171,10 +167,6 @@ void hittable_list::sampleCMs(
         std::fill(buffers.selected,
             buffers.selected + dispersed_before_hit_begin, cm_i);
     }
-
-    std::transform(buffers.currentHit, buffers.currentHit + len,
-        buffers.rayLength, buffers.currentHit,
-        [](auto hit, auto rlen) { return hit / rlen; });
 
     std::transform(buffers.currentHit, buffers.currentHit + len,
         buffers.selected, results, [&](auto hit, auto sel) {
