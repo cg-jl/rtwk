@@ -69,14 +69,14 @@ static bool is_interior(float a, float b)
 void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
 {
     ZoneNamedN(_tracy, "quad hit", filters::hit);
+    auto const n = cross(u, v);
+    auto const normal = unit_vector(n);
+    // n.Q = (uxv).Q =(triple product expansion) = u.(vxQ) = v.(uxQ)
+    // trying to use dot(u,v) = 0 here?
+    auto const D = dot(normal, Q);
     // @perf think about splitting this transform up.
     // @perf getUVs() could be cached :]
     std::transform(rays, rays + len, results, [&](auto const &r) -> float {
-        auto n = cross(u, v);
-        auto normal = unit_vector(n);
-        // n.Q = (uxv).Q =(triple product expansion) = u.(vxQ) = v.(uxQ)
-        // trying to use dot(u,v) = 0 here?
-        auto D = dot(normal, Q);
         auto denom = dot(normal, r.dir);
 
         // Return false if the hit point parameter t is outside the ray
@@ -90,12 +90,11 @@ void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
         auto u = ::getUVs_u(*this, intersection);
         auto v = ::getUVs_v(*this, intersection);
 
-        if (!is_interior(u, v))
-            return {};
+        auto mask = is_interior(u, v);
 
         // Ray hits the 2D shape; set the rest of the hit record and return
         // true.
-        return t;
+        return mask ? t : 0.f;
     });
 }
 
