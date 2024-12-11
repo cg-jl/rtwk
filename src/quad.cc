@@ -79,10 +79,6 @@ void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
         auto D = dot(normal, Q);
         auto denom = dot(normal, r.dir);
 
-        // No hit if the ray is parallel to the plane.
-        if (fabs(denom) < 1e-8)
-            return 0;
-
         // Return false if the hit point parameter t is outside the ray
         // interval.
         auto t = (D - dot(normal, r.orig)) / denom;
