@@ -12,6 +12,7 @@
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include "external/glm/glm/ext/vector_float3.hpp"
 #include <cmath>
 
 class vec3 {
@@ -49,6 +50,11 @@ public:
         e[1] *= t;
         e[2] *= t;
         return *this;
+    }
+
+    constexpr operator glm::vec3() const noexcept
+    {
+        return glm::vec3 { e[0], e[1], e[2] };
     }
 
     constexpr vec3 &operator/=(float t) { return *this *= 1 / t; }

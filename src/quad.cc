@@ -1,38 +1,41 @@
 #include "quad.h"
 
+#include <external/glm/glm/ext/matrix_float2x3.hpp>
+#include <external/glm/glm/ext/vector_float3.hpp>
+#include <external/glm/glm/matrix.hpp>
 #include <ranges>
 #include <tracy/Tracy.hpp>
 
 #include "trace_colors.h"
 
-static float getUVs_u(quad const &q, point3 intersection)
+// Creates pseudoinverse from the (3x2) matrix [u, v], such that
+// the new matrix is a base conversion from 3D space to the quad's
+// plane, scaled by 'u' and 'v' such that the rectangle [0, 1]x[0, 1]
+// represents the full quad surface.
+static glm::mat2x3 create_pinv(glm::vec3 u, glm::vec3 v)
 {
-    // I have to make a base change, from [x y z] to [n u v], then extract the u
-    // and the v
+    glm::mat2x3 xt { u, v };
 
-    vec3 pq = intersection - q.Q;
-    auto u_squared = q.u.length_squared();
-    auto dot_uq = dot(q.u, pq);
-    // (a×b)⋅(c×d) = (a⋅c)(b⋅d) - (a⋅d)(b⋅c)
-    return dot_uq / u_squared;
-}
+    auto x = glm::transpose(xt);
 
-static float getUVs_v(quad const &q, point3 intersection)
-{
-    // I have to make a base change, from [x y z] to [n u v], then extract the u
-    // and the v
+    auto xtx = xt * x;
 
-    vec3 pq = intersection - q.Q;
-    auto v_squared = q.v.length_squared();
-    auto dot_vq = dot(q.v, pq);
-    // (a×b)⋅(c×d) = (a⋅c)(b⋅d) - (a⋅d)(b⋅c)
-    return dot_vq / v_squared;
+    // this prevents the matrix from becoming singular.
+    auto constexpr eps = 1e-5f;
+
+    auto inv = glm::inverse(xtx + eps);
+
+    return inv * xt;
 }
 
 void quad::getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 start, uint32 end) const noexcept
 {
     using std::ranges::subrange;
     using std::ranges::views::zip;
+
+    auto const pinv = create_pinv(u, v);
+    auto const get_u = glm::vec3 { pinv[0][0], pinv[0][1], pinv[0][2] };
+    auto const get_v = glm::vec3 { pinv[0][0], pinv[0][1], pinv[0][2] };
 
     // @perf cache intersections
 
@@ -42,7 +45,7 @@ void quad::getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 
         results.v + start, [&](auto const &t) {
             auto const &[r, closestHit] = t;
             auto p = r.at(closestHit);
-            return ::getUVs_v(*this, p);
+            return glm::dot(glm::vec3(p - Q), get_v);
         });
     std::ranges::transform(zip(
                                subrange(rays + start, rays + end),
@@ -50,7 +53,7 @@ void quad::getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 
         results.u + start, [&](auto const &t) {
             auto const &[r, closestHit] = t;
             auto p = r.at(closestHit);
-            return ::getUVs_u(*this, p);
+            return glm::dot(glm::vec3(p - Q), get_u);
         });
 }
 
@@ -71,6 +74,10 @@ void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
     ZoneNamedN(_tracy, "quad hit", filters::hit);
     auto const n = cross(u, v);
     auto const normal = unit_vector(n);
+    // @perf cache this!
+    // @perf could replace u,v entirely. We can calculate the rest in the
+    // u,v space already.
+    auto const pinv = create_pinv(u, v);
     // n.Q = (uxv).Q =(triple product expansion) = u.(vxQ) = v.(uxQ)
     // trying to use dot(u,v) = 0 here?
     auto const D = dot(normal, Q);
@@ -87,8 +94,9 @@ void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
         auto intersection = r.at(t);
         // @perf dot(u,v) == 0. Try to find a relationship with `t`.
         // @perf may want to make a bulk visit :]
-        auto u = ::getUVs_u(*this, intersection);
-        auto v = ::getUVs_v(*this, intersection);
+        auto uv = glm::vec3(intersection - Q) * pinv;
+        auto u = uv.x;
+        auto v = uv.y;
 
         auto mask = is_interior(u, v);
 
