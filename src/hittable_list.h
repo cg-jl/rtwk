@@ -19,6 +19,7 @@
 #include "geometry.h"
 #include "hittable.h"
 #include "interval.h"
+#include "ray.h"
 
 struct SampleCM_Buffers {
     float *currentHit;
@@ -78,7 +79,7 @@ struct hittable_list {
     void select(ray_buffer rays, uint32 const len, Select_Buffers buffers, hit_span_buf results, std::function<void(uint32, uint32)> const &swap_rays) const noexcept;
 
     void sampleCMs(
-        ray const *rays, float const *times, uint32_t const len,
+        transposed_ray_array rays, float const *times, uint32_t const len,
         std::pair<color const *, float> *results, SampleCM_Buffers buffers,
         std::function<void(uint32_t, uint32_t)> const &swap_rays) const noexcept;
 };

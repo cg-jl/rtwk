@@ -13,6 +13,7 @@
 #include <tracy/Tracy.hpp>
 
 #include "hittable_list.h"
+#include "ray.h"
 #include "rtweekend.h"
 #include "timer.h"
 
@@ -144,39 +145,34 @@ static void generate_ray_dir_samples(vec3 *__restrict__ start, vec3 *__restrict_
     });
 }
 
-static void px_sample_to_rays(ray *__restrict__ begin, ray *__restrict__ end, vec3 *__restrict__ pxsample, camera const &_cam)
+static void px_sample_to_rays(uint32 const len, transposed_ray_array rays, vec3 *__restrict__ defocus_samples_, vec3 *__restrict__ pxsample, camera const &_cam)
 {
-    auto const len = end - begin;
-    std::transform(pxsample, pxsample + len, begin, [&](auto const pixel_sample) {
-        return ray(vec3 { 0, 0, 0 }, pixel_sample);
-    });
+
+    for (auto i = 0u; i < len; ++i) {
+        rays[i] = ray(vec3 { 0, 0, 0 }, pxsample[i]);
+    }
 }
 
-static void px_sample_with_defocus(ray *__restrict__ begin, ray *end, vec3 *__restrict__ pxsample, camera const &cam)
+static void px_sample_with_defocus(uint32 const len, transposed_ray_array rays, vec3 *noalias defocus_samples, vec3 *__restrict__ pxsample, camera const &cam)
 {
-    auto const len = end - begin;
-    // we start on the right half of the ray origs:
-    // each time we consume 1 of vec3, we write 2 vec3 (ray)
-    // a + 2*i <= b + i => b > a + i => b >= a + len (0 <= i < len)
-    auto ray_orig_start = (vec3 *)begin + len;
-    auto ray_orig_end = (vec3 *)&begin[len];
-    defocus_disk_samples(cam, ray_orig_start, ray_orig_end);
-    std::transform(pxsample, pxsample + len, ray_orig_start, begin, [&](auto const pixel_sample, auto const ray_origin) {
-        auto ray_direction = pixel_sample - ray_origin;
 
-        return ray(ray_origin, ray_direction);
-    });
+    defocus_disk_samples(cam, defocus_samples, defocus_samples + len);
+
+    for (auto i = 0u; i < len; ++i) {
+        rays[i] = ray(
+            pxsample[i],
+            pxsample[i] - defocus_samples[i]);
+    }
 }
 
-typedef void (*dir_sample_to_ray_fn)(ray *__restrict__, ray *__restrict__, vec3 *__restrict__, camera const &);
+typedef void (*dir_sample_to_ray_fn)(uint32, transposed_ray_array, vec3 *__restrict__, vec3 *__restrict__, camera const &);
 
 // Construct a camera ray originating from the defocus disk and directed
 // at a randomly sampled point around the pixel location i, j.
-static void get_rays(ray *__restrict__ begin, ray *__restrict__ end, camera const &cam, int i, int j, GetRays_Buffers buffers, dir_sample_to_ray_fn to_rays)
+static void get_rays(uint32 const len, transposed_ray_array rays, camera const &cam, int i, int j, GetRays_Buffers buffers, vec3 *noalias defocus_sample, dir_sample_to_ray_fn to_rays)
 {
-    auto const len = end - begin;
     generate_ray_dir_samples(buffers.px_sample, buffers.px_sample + len, cam, i, j);
-    to_rays(begin, end, buffers.px_sample, cam);
+    to_rays(len, rays, defocus_sample, buffers.px_sample, cam);
 }
 
 static bool is_front_face(vec3 in_dir, vec3 normal)
@@ -277,7 +273,7 @@ struct GSim_Buffers {
     {
         return {
             .rays = {
-                .rays = new ray[spp],
+                .rays = transposed_ray_array::request(spp),
                 .times = new float[spp],
             },
             .atts = new px_sampleq[spp],
@@ -297,6 +293,8 @@ struct Scanline_Buffers {
     float *multiplyBuffer;
     color *samples;
     GSim_Buffers gsim;
+    // @mem could avoid allocating these when there are no defocus samples.
+    vec3 *noalias defocus_samples;
 
     static Scanline_Buffers request(uint32 spp, uint32 maxDepth)
     {
@@ -307,15 +305,17 @@ struct Scanline_Buffers {
             .multiplyBuffer = new float[spp * maxDepth],
             .samples = new color[spp],
             .gsim = GSim_Buffers::request(spp),
+            .defocus_samples = new vec3[spp],
         };
     }
 };
 
 // Adjust normals to outwards facing normals. Fills is_front[i] depending on whether `normal` was already
-static void adjustNormalsToOutwardFace(ray const *rays, vec3 *normals, bool *is_front, uint32 start, uint32 end)
+static void adjustNormalsToOutwardFace(transposed_ray_array rays, vec3 *normals, bool *is_front, uint32 start, uint32 end)
 {
     // @perf partition instead of asking each time.
-    std::transform(rays + start, rays + end, normals + start, is_front + start, [&](auto const &r, auto const &normal) {
+    auto sc = rays.read_scalars(end, start);
+    std::transform(sc.begin(), sc.end(), normals + start, is_front + start, [&](auto const &r, auto const &normal) {
         return is_front_face(r.dir, normal);
     });
 
@@ -324,8 +324,9 @@ static void adjustNormalsToOutwardFace(ray const *rays, vec3 *normals, bool *is_
     });
 }
 
-static void normalize_rays(ray *rays, uint32 len)
+static void normalize_rays(transposed_ray_array rays, uint32 len)
 {
+
     for (auto i = 0; i < len; ++i) {
         rays[i].dir = unit_vector(rays[i].dir);
     }
@@ -530,7 +531,7 @@ static void gsim(color const &background, uint32 const spp,
 
             auto const &mat = world.objects[mat_index].mat;
 
-            material::scatter_dielectric(mat.data.refraction_index, buffers.rays.rays + start, buffers.hit_recs.is_front + start, buffers.hit_recs.normal + start, buffers.scatters + start, buffers.scatters + end);
+            material::scatter_dielectric(mat.data.refraction_index, buffers.rays.rays, buffers.hit_recs.is_front, buffers.hit_recs.normal, buffers.scatters, start, end);
 
             start = end;
         }
@@ -542,9 +543,7 @@ static void gsim(color const &background, uint32 const spp,
 
             auto const &mat = world.objects[mat_index].mat;
 
-            material::scatter_metal(
-                mat.data.fuzz,
-                buffers.rays.rays + start, buffers.hit_recs.normal + start, buffers.scatters + start, buffers.scatters + end);
+            material::scatter_metal(mat.data.fuzz, buffers.rays.rays, buffers.hit_recs.normal, buffers.scatters, start, end);
 
             start = end;
         }
@@ -565,14 +564,14 @@ static void gsim(color const &background, uint32 const spp,
             q.emplaceSolid(*cmColor);
         }
         for (decltype(remaining) i = 0; i < cms_end; ++i) {
-            auto &r = buffers.rays.rays[i];
+            auto r = buffers.rays.rays[i];
             auto cmHit = buffers.constant_mediums[i].second;
-            r.orig = r.at(cmHit);
+            r.orig = ray(r).at(cmHit);
         }
 
         // @perf This contains random samples.
         for (decltype(remaining) i = 0; i < cms_end; ++i) {
-            auto &r = buffers.rays.rays[i];
+            auto r = buffers.rays.rays[i];
             r.dir = unit_vector(random_in_unit_sphere());
         }
 
@@ -581,7 +580,7 @@ static void gsim(color const &background, uint32 const spp,
             auto &q = buffers.atts[i];
             auto res = buffers.hit_selects.ptr[i];
             auto closestHit = buffers.hit_selects.dist[i];
-            auto const &r = buffers.rays[i];
+            auto const r = buffers.rays[i];
 
             // @perf p is cheap, rest aren't.
             auto p = r.r.at(closestHit);
@@ -593,7 +592,7 @@ static void gsim(color const &background, uint32 const spp,
 
         for (decltype(remaining) i = cms_end; i < lights_begin; ++i) {
             auto closestHit = buffers.hit_selects.dist[i];
-            auto &r = buffers.rays.rays[i];
+            auto r = buffers.rays.rays[i];
 
             // @perf p is cheap, rest aren't.
             auto p = r.at(closestHit);
@@ -639,8 +638,7 @@ static void scanLine(settings const &s, camera const &cam,
 
     for (int i = 0; i < s.image_width; i++) {
         // Initialize all the rays
-        get_rays(buffers.gsim.rays.rays, buffers.gsim.rays.rays + s.samples_per_pixel, cam, i, j, GetRays_Buffers { .px_sample = buffers.gsim.scatters },
-            to_rays);
+        get_rays(s.samples_per_pixel, buffers.gsim.rays.rays, cam, i, j, GetRays_Buffers { .px_sample = buffers.gsim.scatters }, buffers.defocus_samples, to_rays);
 
         normalize_rays(buffers.gsim.rays.rays, s.samples_per_pixel);
 

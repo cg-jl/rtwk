@@ -11,33 +11,11 @@
 #include <tracy/Tracy.hpp>
 
 #include "interval.h"
+#include "ray.h"
 #include "simd.h"
 
 // @perf My L1 cache size (per CPU) is: 32kiB!
 // L3 is 4MiB and L2 is 512kiB.
-
-// @perf using __m128 because if I use m256 I use 3/8 slots. With m128 I use 3/4,
-// which is significantly less drop rate. Still bad though.
-static std::pair<__m128, __m128> get_t0s_t1s(aabb const &bb, ray const &r)
-{
-    // NOTE: These load 4x float's, so the rightmost value (memory order) or
-    // the leftmost value (register order) won't be used.
-
-    // @perf for nontemporal loads we must have the ray aligned at a 32 byte
-    // boundary.
-
-    auto adinvs = _mm_loadu_ps((float *)&r.dir.e);
-    auto origs = _mm_loadu_ps((float *)&r.orig.e);
-    // @perf 'mins' has in its leftmost slot (register order) the first for
-    // maxes. 'maxes' has in its leftmost slot (register order) garbage.
-    auto mins = _mm_load_ps((float *)&bb.min.e);
-    auto maxes = _mm_load_ps((float *)&bb.max.e);
-
-    // <garbo> <tx[2]> <tx[1]> <tx[0]> (register order)
-    auto t0s = (mins - origs) / adinvs;
-    auto t1s = (maxes - origs) / adinvs;
-    return { t0s, t1s };
-}
 
 static void reduce_transposed(float const *__restrict__ src, uint32 vec3_len, float *__restrict__ dst, auto reduce_scalar)
 {
@@ -73,24 +51,29 @@ static void transpose_into(vec3 const *__restrict__ src, uint32 vec3_len, float 
     }
 }
 
-static void calc_transposed_ts(vec3 p, ray const *rays, uint32 const len, float *__restrict__ dst)
+static void calc_transposed_ts(vec3 p, transposed_ray_array rays, uint32 const len, float *__restrict__ dst)
 {
+    // @perf undo transpose :]
     typedef float coord_array[len];
 
     for (auto k = 0u; k < 3; ++k) {
         for (auto i = 0u; i < len; ++i) {
-            ((coord_array *)dst)[k][i] = (p[k] - rays[i].orig[k]) / rays[i].dir[k];
+            ((coord_array *)dst)[k][i] = (p[k] - vec3(rays[i].orig)[k]) / vec3(rays[i].dir)[k];
         }
     }
 }
 
-static void calc_t0s_t1s(vec3 min, vec3 max, ray const *rays, uint32 const len, float *__restrict__ t0s, float *__restrict__ t1s)
+static void calc_t0s_t1s(vec3 min, vec3 max, transposed_ray_array rays, uint32 const len, float *__restrict__ t0s, float *__restrict__ t1s)
 {
     calc_transposed_ts(min, rays, len, t0s);
     calc_transposed_ts(max, rays, len, t1s);
 }
 
-void aabb::traverse(ray const *rays, uint32 const len, Traverse_Buffers buffers, interval_buffer results) const noexcept
+// FIXME: Plan of action:
+// 1. Change *::traverse() to use transposed rays.
+// 2. Change *::hit() to use transposed rays.
+
+void aabb::traverse(transposed_ray_array rays, uint32 const len, Traverse_Buffers buffers, interval_buffer results) const noexcept
 {
     // @perf soa'd vecs in rays
 
@@ -112,7 +95,7 @@ void aabb::traverse(ray const *rays, uint32 const len, Traverse_Buffers buffers,
     reduce_transposed((float *)buffers.mins, len, results.mins, [](auto a, auto b) { return std::max(a, b); });
 }
 
-void aabb::hit(ray const *rays, uint32 const len, Hit_Buffers buffers, float *__restrict__ results) const noexcept
+void aabb::hit(transposed_ray_array rays, uint32 const len, Hit_Buffers buffers, float *__restrict__ results) const noexcept
 {
 
     // @perf soa'd vecs in rays
@@ -136,11 +119,11 @@ void aabb::hit(ray const *rays, uint32 const len, Hit_Buffers buffers, float *__
     return simd::seti(z1, z0, z2, z1, z0, z2, z1, z0);
 }
 
-void aabb::getNormals(ray const *rays, float const *dist, vec3 *results, uint32 start, uint32 end) const noexcept
+void aabb::getNormals(transposed_ray_array rays, float const *dist, vec3 *results, uint32 start, uint32 end) const noexcept
 {
     // @perf could use soa'd vecs.
 
-    std::transform(dist + start, dist + end, rays + start, results + start, [&](auto const closestHit, auto const &r) {
+    std::transform(dist + start, dist + end, rays.read_scalars(end, start).begin(), results + start, [&](auto const closestHit, auto const &r) {
         return r.at(closestHit);
     });
 
@@ -301,14 +284,14 @@ void aabb::getNormals(ray const *rays, float const *dist, vec3 *results, uint32 
 
 using std::ranges::subrange;
 using std::ranges::views::zip;
-void aabb::getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 start, uint32 end) const noexcept
+void aabb::getUVs(transposed_ray_array rays, float const *dist, uv_buffer results, uint32 start, uint32 end) const noexcept
 {
 
     // @perf cache intersections, normals.
 
     // @perf cutnpaste transform
     std::ranges::transform(zip(
-                               subrange(rays + start, rays + end),
+                               rays.read_scalars(end, start),
                                subrange(dist + start, dist + end)),
         results.u + start, [&](auto const &t) -> float {
             // @perf could be optimized to use swizzled vectors.
@@ -340,7 +323,7 @@ void aabb::getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 
 
     // @perf separate transform :]
     std::ranges::transform(zip(
-                               subrange(rays + start, rays + end),
+                               rays.read_scalars(end, start),
                                subrange(dist + start, dist + end)),
         results.v + start, [&](auto const &t) -> float {
             // @perf could be optimized to use swizzled vectors.

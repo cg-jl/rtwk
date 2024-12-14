@@ -15,6 +15,7 @@
 #include <cassert>
 
 #include "external/glm/glm/ext/matrix_float2x3.hpp"
+#include "ray.h"
 #include "transforms.h"
 
 // @perf length(u) == length(v)?
@@ -30,9 +31,9 @@ struct quad {
         return aabb(bbox_diagonal1, bbox_diagonal2);
     }
 
-    void hit(ray const *rays, uint32 const len, float *results) const noexcept;
+    void hit(transposed_ray_array rays, uint32 const len, float *results) const noexcept;
 
-    void getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 start, uint32 end) const noexcept;
+    void getUVs(transposed_ray_array rays, float const *dist, uv_buffer results, uint32 start, uint32 end) const noexcept;
     vec3 getNormal() const;
 
     static quad applyTransform(quad q, transform tf) noexcept;

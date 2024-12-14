@@ -28,7 +28,7 @@ static glm::mat2x3 create_pinv(glm::vec3 u, glm::vec3 v)
     return inv * xt;
 }
 
-void quad::getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 start, uint32 end) const noexcept
+void quad::getUVs(transposed_ray_array rays, float const *dist, uv_buffer results, uint32 start, uint32 end) const noexcept
 {
     using std::ranges::subrange;
     using std::ranges::views::zip;
@@ -39,7 +39,7 @@ void quad::getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 
     // @perf cache intersections
 
     std::ranges::transform(zip(
-                               subrange(rays + start, rays + end),
+                               rays.read_scalars(end, start),
                                subrange(dist + start, dist + end)),
         results.v + start, [&](auto const &t) {
             auto const &[r, closestHit] = t;
@@ -47,7 +47,7 @@ void quad::getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 
             return glm::dot(glm::vec3(p - Q), get_v);
         });
     std::ranges::transform(zip(
-                               subrange(rays + start, rays + end),
+                               rays.read_scalars(end, start),
                                subrange(dist + start, dist + end)),
         results.u + start, [&](auto const &t) {
             auto const &[r, closestHit] = t;
@@ -68,13 +68,16 @@ static bool is_interior(float a, float b)
 
 // @perf length(u) == length(v)?
 // @perf dot(u,v ) == 0.
-void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
+void quad::hit(transposed_ray_array rays, uint32 const len, float *results) const noexcept
 {
     // @perf could use soa'd vecs
     ZoneNamedN(_tracy, "quad hit", filters::hit);
+
+    auto rin = rays.read_scalars(len);
+
     // @perf think about splitting this transform up.
     // @perf getUVs() could be cached :]
-    std::transform(rays, rays + len, results, [&](auto const &r) -> float {
+    std::transform(rin.begin(), rin.end(), results, [&](auto const &r) -> float {
         // vertical distance to plane.
         // "vertical" in the sense of "normal to the plane".
         auto vdist2plane = dot(normal, Q - r.orig);

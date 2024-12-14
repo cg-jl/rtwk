@@ -1,0 +1,363 @@
+00000000000046a0 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_>:
+55                   	push   %rbp
+41 57                	push   %r15
+41 56                	push   %r14
+41 55                	push   %r13
+41 54                	push   %r12
+53                   	push   %rbx
+89 54 24 b0          	mov    %edx,-0x50(%rsp)
+39 d6                	cmp    %edx,%esi
+0f 83 11 05 00 00    	jae    4bc7 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x527>
+44 8d 4e 02          	lea    0x2(%rsi),%r9d
+8d 46 07             	lea    0x7(%rsi),%eax
+8d 4e 06             	lea    0x6(%rsi),%ecx
+44 8d 5e 05          	lea    0x5(%rsi),%r11d
+44 8d 76 04          	lea    0x4(%rsi),%r14d
+44 8d 56 03          	lea    0x3(%rsi),%r10d
+44 8d 7e 01          	lea    0x1(%rsi),%r15d
+41 89 f4             	mov    %esi,%r12d
+48 89 74 24 f8       	mov    %rsi,-0x8(%rsp)
+44 89 4c 24 a4       	mov    %r9d,-0x5c(%rsp)
+44 89 4c 24 a8       	mov    %r9d,-0x58(%rsp)
+e9 f0 00 00 00       	jmp    47d7 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x137>
+66 0f 1f 84 00 00 00 	nopw   0x0(%rax,%rax,1)
+00 00 
+44 39 eb             	cmp    %r13d,%ebx
+c4 c1 79 7e cb       	vmovd  %xmm1,%r11d
+bb 00 00 00 00       	mov    $0x0,%ebx
+8b 6c 24 d4          	mov    -0x2c(%rsp),%ebp
+44 0f 45 db          	cmovne %ebx,%r11d
+45 39 e8             	cmp    %r13d,%r8d
+44 8b 44 24 94       	mov    -0x6c(%rsp),%r8d
+0f 45 c3             	cmovne %ebx,%eax
+44 39 e9             	cmp    %r13d,%ecx
+8b 4c 24 9c          	mov    -0x64(%rsp),%ecx
+44 0f 45 cb          	cmovne %ebx,%r9d
+8b 5c 24 90          	mov    -0x70(%rsp),%ebx
+0b 4c 24 a0          	or     -0x60(%rsp),%ecx
+44 0b 44 24 dc       	or     -0x24(%rsp),%r8d
+0b 6c 24 c8          	or     -0x38(%rsp),%ebp
+44 0b 54 24 c0       	or     -0x40(%rsp),%r10d
+44 0b 7c 24 b8       	or     -0x48(%rsp),%r15d
+41 09 d6             	or     %edx,%r14d
+44 0b 74 24 b4       	or     -0x4c(%rsp),%r14d
+83 44 24 a4 08       	addl   $0x8,-0x5c(%rsp)
+41 ff c4             	inc    %r12d
+0b 5c 24 d0          	or     -0x30(%rsp),%ebx
+0b 4c 24 98          	or     -0x68(%rsp),%ecx
+44 0b 44 24 e4       	or     -0x1c(%rsp),%r8d
+0b 6c 24 cc          	or     -0x34(%rsp),%ebp
+44 0b 54 24 c4       	or     -0x3c(%rsp),%r10d
+44 0b 7c 24 bc       	or     -0x44(%rsp),%r15d
+41 09 c1             	or     %eax,%r9d
+89 f0                	mov    %esi,%eax
+48 8b 74 24 f8       	mov    -0x8(%rsp),%rsi
+83 c0 08             	add    $0x8,%eax
+0b 5c 24 d8          	or     -0x28(%rsp),%ebx
+45 09 d9             	or     %r11d,%r9d
+44 8b 5c 24 f4       	mov    -0xc(%rsp),%r11d
+42 89 0c af          	mov    %ecx,(%rdi,%r13,4)
+8b 4c 24 ac          	mov    -0x54(%rsp),%ecx
+46 89 44 af 04       	mov    %r8d,0x4(%rdi,%r13,4)
+42 89 5c af 08       	mov    %ebx,0x8(%rdi,%r13,4)
+42 89 6c af 0c       	mov    %ebp,0xc(%rdi,%r13,4)
+46 89 54 af 10       	mov    %r10d,0x10(%rdi,%r13,4)
+46 89 7c af 14       	mov    %r15d,0x14(%rdi,%r13,4)
+46 89 74 af 18       	mov    %r14d,0x18(%rdi,%r13,4)
+44 8b 74 24 f0       	mov    -0x10(%rsp),%r14d
+44 8b 54 24 ec       	mov    -0x14(%rsp),%r10d
+44 8b 7c 24 e8       	mov    -0x18(%rsp),%r15d
+46 89 4c af 1c       	mov    %r9d,0x1c(%rdi,%r13,4)
+44 8b 4c 24 a8       	mov    -0x58(%rsp),%r9d
+41 83 c3 08          	add    $0x8,%r11d
+83 c1 08             	add    $0x8,%ecx
+41 83 c6 08          	add    $0x8,%r14d
+41 83 c2 08          	add    $0x8,%r10d
+41 83 c7 08          	add    $0x8,%r15d
+44 3b 64 24 b0       	cmp    -0x50(%rsp),%r12d
+0f 83 f0 03 00 00    	jae    4bc7 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x527>
+45 89 e5             	mov    %r12d,%r13d
+c4 a1 7a 10 04 af    	vmovss (%rdi,%r13,4),%xmm0
+89 44 24 e0          	mov    %eax,-0x20(%rsp)
+41 39 f4             	cmp    %esi,%r12d
+77 14                	ja     47fd <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x15d>
+41 8d 45 ff          	lea    -0x1(%r13),%eax
+c5 f8 2e 04 87       	vucomiss (%rdi,%rax,4),%xmm0
+49 0f 42 c5          	cmovb  %r13,%rax
+8b 04 87             	mov    (%rdi,%rax,4),%eax
+89 44 24 9c          	mov    %eax,-0x64(%rsp)
+89 4c 24 ac          	mov    %ecx,-0x54(%rsp)
+45 39 cd             	cmp    %r9d,%r13d
+73 14                	jae    481a <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x17a>
+41 8d 45 ff          	lea    -0x1(%r13),%eax
+c5 f8 2e 04 87       	vucomiss (%rdi,%rax,4),%xmm0
+49 0f 42 c5          	cmovb  %r13,%rax
+8b 04 87             	mov    (%rdi,%rax,4),%eax
+89 44 24 98          	mov    %eax,-0x68(%rsp)
+b9 ab aa aa aa       	mov    $0xaaaaaaab,%ecx
+4c 89 e8             	mov    %r13,%rax
+44 89 e2             	mov    %r12d,%edx
+48 0f af c1          	imul   %rcx,%rax
+31 c9                	xor    %ecx,%ecx
+48 c1 e8 21          	shr    $0x21,%rax
+8d 04 40             	lea    (%rax,%rax,2),%eax
+29 c2                	sub    %eax,%edx
+74 0a                	je     4840 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x1a0>
+c7 44 24 a0 00 00 00 	movl   $0x0,-0x60(%rsp)
+00 
+eb 06                	jmp    4846 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x1a6>
+c5 fa 11 44 24 a0    	vmovss %xmm0,-0x60(%rsp)
+f7 d8                	neg    %eax
+83 c2 fe             	add    $0xfffffffe,%edx
+45 8d 44 04 ff       	lea    -0x1(%r12,%rax,1),%r8d
+4a 8d 04 af          	lea    (%rdi,%r13,4),%rax
+45 85 c0             	test   %r8d,%r8d
+44 8b 44 24 9c       	mov    -0x64(%rsp),%r8d
+44 0f 45 c1          	cmovne %ecx,%r8d
+85 d2                	test   %edx,%edx
+44 89 44 24 9c       	mov    %r8d,-0x64(%rsp)
+44 8b 44 24 98       	mov    -0x68(%rsp),%r8d
+44 0f 45 c1          	cmovne %ecx,%r8d
+41 8d 4d 01          	lea    0x1(%r13),%ecx
+c5 fa 10 0c 8f       	vmovss (%rdi,%rcx,4),%xmm1
+48 8d 14 8f          	lea    (%rdi,%rcx,4),%rdx
+44 89 44 24 98       	mov    %r8d,-0x68(%rsp)
+41 39 f5             	cmp    %esi,%r13d
+73 11                	jae    4898 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x1f8>
+c5 f8 2e c8          	vucomiss %xmm0,%xmm1
+48 89 c1             	mov    %rax,%rcx
+48 0f 42 ca          	cmovb  %rdx,%rcx
+8b 09                	mov    (%rcx),%ecx
+89 4c 24 94          	mov    %ecx,-0x6c(%rsp)
+45 8d 65 01          	lea    0x1(%r13),%r12d
+45 39 cc             	cmp    %r9d,%r12d
+73 0a                	jae    48ab <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x20b>
+c5 f8 2e c8          	vucomiss %xmm0,%xmm1
+48 0f 42 c2          	cmovb  %rdx,%rax
+8b 18                	mov    (%rax),%ebx
+b9 ab aa aa aa       	mov    $0xaaaaaaab,%ecx
+44 89 f8             	mov    %r15d,%eax
+c5 f9 7e cd          	vmovd  %xmm1,%ebp
+48 0f af c1          	imul   %rcx,%rax
+48 c1 e8 21          	shr    $0x21,%rax
+8d 04 40             	lea    (%rax,%rax,2),%eax
+44 8d 40 ff          	lea    -0x1(%rax),%r8d
+8d 48 01             	lea    0x1(%rax),%ecx
+45 39 e8             	cmp    %r13d,%r8d
+41 b8 00 00 00 00    	mov    $0x0,%r8d
+41 0f 45 e8          	cmovne %r8d,%ebp
+44 39 e8             	cmp    %r13d,%eax
+89 6c 24 dc          	mov    %ebp,-0x24(%rsp)
+8b 6c 24 94          	mov    -0x6c(%rsp),%ebp
+41 0f 45 e8          	cmovne %r8d,%ebp
+44 39 e9             	cmp    %r13d,%ecx
+41 8d 4d 02          	lea    0x2(%r13),%ecx
+c5 fa 10 04 8f       	vmovss (%rdi,%rcx,4),%xmm0
+48 8d 04 8f          	lea    (%rdi,%rcx,4),%rax
+41 0f 45 d8          	cmovne %r8d,%ebx
+41 ff c4             	inc    %r12d
+89 6c 24 94          	mov    %ebp,-0x6c(%rsp)
+41 39 f4             	cmp    %esi,%r12d
+77 11                	ja     4916 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x276>
+c5 f8 2e c1          	vucomiss %xmm1,%xmm0
+48 89 d1             	mov    %rdx,%rcx
+48 0f 42 c8          	cmovb  %rax,%rcx
+8b 09                	mov    (%rcx),%ecx
+89 4c 24 90          	mov    %ecx,-0x70(%rsp)
+89 5c 24 e4          	mov    %ebx,-0x1c(%rsp)
+45 39 cc             	cmp    %r9d,%r12d
+73 0a                	jae    4929 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x289>
+c5 f8 2e c1          	vucomiss %xmm1,%xmm0
+48 0f 42 d0          	cmovb  %rax,%rdx
+8b 1a                	mov    (%rdx),%ebx
+8b 4c 24 a4          	mov    -0x5c(%rsp),%ecx
+ba ab aa aa aa       	mov    $0xaaaaaaab,%edx
+c5 f9 7e c5          	vmovd  %xmm0,%ebp
+48 0f af ca          	imul   %rdx,%rcx
+48 c1 e9 21          	shr    $0x21,%rcx
+8d 14 49             	lea    (%rcx,%rcx,2),%edx
+8d 4c 49 ff          	lea    -0x1(%rcx,%rcx,2),%ecx
+44 8d 42 ff          	lea    -0x1(%rdx),%r8d
+83 c2 fe             	add    $0xfffffffe,%edx
+ff c1                	inc    %ecx
+44 39 ea             	cmp    %r13d,%edx
+ba 00 00 00 00       	mov    $0x0,%edx
+0f 45 ea             	cmovne %edx,%ebp
+45 39 e8             	cmp    %r13d,%r8d
+89 6c 24 d0          	mov    %ebp,-0x30(%rsp)
+8b 6c 24 90          	mov    -0x70(%rsp),%ebp
+0f 45 ea             	cmovne %edx,%ebp
+44 39 e9             	cmp    %r13d,%ecx
+41 8d 4d 03          	lea    0x3(%r13),%ecx
+c5 fa 10 0c 8f       	vmovss (%rdi,%rcx,4),%xmm1
+0f 45 da             	cmovne %edx,%ebx
+48 8d 14 8f          	lea    (%rdi,%rcx,4),%rdx
+41 ff c4             	inc    %r12d
+89 6c 24 90          	mov    %ebp,-0x70(%rsp)
+89 5c 24 d8          	mov    %ebx,-0x28(%rsp)
+41 39 f4             	cmp    %esi,%r12d
+77 0d                	ja     4997 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x2f7>
+c5 f8 2e c8          	vucomiss %xmm0,%xmm1
+48 89 c1             	mov    %rax,%rcx
+48 0f 42 ca          	cmovb  %rdx,%rcx
+8b 29                	mov    (%rcx),%ebp
+45 39 cc             	cmp    %r9d,%r12d
+73 0a                	jae    49a6 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x306>
+c5 f8 2e c8          	vucomiss %xmm0,%xmm1
+48 0f 42 c2          	cmovb  %rdx,%rax
+8b 18                	mov    (%rax),%ebx
+b9 ab aa aa aa       	mov    $0xaaaaaaab,%ecx
+44 89 d0             	mov    %r10d,%eax
+44 89 54 24 ec       	mov    %r10d,-0x14(%rsp)
+c4 c1 79 7e ca       	vmovd  %xmm1,%r10d
+48 0f af c1          	imul   %rcx,%rax
+48 c1 e8 21          	shr    $0x21,%rax
+8d 04 40             	lea    (%rax,%rax,2),%eax
+8d 48 ff             	lea    -0x1(%rax),%ecx
+44 8d 40 fe          	lea    -0x2(%rax),%r8d
+83 c0 fd             	add    $0xfffffffd,%eax
+44 39 e8             	cmp    %r13d,%eax
+b8 00 00 00 00       	mov    $0x0,%eax
+44 0f 45 d0          	cmovne %eax,%r10d
+45 39 e8             	cmp    %r13d,%r8d
+0f 45 e8             	cmovne %eax,%ebp
+44 39 e9             	cmp    %r13d,%ecx
+44 89 54 24 c8       	mov    %r10d,-0x38(%rsp)
+0f 45 d8             	cmovne %eax,%ebx
+41 8d 45 04          	lea    0x4(%r13),%eax
+41 ff c4             	inc    %r12d
+c5 fa 10 04 87       	vmovss (%rdi,%rax,4),%xmm0
+4c 8d 04 87          	lea    (%rdi,%rax,4),%r8
+41 39 f4             	cmp    %esi,%r12d
+77 0e                	ja     4a0d <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x36d>
+c5 f8 2e c1          	vucomiss %xmm1,%xmm0
+48 89 d0             	mov    %rdx,%rax
+49 0f 42 c0          	cmovb  %r8,%rax
+44 8b 10             	mov    (%rax),%r10d
+89 5c 24 cc          	mov    %ebx,-0x34(%rsp)
+44 89 7c 24 e8       	mov    %r15d,-0x18(%rsp)
+45 39 cc             	cmp    %r9d,%r12d
+73 0a                	jae    4a25 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x385>
+c5 f8 2e c1          	vucomiss %xmm1,%xmm0
+49 0f 42 d0          	cmovb  %r8,%rdx
+8b 1a                	mov    (%rdx),%ebx
+b9 ab aa aa aa       	mov    $0xaaaaaaab,%ecx
+44 89 f0             	mov    %r14d,%eax
+c4 c1 79 7e c7       	vmovd  %xmm0,%r15d
+48 0f af c1          	imul   %rcx,%rax
+48 c1 e8 21          	shr    $0x21,%rax
+8d 04 40             	lea    (%rax,%rax,2),%eax
+8d 48 fe             	lea    -0x2(%rax),%ecx
+8d 50 fd             	lea    -0x3(%rax),%edx
+83 c0 fc             	add    $0xfffffffc,%eax
+44 39 e8             	cmp    %r13d,%eax
+b8 00 00 00 00       	mov    $0x0,%eax
+44 0f 45 f8          	cmovne %eax,%r15d
+44 39 ea             	cmp    %r13d,%edx
+44 0f 45 d0          	cmovne %eax,%r10d
+44 39 e9             	cmp    %r13d,%ecx
+44 89 7c 24 c0       	mov    %r15d,-0x40(%rsp)
+0f 45 d8             	cmovne %eax,%ebx
+41 8d 45 05          	lea    0x5(%r13),%eax
+41 ff c4             	inc    %r12d
+c5 fa 10 0c 87       	vmovss (%rdi,%rax,4),%xmm1
+48 8d 14 87          	lea    (%rdi,%rax,4),%rdx
+41 39 f4             	cmp    %esi,%r12d
+77 0e                	ja     4a87 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x3e7>
+c5 f8 2e c8          	vucomiss %xmm0,%xmm1
+4c 89 c0             	mov    %r8,%rax
+48 0f 42 c2          	cmovb  %rdx,%rax
+44 8b 38             	mov    (%rax),%r15d
+44 89 74 24 f0       	mov    %r14d,-0x10(%rsp)
+45 39 cc             	cmp    %r9d,%r12d
+73 0b                	jae    4a9c <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x3fc>
+c5 f8 2e c8          	vucomiss %xmm0,%xmm1
+4c 0f 42 c2          	cmovb  %rdx,%r8
+45 8b 30             	mov    (%r8),%r14d
+b9 ab aa aa aa       	mov    $0xaaaaaaab,%ecx
+44 89 d8             	mov    %r11d,%eax
+44 89 5c 24 f4       	mov    %r11d,-0xc(%rsp)
+c4 c1 79 7e cb       	vmovd  %xmm1,%r11d
+48 0f af c1          	imul   %rcx,%rax
+48 c1 e8 21          	shr    $0x21,%rax
+8d 04 40             	lea    (%rax,%rax,2),%eax
+8d 48 fd             	lea    -0x3(%rax),%ecx
+44 8d 40 fc          	lea    -0x4(%rax),%r8d
+83 c0 fb             	add    $0xfffffffb,%eax
+44 39 e8             	cmp    %r13d,%eax
+b8 00 00 00 00       	mov    $0x0,%eax
+44 0f 45 d8          	cmovne %eax,%r11d
+45 39 e8             	cmp    %r13d,%r8d
+44 0f 45 f8          	cmovne %eax,%r15d
+44 39 e9             	cmp    %r13d,%ecx
+44 89 5c 24 b8       	mov    %r11d,-0x48(%rsp)
+44 0f 45 f0          	cmovne %eax,%r14d
+41 8d 45 06          	lea    0x6(%r13),%eax
+41 ff c4             	inc    %r12d
+c5 fa 10 04 87       	vmovss (%rdi,%rax,4),%xmm0
+4c 8d 1c 87          	lea    (%rdi,%rax,4),%r11
+44 89 74 24 bc       	mov    %r14d,-0x44(%rsp)
+41 39 f4             	cmp    %esi,%r12d
+77 0e                	ja     4b0a <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x46a>
+c5 f8 2e c1          	vucomiss %xmm1,%xmm0
+48 89 d0             	mov    %rdx,%rax
+49 0f 42 c3          	cmovb  %r11,%rax
+44 8b 30             	mov    (%rax),%r14d
+8b 44 24 ac          	mov    -0x54(%rsp),%eax
+89 6c 24 d4          	mov    %ebp,-0x2c(%rsp)
+45 39 cc             	cmp    %r9d,%r12d
+73 0a                	jae    4b21 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x481>
+c5 f8 2e c1          	vucomiss %xmm1,%xmm0
+49 0f 42 d3          	cmovb  %r11,%rdx
+8b 2a                	mov    (%rdx),%ebp
+b9 ab aa aa aa       	mov    $0xaaaaaaab,%ecx
+89 c0                	mov    %eax,%eax
+c5 f9 7e c2          	vmovd  %xmm0,%edx
+41 b9 00 00 00 00    	mov    $0x0,%r9d
+89 5c 24 c4          	mov    %ebx,-0x3c(%rsp)
+48 0f af c1          	imul   %rcx,%rax
+48 c1 e8 21          	shr    $0x21,%rax
+8d 04 40             	lea    (%rax,%rax,2),%eax
+8d 48 fc             	lea    -0x4(%rax),%ecx
+44 8d 40 fb          	lea    -0x5(%rax),%r8d
+83 c0 fa             	add    $0xfffffffa,%eax
+44 39 e8             	cmp    %r13d,%eax
+41 8d 45 07          	lea    0x7(%r13),%eax
+c5 fa 10 0c 87       	vmovss (%rdi,%rax,4),%xmm1
+41 0f 45 d1          	cmovne %r9d,%edx
+45 39 e8             	cmp    %r13d,%r8d
+45 0f 45 f1          	cmovne %r9d,%r14d
+44 39 e9             	cmp    %r13d,%ecx
+41 0f 45 e9          	cmovne %r9d,%ebp
+41 ff c4             	inc    %r12d
+89 6c 24 b4          	mov    %ebp,-0x4c(%rsp)
+48 8d 2c 87          	lea    (%rdi,%rax,4),%rbp
+41 39 f4             	cmp    %esi,%r12d
+77 0d                	ja     4b86 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x4e6>
+c5 f8 2e c8          	vucomiss %xmm0,%xmm1
+4c 89 d8             	mov    %r11,%rax
+48 0f 42 c5          	cmovb  %rbp,%rax
+8b 00                	mov    (%rax),%eax
+8b 4c 24 e0          	mov    -0x20(%rsp),%ecx
+41 b8 ab aa aa aa    	mov    $0xaaaaaaab,%r8d
+89 ce                	mov    %ecx,%esi
+89 c9                	mov    %ecx,%ecx
+49 0f af c8          	imul   %r8,%rcx
+48 c1 e9 21          	shr    $0x21,%rcx
+44 8d 04 49          	lea    (%rcx,%rcx,2),%r8d
+41 8d 48 fb          	lea    -0x5(%r8),%ecx
+41 8d 58 f9          	lea    -0x7(%r8),%ebx
+41 83 c0 fa          	add    $0xfffffffa,%r8d
+44 3b 64 24 a8       	cmp    -0x58(%rsp),%r12d
+0f 83 39 fb ff ff    	jae    46f0 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x50>
+c5 f8 2e c8          	vucomiss %xmm0,%xmm1
+4c 0f 42 dd          	cmovb  %rbp,%r11
+45 8b 0b             	mov    (%r11),%r9d
+e9 29 fb ff ff       	jmp    46f0 <_ZZL16reduce_min_vec3sP4vec3jPfENK3$_1clIjjEEDaT_T0_+0x50>
+5b                   	pop    %rbx
+41 5c                	pop    %r12
+41 5d                	pop    %r13
+41 5e                	pop    %r14
+41 5f                	pop    %r15
+5d                   	pop    %rbp
+c3                   	ret

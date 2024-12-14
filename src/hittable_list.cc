@@ -66,7 +66,7 @@ enum bool32 : uint32_t { True = 0xFFFFFFFFul,
     False = 0x0ul };
 
 void hittable_list::sampleCMs(
-    ray const *rays, float const *times, uint32_t const len,
+    transposed_ray_array rays, float const *times, uint32_t const len,
     std::pair<color const *, float> *results, SampleCM_Buffers buffers,
     std::function<void(uint32_t, uint32_t)> const &swap_rays) const noexcept
 {

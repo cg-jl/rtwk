@@ -185,7 +185,7 @@ struct traversable_geometry {
         aabb::Traverse_Buffers bb;
     };
 
-    void traverse(ray const *rays, float const *times, uint32 const len, Traverse_Buffers buffers, interval_buffer traversals) const
+    void traverse(transposed_ray_array rays, float const *times, uint32 const len, Traverse_Buffers buffers, interval_buffer traversals) const
     {
         switch (kind) {
 

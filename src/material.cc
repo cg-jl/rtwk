@@ -4,6 +4,7 @@
 #include <tracy/Tracy.hpp>
 
 #include "random.h"
+#include "ray.h"
 
 static float reflectance(float cosine, float refraction_index)
 {
@@ -56,27 +57,27 @@ void material::scatter_lambertian(vec3 const *normals, uint32 const len, vec3 *s
         return normal + rng;
     });
 }
-void material::scatter_metal(float const fuzz, ray const *in_ray, vec3 const *normals, vec3 *scattered, vec3 *end) noexcept
+void material::scatter_metal(float const fuzz, transposed_ray_array in_rays, vec3 const *normals, vec3 *scattered, uint32 const start, uint32 const end) noexcept
 {
     ZoneScopedN("metal scatter");
     // @perf might want a different buffer for random numbers and then add things to those.
-    random_unit_vectors(scattered, end);
-    auto const len = end - scattered;
-    std::transform(scattered, scattered + len, scattered, [&](auto const &rng) { return fuzz * rng; });
-    std::transform(in_ray, in_ray + len, std::views::iota(0).begin(), scattered, [&](auto const &r, auto const i) {
+    random_unit_vectors(scattered + start, scattered + end);
+    auto const len = end - start;
+    std::transform(scattered + start, scattered + end, scattered, [&](auto const &rng) { return fuzz * rng; });
+    auto in_ray = in_rays.read_scalars(end, start);
+    std::transform(in_ray.begin(), in_ray.end(), std::views::iota(start).begin(), scattered + start, [&](auto const &r, auto const i) {
         return unit_vector(reflect(r.dir, normals[i])) + scattered[i];
     });
 }
-void material::scatter_dielectric(float const refraction_index, ray const *in_ray, bool const *front_faces, vec3 const *normals, vec3 *scattered, vec3 *end) noexcept
+void material::scatter_dielectric(float const refraction_index, transposed_ray_array in_rays, bool const *front_faces, vec3 const *normals, vec3 *scattered, uint32 const start, uint32 const end) noexcept
 {
     ZoneScopedN("dielectric scatter");
     // @perf check out.
-    auto const len = end - scattered;
     std::transform(
-        in_ray, in_ray + len,
-        std::views::iota(decltype(len)(0)).begin(),
-        scattered, [&](auto const &hit_res, auto const i) -> vec3 {
-            auto const &r = in_ray[i];
+        std::views::iota(start, end).begin(),
+        std::views::iota(start, end).end(),
+        scattered, [&](auto const i) -> vec3 {
+            auto const &r = in_rays[i];
             auto const &in_dir = r.dir;
             auto const &normal = normals[i];
             auto const front_face = front_faces[i];

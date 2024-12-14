@@ -6,6 +6,7 @@
 
 #include "hittable.h"
 #include "interval.h"
+#include "ray.h"
 
 static point3 sphere_center(sphere const &sph, float time)
 {
@@ -14,7 +15,7 @@ static point3 sphere_center(sphere const &sph, float time)
     return sph.center1 + time * sph.center_vec;
 }
 
-void sphere::hit(ray const *rays, float const *noalias times, Hit_Buffers buffers, uint32 const len, float *noalias results) const noexcept
+void sphere::hit(transposed_ray_array rays, float const *noalias times, Hit_Buffers buffers, uint32 const len, float *noalias results) const noexcept
 {
     ZoneNamedN(_tracy, "sphere hit", filters::hit);
 
@@ -23,14 +24,16 @@ void sphere::hit(ray const *rays, float const *noalias times, Hit_Buffers buffer
         return sphere_center(*this, time);
     });
 
+    auto const rin = rays.read_scalars(len);
+
     // @perf separate ray orig and dir
-    std::transform(buffers.ocs, buffers.ocs + len, rays, buffers.ocs, [&](auto const center, auto const &r) {
+    std::transform(buffers.ocs, buffers.ocs + len, rin.begin(), buffers.ocs, [&](auto const center, auto const &r) {
         return center - r.orig;
     });
 
     // @perf separte ray orig and dir
     // @perf think about splitting transform up.
-    std::transform(rays, rays + len, buffers.ocs, results, [&](auto const &r, auto const oc) -> float {
+    std::transform(rin.begin(), rin.end(), buffers.ocs, results, [&](auto const &r, auto const oc) -> float {
         // Distance from ray origin to sphere center parallel to the ray
         // direction
         auto oc_alongside_ray = dot(r.dir, oc);
@@ -48,7 +51,7 @@ void sphere::hit(ray const *rays, float const *noalias times, Hit_Buffers buffer
     });
 }
 
-void sphere::traverse(ray const *rays, float const *times, uint32 const len, interval_buffer results) const noexcept
+void sphere::traverse(transposed_ray_array rays, float const *times, uint32 const len, interval_buffer results) const noexcept
 {
 
     struct zipped_outbuf {
@@ -86,9 +89,11 @@ void sphere::traverse(ray const *rays, float const *times, uint32 const len, int
         auto constexpr operator<=>(zipped_outbuf const &other) { return index <=> other.index; }
     };
 
+    auto const rin = rays.read_scalars(len);
+
     // @perf separate transform into smaller pieces
     // @perf same thing wrt time.
-    std::transform(rays, rays + len, times, zipped_outbuf { &results, 0 }, [&](auto const &r, auto const time) {
+    std::transform(rin.begin(), rin.end(), times, zipped_outbuf { &results, 0 }, [&](auto const &r, auto const time) {
         // NOTE: @cutnpaste from sphere::hit
         ZoneNamedNC(_tracy, "sphere traverse", Ctp::Mantle, filters::hit);
         point3 center = sphere_center(*this, time);
@@ -156,10 +161,11 @@ sphere sphere::applyTransform(sphere a, transform tf) noexcept
     a.center_vec = tf.applyForward(previous + a.center_vec) - a.center1;
     return a;
 }
-[[clang::noinline]] void sphere::getNormals(ray const *rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept
+[[clang::noinline]] void sphere::getNormals(transposed_ray_array rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept
 {
+
     // @perf could use soa'd vecs.
-    std::transform(dist + start, dist + end, rays, results + start, [&](auto const closestHit, auto const &r) {
+    std::transform(dist + start, dist + end, rays.read_scalars(end, start).begin(), results + start, [&](auto const closestHit, auto const &r) {
         return r.at(closestHit);
     });
     std::transform(results + start, results + end, times, results + start, [&](auto const intersection, auto const time) {
