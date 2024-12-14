@@ -8,6 +8,8 @@
 
 #include "trace_colors.h"
 
+static auto constexpr eps = 1e-5f;
+
 // Creates pseudoinverse from the (3x2) matrix [u, v], such that
 // the new matrix is a base conversion from 3D space to the quad's
 // plane, scaled by 'u' and 'v' such that the rectangle [0, 1]x[0, 1]
@@ -21,8 +23,6 @@ static glm::mat2x3 create_pinv(glm::vec3 u, glm::vec3 v)
     auto xtx = xt * x;
 
     // this prevents the matrix from becoming singular.
-    auto constexpr eps = 1e-5f;
-
     auto inv = glm::inverse(xtx + eps);
 
     return inv * xt;
@@ -71,27 +71,23 @@ static bool is_interior(float a, float b)
 void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
 {
     ZoneNamedN(_tracy, "quad hit", filters::hit);
-    // n.Q = (uxv).Q =(triple product expansion) = u.(vxQ) = v.(uxQ)
-    // trying to use dot(u,v) = 0 here?
-    auto const D = dot(normal, Q);
     // @perf think about splitting this transform up.
     // @perf getUVs() could be cached :]
     std::transform(rays, rays + len, results, [&](auto const &r) -> float {
-        auto denom = dot(normal, r.dir);
+        // vertical distance to plane.
+        // "vertical" in the sense of "normal to the plane".
+        auto vdist2plane = dot(normal, Q - r.orig);
 
-        // Return false if the hit point parameter t is outside the ray
-        // interval.
-        auto t = (D - dot(normal, r.orig)) / denom;
-        // Determine the hit point lies within the planar shape using its plane
-        // coordinates.
-        auto intersection = r.at(t);
-        // @perf dot(u,v) == 0. Try to find a relationship with `t`.
-        // @perf may want to make a bulk visit :]
-        auto uv = glm::vec3(intersection - Q) * pinv;
-        auto u = uv.x;
-        auto v = uv.y;
+        // Rate of (vertical) approximation to plane. Adding a small constant
+        // to avoid divisions by zero: parallel rays will have very high 't's ~= 1/eps,
+        // and thus will be discarded.
+        auto vrate2plane = dot(normal, r.dir) + eps;
 
-        auto mask = is_interior(u, v);
+        auto t = vdist2plane / vrate2plane;
+
+        auto uv = t * (r.dir * pinv) - (Q - r.orig) * pinv;
+
+        auto mask = is_interior(uv.x, uv.y);
 
         // Ray hits the 2D shape; set the rest of the hit record and return
         // true.
