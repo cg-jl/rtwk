@@ -34,7 +34,7 @@ void quad::getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 
     using std::ranges::views::zip;
 
     auto const get_u = glm::vec3 { pinv[0][0], pinv[0][1], pinv[0][2] };
-    auto const get_v = glm::vec3 { pinv[0][0], pinv[0][1], pinv[0][2] };
+    auto const get_v = glm::vec3 { pinv[1][0], pinv[1][1], pinv[1][2] };
 
     // @perf cache intersections
 
