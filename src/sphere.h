@@ -52,9 +52,9 @@ struct sphere final {
     // @perf move sphere center compute to caller. That way we can cache it :]
     void hit(transposed_ray_array rays, float const *noalias times, Hit_Buffers buffers, uint32 const len, float *noalias results) const noexcept;
     void traverse(transposed_ray_array rays, float const *times, uint32 const len, interval_buffer results) const noexcept;
-    static void getUVs(vec3 const *normals, uv_buffer results, uint32 start, uint32 end) noexcept;
+    static void getUVs(transposed_vec_array normals, uv_buffer results, uint32 start, uint32 end) noexcept;
 
-    void getNormals(transposed_ray_array rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept;
+    void getNormals(transposed_ray_array rays, float const *dist, float const *times, transposed_vec_array results, uint32 start, uint32 end) const noexcept;
 
     aabb bounding_box() const;
 

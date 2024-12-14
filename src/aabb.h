@@ -102,7 +102,7 @@ struct aabb {
     void hit(transposed_ray_array rays, uint32 const len, Hit_Buffers buffers, float *__restrict__ results) const noexcept;
     void traverse(transposed_ray_array rays, uint32 const len, Traverse_Buffers buffers, interval_buffer results) const noexcept;
     void getUVs(transposed_ray_array rays, float const *dist, uv_buffer results, uint32 start, uint32 end) const noexcept;
-    void getNormals(transposed_ray_array rays, float const *dist, vec3 *results, uint32 start, uint32 end) const noexcept;
+    void getNormals(transposed_ray_array rays, float const *dist, transposed_vec_array results, uint32 start, uint32 end) const noexcept;
 
     constexpr int longest_axis() const
     {

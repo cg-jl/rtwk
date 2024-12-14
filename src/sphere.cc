@@ -126,19 +126,20 @@ void sphere::traverse(transposed_ray_array rays, float const *times, uint32 cons
 //     <1 0 0> yields <0.50 0.50>       <-1  0  0> yields <0.00 0.50>
 //     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
 //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
-void sphere::getUVs(vec3 const *normals, uv_buffer results, uint32 start, uint32 end) noexcept
+void sphere::getUVs(transposed_vec_array normals, uv_buffer results, uint32 start, uint32 end) noexcept
 {
     // @perf could use soa'd vecs
 
+    auto const nit = normals.read_scalars(end, start);
     std::transform(
-        normals + start, normals + end,
+        nit.begin(), nit.end(),
         results.v, [&](auto const &normal) {
             auto theta = std::acos(-normal.y());
             return theta / pi;
         });
 
     std::transform(
-        normals + start, normals + end,
+        nit.begin(), nit.end(),
         results.u, [&](auto const &normal) {
             auto phi = std::atan2(-normal.z(), normal.x()) + pi;
             return phi / (2 * pi);
@@ -161,25 +162,20 @@ sphere sphere::applyTransform(sphere a, transform tf) noexcept
     a.center_vec = tf.applyForward(previous + a.center_vec) - a.center1;
     return a;
 }
-[[clang::noinline]] void sphere::getNormals(transposed_ray_array rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept
+[[clang::noinline]] void sphere::getNormals(transposed_ray_array rays, float const *dist, float const *times, transposed_vec_array results, uint32 start, uint32 end) const noexcept
 {
 
-    // @perf could use soa'd vecs.
-    std::transform(dist + start, dist + end, rays.read_scalars(end, start).begin(), results + start, [&](auto const closestHit, auto const &r) {
-        return r.at(closestHit);
-    });
-    std::transform(results + start, results + end, times, results + start, [&](auto const intersection, auto const time) {
-        return intersection - sphere_center(*this, time);
-    });
+    for (auto i = start; i < end; ++i) {
+        results[i] = rays[i].at(dist[i]);
+    }
 
-    // normalize.
-    auto *fresults = (float *)results;
-    auto const fstart = start * 3;
-    auto const fend = end * 3;
+    for (auto i = start; i < end; ++i) {
+        auto intersection = results[i];
+        auto time = times[i];
+        results[i] = intersection - sphere_center(*this, time);
+    }
 
-    std::transform(fresults + fstart, fresults + fend, fresults + fstart, [rad = radius](auto const coord) {
-        // FIXME: Some of the intersections here are not at a distance 'radius' away from the calculated center.
-        // Are we swapping things correctly in renderer?
-        return coord / rad;
-    });
+    for (auto i = start; i < end; ++i) {
+        results[i] = results[i] / radius;
+    }
 }

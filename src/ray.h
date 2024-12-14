@@ -103,6 +103,15 @@ struct transposed_vec_array {
         };
     }
 
+    transposed_vec_array constexpr offset(uint32 off) const noexcept
+    {
+        return {
+            .x = x + off,
+            .y = y + off,
+            .z = z + off,
+        };
+    }
+
     constexpr auto coord(uint32 coord) const noexcept
     {
         return ((float **)this)[coord];
@@ -123,7 +132,8 @@ struct transposed_ray_array {
     struct assign_proxy {
         transposed_vec_array::assign_proxy dir, orig;
 
-        vec3 constexpr at(float t) const noexcept {
+        vec3 constexpr at(float t) const noexcept
+        {
             return dir * t + orig;
         }
 

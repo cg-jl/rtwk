@@ -228,7 +228,7 @@ using select_res = std::pair<geometry_ptr, float>;
 using cm_res = std::pair<color const *, float>;
 
 struct hit_record_buffer {
-    vec3 *normal;
+    transposed_vec_array normal;
     uv_buffer uv;
     // @mem/@perf could be bitset.
     bool *is_front;
@@ -236,7 +236,7 @@ struct hit_record_buffer {
     static hit_record_buffer request(uint32 const spp)
     {
         return {
-            .normal = new vec3[spp],
+            .normal = transposed_vec_array::request(spp),
             .uv = uv_buffer::request(spp),
             .is_front = new bool[spp],
         };
@@ -244,7 +244,7 @@ struct hit_record_buffer {
 
     void swap(uint32 const i, uint32 const k) noexcept
     {
-        std::swap(normal[i], normal[k]);
+        normal.swap(i, k);
         uv.swap(i, k);
         std::swap(is_front[i], is_front[k]);
     }
@@ -252,7 +252,7 @@ struct hit_record_buffer {
     auto constexpr zip_view(uint32 const start, uint32 const end) const noexcept
     {
         return std::views::zip(
-            std::ranges::subrange(normal + start, normal + end),
+            normal.read_scalars(end, start),
             uv.zip_view(start, end),
             std::ranges::subrange(is_front + start, is_front + end));
     }
@@ -311,17 +311,17 @@ struct Scanline_Buffers {
 };
 
 // Adjust normals to outwards facing normals. Fills is_front[i] depending on whether `normal` was already
-static void adjustNormalsToOutwardFace(transposed_ray_array rays, vec3 *normals, bool *is_front, uint32 start, uint32 end)
+static void adjustNormalsToOutwardFace(transposed_ray_array rays, transposed_vec_array normals, bool *is_front, uint32 start, uint32 end)
 {
     // @perf partition instead of asking each time.
     auto sc = rays.read_scalars(end, start);
-    std::transform(sc.begin(), sc.end(), normals + start, is_front + start, [&](auto const &r, auto const &normal) {
+    std::transform(sc.begin(), sc.end(), normals.read_scalars(end, start).begin(), is_front + start, [&](auto const &r, auto const &normal) {
         return is_front_face(r.dir, normal);
     });
 
-    std::transform(is_front + start, is_front + end, normals + start, normals + start, [&](auto const is_front, auto const normal) {
-        return is_front ? normal : -normal;
-    });
+    for (auto i = start; i < end; ++i) {
+        normals[i] = is_front ? normals[i] : -vec3(normals[i]);
+    }
 }
 
 static void normalize_rays(transposed_ray_array rays, uint32 len)
@@ -451,7 +451,12 @@ static void gsim(color const &background, uint32 const spp,
             auto const dist = buffers.hit_selects.dist;
             auto const normals = buffers.hit_recs.normal;
 
-            std::fill(normals + start, normals + end, res.ptr.quad->getNormal());
+            {
+                auto n = res.ptr.quad->getNormal();
+                std::fill(normals.x + start, normals.x + end, n.x());
+                std::fill(normals.y + start, normals.y + end, n.y());
+                std::fill(normals.z + start, normals.z + end, n.z());
+            }
 
             adjustNormalsToOutwardFace(rays, normals, buffers.hit_recs.is_front, start, end);
 
@@ -548,7 +553,7 @@ static void gsim(color const &background, uint32 const spp,
             start = end;
         }
 
-        material::scatter_lambertian(buffers.hit_recs.normal + lambertians_begin, isotropics_begin - lambertians_begin, buffers.scatters + lambertians_begin);
+        material::scatter_lambertian(buffers.hit_recs.normal, buffers.scatters, lambertians_begin, isotropics_begin);
 
         material::scatter_isotropic(buffers.scatters + isotropics_begin, buffers.scatters + lights_begin);
 

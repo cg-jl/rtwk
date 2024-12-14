@@ -119,167 +119,39 @@ void aabb::hit(transposed_ray_array rays, uint32 const len, Hit_Buffers buffers,
     return simd::seti(z1, z0, z2, z1, z0, z2, z1, z0);
 }
 
-void aabb::getNormals(transposed_ray_array rays, float const *dist, vec3 *results, uint32 start, uint32 end) const noexcept
+static inline vec3 vabs(vec3 v) { return { std::abs(v[0]), std::abs(v[1]), std::abs(v[2]) }; }
+
+void aabb::getNormals(transposed_ray_array rays, float const *dist, transposed_vec_array results, uint32 const start, uint32 const end) const noexcept
 {
-    // @perf could use soa'd vecs.
 
-    std::transform(dist + start, dist + end, rays.read_scalars(end, start).begin(), results + start, [&](auto const closestHit, auto const &r) {
-        return r.at(closestHit);
-    });
+    for (auto i = start; i < end; ++i) {
+        results[i] = rays[i].at(dist[i]);
+    }
 
-    // @cleanup move block/scalar versions to function, move layout distribution (alignment & blocks) to function as well.
-    // A namespace to hide all of them wouldn't hurt :]
-    auto const fresults = (float *)results;
     auto constexpr eps = 1e-8f;
+    for (auto i = start; i < end; ++i) {
+        // FIXME: @perf this should be:
+        // - first check on x axis
+        // - then check on y axis while making sure it's not on x axis
+        // - then check on z axis while making sure it's not on x/y axis.
+        auto intersection = results[i];
+        auto min_intersect = vabs(intersection - min);
+        auto max_intersect = vabs(intersection - max);
 
-    auto const find_normal_ones = [](simd::floats const fresults_ik, simd::floats const fresults_last_ik, simd::floats const min_axis_reg, simd::floats const max_axis_reg, simd::ints const axis_eq_0, simd::ints const axis_ne_2) {
-        //  Note that only a shift (left in register, right in memory) is needed, but the smallest sequence
-        // of instructions I could find includes the rotation result for free :].
-        auto fresults_ikm1 = simd::insert_last_in_first(fresults_last_ik, simd::rotate_right(fresults_ik));
-
-        // Mix in the last two values of fresults_last_ik and the first 6 of fresults_ik.
-        auto fresults_ikm2 = simd::insert_last2_in_first2(fresults_last_ik, simd::rotate_right2(fresults_ik));
-
-        auto min_intersect_reg = simd::absf(fresults_ik - min_axis_reg);
-
-        auto max_intersect = simd::absf(fresults_ik - max_axis_reg);
-
-        auto min_of_both = simd::minf(min_intersect_reg, max_intersect);
-        auto const ones = simd::splatf(1.f);
-        auto const eps_reg = simd::splatf(eps);
-        auto has_this_reg = min_of_both < eps_reg;
-
-        // @perf May want to use quiet instead of signaling!
-        auto ikm1_is_1 = fresults_ikm1 == ones;
-
-        // @perf May want to use quiet instead of signaling!
-        auto ikm2_is_1 = fresults_ikm2 == ones;
-
-        auto no_one_before = axis_eq_0 | ~ikm1_is_1;
-
-        auto no_two_before = axis_ne_2 | ~ikm2_is_1;
-
-        // We insert a 1 into the normal ifthe current value (intersection[axis]) is very close to min[axis] or max[axis].
-        // We won't insert a 1, even if this happens, when we already have inserted a 1 before inside the current vec3.
-
-        // @perf could reorganize these to AND has_two and has_one, AND has_one and ones, and then AND them together with has_this_reg. Would have a bit more throughput.
-        has_this_reg = has_this_reg & no_two_before;
-        has_this_reg = has_this_reg & no_one_before;
-        has_this_reg = has_this_reg & ones;
-        return has_this_reg;
-    };
-
-    auto const do_scalar = [&](auto start, auto end) {
-        // We know that end - start < 8.
-        // So we can load the previously aligned 32-byte boundary first, since we can't
-        // be both across an 8 block boundary and a page boundary (4096). The reason for this
-        // is that blocks that new() gives do not cross page boundaries.
-        if (end == start)
-            return;
-
-        auto const misalignment = simd::find_misalignment(uintptr_t(fresults));
-        auto const count = end - start;
-        auto aligned_ptr = fresults - misalignment;
-
-        // NOTE: I have to rotate BEFORE extending because the rotation has to be with a length
-        // aligned to 8. I could make these fixed depending on start % 3.
-
-        auto fresults_ik = simd::loadf_aligned(aligned_ptr);
-        auto const axis_indices = extend_threei(start % 3, (start + 1) % 3, (start + 2) % 3);
-        auto has_this = find_normal_ones(fresults_ik, simd::zero(),
-            extend_threef(min[start % 3], min[(start + 1) % 3], min[(start + 2) % 3]),
-            extend_threef(max[start % 3], max[(start + 1) % 3], max[(start + 2) % 3]),
-            axis_indices == simd::zero(),
-            axis_indices != simd::splati(2));
-
-        simd::storef_overcommit(has_this, aligned_ptr, misalignment, count);
-    };
-
-    auto const do_8_aligned = [&](auto start, auto end) {
-        // @perf make the rotations using simd
-        std::array<simd::ints, 3> axis_eq_0 alignas(32);
-        std::array<simd::ints, 3> axis_ne_2 alignas(32);
-        std::array<simd::floats, 3> min_axis alignas(32);
-        std::array<simd::floats, 3> max_axis alignas(32);
-
-        auto const axis_ixs_0 = extend_threei((0 + start) % 3, (1 + start) % 3, (2 + start) % 3);
-        auto const axis_ixs_1 = extend_threei((2 + start) % 3, (0 + start) % 3, (1 + start) % 3);
-        auto const axis_ixs_2 = extend_threei((1 + start) % 3, (2 + start) % 3, (0 + start) % 3);
-
-        axis_eq_0[0] = axis_ixs_0 == simd::zero();
-        axis_eq_0[1] = axis_ixs_1 == simd::zero();
-        axis_eq_0[2] = axis_ixs_2 == simd::zero();
-
-        auto const twoi = simd::splati(2);
-
-        axis_ne_2[0] = axis_ixs_0 != twoi;
-        axis_ne_2[1] = axis_ixs_1 != twoi;
-        axis_ne_2[2] = axis_ixs_2 != twoi;
-
-        min_axis[0] = extend_threef(min[(0 + start) % 3], min[(1 + start) % 3], min[(2 + start) % 3]);
-        min_axis[1] = extend_threef(min[(2 + start) % 3], min[(0 + start) % 3], min[(1 + start) % 3]);
-        min_axis[2] = extend_threef(min[(1 + start) % 3], min[(2 + start) % 3], min[(0 + start) % 3]);
-
-        max_axis[0] = extend_threef(max[(0 + start) % 3], max[(1 + start) % 3], max[(2 + start) % 3]);
-        max_axis[1] = extend_threef(max[(2 + start) % 3], max[(0 + start) % 3], max[(1 + start) % 3]);
-        max_axis[2] = extend_threef(max[(1 + start) % 3], max[(2 + start) % 3], max[(0 + start) % 3]);
-
-        auto fresults_last_ik = _mm256_setzero_ps();
-
-        auto rotate_three = [](auto &zero, auto &one, auto &two) {
-            auto z = zero;
-            zero = one;
-            one = two;
-            two = z;
+        auto min_of_both = vec3 {
+            std::min(min_intersect[0], max_intersect[0]),
+            std::min(min_intersect[1], max_intersect[1]),
+            std::min(min_intersect[2], max_intersect[2]),
         };
 
-        // every 24 floats (or 3 blocks), the rotations cancel out, so there's no need to
-        // rotate it between each of these blocks of 24.
-
-        auto const x24_block_count = (end - start) / 24;
-        // First index where we can't safely take a block of 24 floats
-        auto const x24_block_end = start + x24_block_count * 24;
-        for (auto x24_block_start = start; x24_block_start < x24_block_end; x24_block_start += 24) {
-            auto fresults_ik_0 = simd::loadf_aligned(&fresults[x24_block_start]);
-            auto fresults_ik_8 = simd::loadf_aligned(&fresults[x24_block_start + 8]);
-            auto fresults_ik_16 = simd::loadf_aligned(&fresults[x24_block_start + 16]);
-
-            simd::storef_aligned(find_normal_ones(fresults_ik_0, fresults_last_ik, min_axis[0], max_axis[0], axis_eq_0[0], axis_ne_2[0]), &fresults[x24_block_start]);
-            simd::storef_aligned(find_normal_ones(fresults_ik_8, fresults_ik_0, min_axis[1], max_axis[1], axis_eq_0[1], axis_ne_2[1]), &fresults[x24_block_start + 8]);
-            simd::storef_aligned(find_normal_ones(fresults_ik_16, fresults_ik_8, min_axis[2], max_axis[2], axis_eq_0[2], axis_ne_2[2]), &fresults[x24_block_start + 16]);
-
-            fresults_last_ik = fresults_ik_16;
+        if (min_of_both[0] < eps) {
+            results[i] = { 1, 0, 0 };
+        } else if (min_of_both[1] < eps) {
+            results[i] = { 0, 1, 0 };
+        } else {
+            results[i] = { 0, 0, 1 };
         }
-
-        for (auto i = x24_block_end; i < end; i += 8) {
-            auto axis_eq_2_reg = axis_ne_2[0];
-            auto axis_ne_0_reg = axis_eq_0[0];
-            auto max_axis_reg = max_axis[0];
-            auto min_axis_reg = min_axis[0];
-
-            auto fresults_ik = simd::loadf_aligned(&fresults[i]);
-            auto has_this_reg = find_normal_ones(fresults_ik, fresults_last_ik, min_axis_reg, max_axis_reg, axis_ne_0_reg, axis_eq_2_reg);
-
-            fresults_last_ik = fresults_ik;
-            simd::storef_aligned(has_this_reg, &fresults[i]);
-
-            rotate_three(min_axis[0], min_axis[1], min_axis[2]);
-            rotate_three(max_axis[0], max_axis[1], max_axis[2]);
-            rotate_three(axis_ne_2[0], axis_ne_2[1], axis_ne_2[2]);
-            rotate_three(axis_eq_0[0], axis_eq_0[1], axis_eq_0[2]);
-        }
-    };
-
-    auto const fstart = 3 * start;
-    auto const fend = 3 * end;
-
-    uint32 const aligned_32_offset = simd::offset_till_aligned(uintptr_t(fresults + fstart));
-    auto const x8_block_start = std::min(aligned_32_offset + fstart, fend);
-    // First index where we can't safely take a block of 8 floats
-    auto const x8_block_end = x8_block_start + ((fend - x8_block_start) & ~7);
-    do_scalar(fstart, x8_block_start);
-    do_8_aligned(x8_block_start, x8_block_end);
-    do_scalar(x8_block_end, fend);
+    }
 }
 
 using std::ranges::subrange;
