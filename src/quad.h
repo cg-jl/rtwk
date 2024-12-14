@@ -41,5 +41,6 @@ struct quad {
     // @perf dot(u,v ) == 0.
     point3 Q;
     vec3 u, v;
+    vec3 normal;
     glm::mat2x3 pinv;
 };

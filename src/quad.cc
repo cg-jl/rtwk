@@ -71,8 +71,6 @@ static bool is_interior(float a, float b)
 void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
 {
     ZoneNamedN(_tracy, "quad hit", filters::hit);
-    auto const n = cross(u, v);
-    auto const normal = unit_vector(n);
     // n.Q = (uxv).Q =(triple product expansion) = u.(vxQ) = v.(uxQ)
     // trying to use dot(u,v) = 0 here?
     auto const D = dot(normal, Q);
@@ -103,7 +101,7 @@ void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
 
 vec3 quad::getNormal() const
 {
-    return unit_vector(cross(u, v));
+    return normal;
 }
 
 // @perf length(u) == length(v)?
@@ -114,6 +112,8 @@ quad quad::applyTransform(quad q, transform tf) noexcept
     q.Q = tf.applyForward(q.Q);
     q.u = tf.applyForward(oldQ + q.u) - q.Q;
     q.v = tf.applyForward(oldQ + q.v) - q.Q;
+    q.pinv = create_pinv(q.u, q.v);
+    q.normal = unit_vector(cross(q.u, q.v));
     return q;
 }
 
@@ -123,5 +123,6 @@ quad::quad(point3 Q, vec3 u, vec3 v) noexcept
     , v(v)
 {
     pinv = create_pinv(u, v);
+    normal = unit_vector(cross(u, v));
     assert(dot(v, u) == 0.);
 }
