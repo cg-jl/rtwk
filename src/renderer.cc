@@ -171,6 +171,7 @@ typedef void (*dir_sample_to_ray_fn)(uint32, transposed_ray_array, vec3 *__restr
 // at a randomly sampled point around the pixel location i, j.
 static void get_rays(uint32 const len, transposed_ray_array rays, camera const &cam, int i, int j, GetRays_Buffers buffers, vec3 *noalias defocus_sample, dir_sample_to_ray_fn to_rays)
 {
+    // @perf might want to revisit this one and use transposed_vec_array.
     generate_ray_dir_samples(buffers.px_sample, buffers.px_sample + len, cam, i, j);
     to_rays(len, rays, defocus_sample, buffers.px_sample, cam);
 }
@@ -265,7 +266,7 @@ struct GSim_Buffers {
     hit_span_buf hit_selects;
     cm_res *constant_mediums;
     hit_record_buffer hit_recs;
-    vec3 *scatters;
+    transposed_vec_array scatters;
     SampleCM_Buffers sample_cms;
     Select_Buffers select;
 
@@ -280,7 +281,7 @@ struct GSim_Buffers {
             .hit_selects = hit_span_buf::request(spp),
             .constant_mediums = new cm_res[spp],
             .hit_recs = hit_record_buffer::request(spp),
-            .scatters = new vec3[spp],
+            .scatters = transposed_vec_array::request(spp),
             .sample_cms = SampleCM_Buffers::request(spp),
             .select = Select_Buffers::request(spp),
         };
@@ -555,7 +556,7 @@ static void gsim(color const &background, uint32 const spp,
 
         material::scatter_lambertian(buffers.hit_recs.normal, buffers.scatters, lambertians_begin, isotropics_begin);
 
-        material::scatter_isotropic(buffers.scatters + isotropics_begin, buffers.scatters + lights_begin);
+        material::scatter_isotropic(buffers.scatters, isotropics_begin, lights_begin);
 
         // layout:
         // cms_end | bounces  | lights | nohit
@@ -643,7 +644,9 @@ static void scanLine(settings const &s, camera const &cam,
 
     for (int i = 0; i < s.image_width; i++) {
         // Initialize all the rays
-        get_rays(s.samples_per_pixel, buffers.gsim.rays.rays, cam, i, j, GetRays_Buffers { .px_sample = buffers.gsim.scatters }, buffers.defocus_samples, to_rays);
+        // NOTE: GetRays_Buffers::px_sample is correctly initialized. in transposed_vec_array, `x` is the start of the contiguous array,
+        // so everything is contiguous there.
+        get_rays(s.samples_per_pixel, buffers.gsim.rays.rays, cam, i, j, GetRays_Buffers { .px_sample = (vec3 *)buffers.gsim.scatters.x }, buffers.defocus_samples, to_rays);
 
         normalize_rays(buffers.gsim.rays.rays, s.samples_per_pixel);
 
