@@ -92,6 +92,7 @@ static void calc_t0s_t1s(vec3 min, vec3 max, ray const *rays, uint32 const len, 
 
 void aabb::traverse(ray const *rays, uint32 const len, Traverse_Buffers buffers, interval_buffer results) const noexcept
 {
+    // @perf soa'd vecs in rays
 
     calc_t0s_t1s(min, max, rays, len, (float *)buffers.t0s, (float *)buffers.t1s);
 
@@ -114,6 +115,7 @@ void aabb::traverse(ray const *rays, uint32 const len, Traverse_Buffers buffers,
 void aabb::hit(ray const *rays, uint32 const len, Hit_Buffers buffers, float *__restrict__ results) const noexcept
 {
 
+    // @perf soa'd vecs in rays
     calc_t0s_t1s(min, max, rays, len, (float *)buffers.t0s, (float *)buffers.t1s);
 
     std::copy(buffers.t0s, &buffers.t0s[len], buffers.mins);
@@ -136,6 +138,7 @@ void aabb::hit(ray const *rays, uint32 const len, Hit_Buffers buffers, float *__
 
 void aabb::getNormals(ray const *rays, float const *dist, vec3 *results, uint32 start, uint32 end) const noexcept
 {
+    // @perf could use soa'd vecs.
 
     std::transform(dist + start, dist + end, rays + start, results + start, [&](auto const closestHit, auto const &r) {
         return r.at(closestHit);

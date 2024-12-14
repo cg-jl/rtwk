@@ -123,6 +123,7 @@ void sphere::traverse(ray const *rays, float const *times, uint32 const len, int
 //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
 void sphere::getUVs(vec3 const *normals, uv_buffer results, uint32 start, uint32 end) noexcept
 {
+    // @perf could use soa'd vecs
 
     std::transform(
         normals + start, normals + end,
@@ -157,6 +158,7 @@ sphere sphere::applyTransform(sphere a, transform tf) noexcept
 }
 [[clang::noinline]] void sphere::getNormals(ray const *rays, float const *dist, float const *times, vec3 *results, uint32 start, uint32 end) const noexcept
 {
+    // @perf could use soa'd vecs.
     std::transform(dist + start, dist + end, rays, results + start, [&](auto const closestHit, auto const &r) {
         return r.at(closestHit);
     });

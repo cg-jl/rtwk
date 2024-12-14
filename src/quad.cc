@@ -70,6 +70,7 @@ static bool is_interior(float a, float b)
 // @perf dot(u,v ) == 0.
 void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
 {
+    // @perf could use soa'd vecs
     ZoneNamedN(_tracy, "quad hit", filters::hit);
     // @perf think about splitting this transform up.
     // @perf getUVs() could be cached :]
