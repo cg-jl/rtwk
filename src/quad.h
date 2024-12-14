@@ -14,18 +14,13 @@
 
 #include <cassert>
 
+#include "external/glm/glm/ext/matrix_float2x3.hpp"
 #include "transforms.h"
 
 // @perf length(u) == length(v)?
 // @perf dot(u, v) == 0.
 struct quad {
-    quad(point3 Q, vec3 u, vec3 v)
-        : Q(Q)
-        , u(u)
-        , v(v)
-    {
-        assert(dot(v, u) == 0.);
-    }
+    quad(point3 Q, vec3 u, vec3 v) noexcept;
 
     aabb bounding_box() const
     {
@@ -46,4 +41,5 @@ struct quad {
     // @perf dot(u,v ) == 0.
     point3 Q;
     vec3 u, v;
+    glm::mat2x3 pinv;
 };

@@ -33,7 +33,6 @@ void quad::getUVs(ray const *rays, float const *dist, uv_buffer results, uint32 
     using std::ranges::subrange;
     using std::ranges::views::zip;
 
-    auto const pinv = create_pinv(u, v);
     auto const get_u = glm::vec3 { pinv[0][0], pinv[0][1], pinv[0][2] };
     auto const get_v = glm::vec3 { pinv[0][0], pinv[0][1], pinv[0][2] };
 
@@ -74,10 +73,6 @@ void quad::hit(ray const *rays, uint32 const len, float *results) const noexcept
     ZoneNamedN(_tracy, "quad hit", filters::hit);
     auto const n = cross(u, v);
     auto const normal = unit_vector(n);
-    // @perf cache this!
-    // @perf could replace u,v entirely. We can calculate the rest in the
-    // u,v space already.
-    auto const pinv = create_pinv(u, v);
     // n.Q = (uxv).Q =(triple product expansion) = u.(vxQ) = v.(uxQ)
     // trying to use dot(u,v) = 0 here?
     auto const D = dot(normal, Q);
@@ -120,4 +115,13 @@ quad quad::applyTransform(quad q, transform tf) noexcept
     q.u = tf.applyForward(oldQ + q.u) - q.Q;
     q.v = tf.applyForward(oldQ + q.v) - q.Q;
     return q;
+}
+
+quad::quad(point3 Q, vec3 u, vec3 v) noexcept
+    : Q(Q)
+    , u(u)
+    , v(v)
+{
+    pinv = create_pinv(u, v);
+    assert(dot(v, u) == 0.);
 }
